@@ -330,3 +330,13 @@ pub fn relative_path(a: &Path, b: &Path) -> TokenStream {
 
     res
 }
+
+pub fn doc(doc: &Option<String>) -> TokenStream {
+    if let Some(doc) = doc {
+        let doc = doc.replace("\\n", "\n");
+        let doc = respace(&doc);
+        quote!(#[doc=#doc])
+    } else {
+        quote!()
+    }
+}

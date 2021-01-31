@@ -28,14 +28,18 @@ pub fn render(d: &Device, e: &Enum) -> Result<TokenStream> {
     for f in &e.variants {
         let name = Ident::new(&f.name, span);
         let value = util::hex(f.value);
+        let doc = util::doc(&f.description);
         items.extend(quote!(
+            #doc
             pub const #name: Self = Self(#value);
         ));
     }
 
     let name = Ident::new(&e.path.name, span);
+    let doc = util::doc(&e.description);
 
     let out = quote! {
+        #doc
         #[repr(transparent)]
         #[derive(Copy, Clone)]
         pub struct #name (#ty);

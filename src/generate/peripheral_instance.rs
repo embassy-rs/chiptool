@@ -21,9 +21,10 @@ pub fn render(d: &Device, i: &PeripheralInstance) -> Result<TokenStream> {
     let name = Ident::new(&i.path.name, span);
     let path = util::relative_path(&b.path, &i.path);
     let address = util::hex(i.base_address as u64);
-    let description = util::respace(i.description.as_ref().unwrap_or(&i.path.name));
+    let doc = util::doc(&i.description);
 
     out.extend(quote! {
+        #doc
         pub const #name: #path = #path::from_ptr(#address as u32 as _);
     });
 

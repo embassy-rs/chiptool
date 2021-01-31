@@ -21,6 +21,8 @@ pub fn render(d: &Device, b: &Block) -> Result<TokenStream> {
         let name = Ident::new(&i.name, span);
         let offset = i.byte_offset as usize;
 
+        let doc = util::doc(&i.description);
+
         match &i.inner {
             BlockItemInner::Register(r) => {
                 let reg_ty;
@@ -45,6 +47,7 @@ pub fn render(d: &Device, b: &Block) -> Result<TokenStream> {
                     let len = array.len as usize;
                     let stride = array.byte_stride as usize;
                     items.extend(quote!(
+                        #doc
                         pub fn #name(self, n: usize) -> #ty {
                             assert!(n < #len);
                             unsafe { Reg::new(self.0.add(#offset + n * #stride), #default) }
@@ -52,6 +55,7 @@ pub fn render(d: &Device, b: &Block) -> Result<TokenStream> {
                     ));
                 } else {
                     items.extend(quote!(
+                        #doc
                         pub fn #name(self) -> #ty {
                             unsafe { Reg::new(self.0.add(#offset), #default) }
                         }
@@ -65,6 +69,7 @@ pub fn render(d: &Device, b: &Block) -> Result<TokenStream> {
                     let len = array.len as usize;
                     let stride = array.byte_stride as usize;
                     items.extend(quote!(
+                        #doc
                         pub fn #name(self, n: usize) -> #ty {
                             assert!(n < #len);
                             unsafe { #ty::from_ptr(self.0.add(#offset + n * #stride)) }
@@ -72,6 +77,7 @@ pub fn render(d: &Device, b: &Block) -> Result<TokenStream> {
                     ));
                 } else {
                     items.extend(quote!(
+                        #doc
                         pub fn #name(self) -> #ty {
                             unsafe { #ty::from_ptr(self.0.add(#offset)) }
                         }
@@ -82,8 +88,9 @@ pub fn render(d: &Device, b: &Block) -> Result<TokenStream> {
     }
 
     let name = Ident::new(&b.path.name, span);
-
+    let doc = util::doc(&b.description);
     let out = quote! {
+        #doc
         #[derive(Copy, Clone)]
         pub struct #name (*mut u8);
         unsafe impl Send for #name {}

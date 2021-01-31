@@ -169,6 +169,7 @@ pub struct Peripheral {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Block {
     pub path: Path,
+    pub description: Option<String>,
     pub items: Vec<BlockItem>,
 }
 

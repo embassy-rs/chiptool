@@ -25,6 +25,7 @@ pub fn convert(svd: &svd::Device) -> Device {
         if let Some(regs) = &p.registers {
             let mut block = Block {
                 path: Path::new(vec![p.name.clone()], p.name.clone()),
+                description: p.description.clone(),
                 items: Vec::new(),
             };
 

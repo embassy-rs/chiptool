@@ -347,6 +347,7 @@ impl MakeBlock {
 
                 let b2 = Block {
                     path: Path::new_from_string(&self.to_block), // todo regex
+                    description: None,
                     items: items
                         .iter()
                         .map(|&i| {

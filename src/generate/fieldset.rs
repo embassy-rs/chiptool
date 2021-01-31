@@ -31,6 +31,7 @@ pub fn render(d: &Device, fs: &FieldSet) -> Result<TokenStream> {
         let bit_offset = f.bit_offset;
         let bit_size = f.bit_size;
         let mask = util::hex(1u64.wrapping_shl(bit_size).wrapping_sub(1));
+        let doc = util::doc(&f.description);
         let field_ty: TokenStream;
         let to_bits: TokenStream;
         let from_bits: TokenStream;
@@ -67,10 +68,12 @@ pub fn render(d: &Device, fs: &FieldSet) -> Result<TokenStream> {
         }
 
         items.extend(quote!(
+            #doc
             pub const fn #name(&self) -> #field_ty{
                 let val = (self.0 >> #bit_offset) & #mask;
                 #from_bits
             }
+            #doc
             pub fn #name_set(&mut self, val: #field_ty) {
                 self.0 = (self.0 & !(#mask << #bit_offset)) | (((#to_bits) & #mask) << #bit_offset);
             }
@@ -78,8 +81,10 @@ pub fn render(d: &Device, fs: &FieldSet) -> Result<TokenStream> {
     }
 
     let name = Ident::new(&fs.path.name, span);
+    let doc = util::doc(&fs.description);
 
     let out = quote! {
+        #doc
         #[repr(transparent)]
         #[derive(Copy, Clone)]
         pub struct #name (#ty);
