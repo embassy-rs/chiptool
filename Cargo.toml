@@ -21,15 +21,10 @@ keywords = [
     "generator",
 ]
 license = "MIT OR Apache-2.0"
-name = "svd2rust"
+name = "svd4rust"
 repository = "https://github.com/rust-embedded/svd2rust/"
 version = "0.17.0"
 readme = "README.md"
-
-[[bin]]
-doc = false
-name = "svd2rust"
-path = "src/main.rs"
 
 [dependencies]
 cast = "0.2"
@@ -41,11 +36,8 @@ quote = "1.0"
 proc-macro2 = "1.0"
 anyhow = "1.0.19"
 thiserror = "1.0.5"
-
-[dependencies.svd-parser]
-version = "0.9"
-features = ["derive-from"]
-
-[dependencies.syn]
-version = "1.0"
-features = ["full","extra-traits"]
+regex = "1.4.3"
+serde = { version = "1.0.123", features = [ "derive" ]}
+serde_yaml = "0.8.15"
+svd-parser = { version = "0.9", features = ["derive-from"] }
+syn = { version = "1.0", features = ["full","extra-traits"] }

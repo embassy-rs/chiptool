@@ -6,19 +6,16 @@ use cast::u64;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 
+use crate::ir::*;
 use crate::util::{self, ToSanitizedUpperCase};
 use crate::Target;
 use anyhow::Result;
 
 /// Generates code for `src/interrupt.rs`
-pub fn render(
-    target: Target,
-    peripherals: &[Peripheral],
-    device_x: &mut String,
-) -> Result<TokenStream> {
-    let interrupts = peripherals
+pub fn render(d: &Device, target: Target, device_x: &mut String) -> Result<TokenStream> {
+    let interrupts = d
+        .interrupts
         .iter()
-        .flat_map(|p| p.interrupt.iter())
         .map(|i| (i.value, i))
         .collect::<HashMap<_, _>>();
 

@@ -1,6 +1,5 @@
 [._]*.sw[a-p]
 *.org
 *.rs.bk
-*.svd
 target
 Cargo.lock

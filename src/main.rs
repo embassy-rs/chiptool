@@ -2,8 +2,12 @@
 
 use log::error;
 use svd_parser as svd;
+use transform::Transform;
 
 mod generate;
+mod ir;
+mod svd2ir;
+mod transform;
 mod util;
 
 use std::fs::File;
@@ -12,8 +16,9 @@ use std::process;
 
 use anyhow::{Context, Result};
 use clap::{App, Arg};
+use log::*;
 
-use crate::util::{build_rs, Target};
+use crate::util::Target;
 
 fn run() -> Result<()> {
     use std::io::Read;
@@ -28,22 +33,18 @@ fn run() -> Result<()> {
                 .value_name("FILE"),
         )
         .arg(
+            Arg::with_name("config")
+                .help("Config file")
+                .short("c")
+                .takes_value(true)
+                .value_name("CONFIG"),
+        )
+        .arg(
             Arg::with_name("target")
                 .long("target")
                 .help("Target architecture")
                 .takes_value(true)
                 .value_name("ARCH"),
-        )
-        .arg(
-            Arg::with_name("nightly_features")
-                .long("nightly")
-                .help("Enable features only available to nightly rustc"),
-        )
-        .arg(
-            Arg::with_name("generic_mod")
-                .long("generic_mod")
-                .short("g")
-                .help("Push generic mod in separate file"),
         )
         .arg(
             Arg::with_name("log_level")
@@ -69,6 +70,18 @@ fn run() -> Result<()> {
         .map(|s| Target::parse(s))
         .unwrap_or(Ok(Target::CortexM))?;
 
+    let config = match matches.value_of("config") {
+        Some(file) => {
+            let config = &mut String::new();
+            File::open(file)
+                .context("Cannot open the config file")?
+                .read_to_string(config)
+                .context("Cannot read the config file")?;
+            serde_yaml::from_str(config).context("cannot deserialize config")?
+        }
+        None => Config::default(),
+    };
+
     let xml = &mut String::new();
     match matches.value_of("input") {
         Some(file) => {
@@ -87,22 +100,28 @@ fn run() -> Result<()> {
     }
 
     let device = svd::parse(xml)?;
+    let mut ir = svd2ir::convert(&device);
+    transform::sanitize(&mut ir);
 
-    let nightly = matches.is_present("nightly_features");
+    for t in &config.transforms {
+        info!("running: {:?}", t);
+        t.run(&mut ir)?;
+    }
 
-    let generic_mod = matches.is_present("generic_mod");
+    //transform::find_dup_enums(&mut ir);
+    //transform::find_dup_fieldsets(&mut ir);
 
     let mut device_x = String::new();
-    let items = generate::device::render(&device, target, nightly, generic_mod, &mut device_x)?;
-    let mut file = File::create("lib.rs").expect("Couldn't create lib.rs file");
+    let items = generate::render(&ir, target, &mut device_x)?;
+    let mut file = File::create("out/src/lib.rs").expect("Couldn't create lib.rs file");
 
     let data = items.to_string().replace("] ", "]\n");
     file.write_all(data.as_ref())
         .expect("Could not write code to lib.rs");
 
     if target == Target::CortexM || target == Target::Msp430 || target == Target::XtensaLX {
-        writeln!(File::create("device.x")?, "{}", device_x)?;
-        writeln!(File::create("build.rs")?, "{}", build_rs())?;
+        writeln!(File::create("out/device.x")?, "{}", device_x)?;
+        //writeln!(File::create("out/build.rs")?, "{}", build_rs())?;
     }
 
     Ok(())
@@ -139,5 +158,16 @@ fn main() {
         error!("{:?}", e);
 
         process::exit(1);
+    }
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+struct Config {
+    transforms: Vec<Transform>,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self { transforms: vec![] }
     }
 }

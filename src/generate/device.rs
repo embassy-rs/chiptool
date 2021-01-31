@@ -1,23 +1,13 @@
-use crate::svd::Device;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, ToTokens};
-use std::fs::File;
-use std::io::Write;
 
 use crate::util::{self, ToSanitizedUpperCase};
 use crate::Target;
 use anyhow::Result;
 
-use crate::generate::{interrupt, peripheral};
+use crate::ir::*;
 
-/// Whole device generation
-pub fn render(
-    d: &Device,
-    target: Target,
-    nightly: bool,
-    generic_mod: bool,
-    device_x: &mut String,
-) -> Result<TokenStream> {
+pub fn render(d: &Device, target: Target) -> Result<TokenStream> {
     let mut out = TokenStream::new();
 
     let commit_info = {
@@ -53,31 +43,10 @@ pub fn render(
 
     out.extend(quote! {
         #![doc = #doc]
-        // Deny a subset of warnings
-        #![deny(const_err)]
-        #![deny(dead_code)]
-        #![deny(improper_ctypes)]
-        #![deny(missing_docs)]
-        #![deny(no_mangle_generic_items)]
-        #![deny(non_shorthand_field_patterns)]
-        #![deny(overflowing_literals)]
-        #![deny(path_statements)]
-        #![deny(patterns_in_fns_without_body)]
-        #![deny(private_in_public)]
-        #![deny(unconditional_recursion)]
-        #![deny(unused_allocation)]
-        #![deny(unused_comparisons)]
-        #![deny(unused_parens)]
-        #![deny(while_true)]
         // Explicitly allow a few warnings that may be verbose
         #![allow(non_camel_case_types)]
         #![allow(non_snake_case)]
         #![no_std]
-    });
-
-    out.extend(quote! {
-        use core::ops::Deref;
-        use core::marker::PhantomData;
     });
 
     // Retaining the previous assumption
@@ -94,7 +63,7 @@ pub fn render(
         fpu_present = cpu.fpu_present;
     }
 
-    out.extend(interrupt::render(target, &d.peripherals, device_x)?);
+    //out.extend(interrupt::render(target, &d.interrupts, device_x)?);
 
     let core_peripherals: &[_] = if fpu_present {
         &[
@@ -143,107 +112,15 @@ pub fn render(
         });
     }
 
-    let generic_file = std::str::from_utf8(include_bytes!("generic.rs"))?;
-    if generic_mod {
-        writeln!(File::create("generic.rs")?, "{}", generic_file)?;
-    } else {
-        let tokens = syn::parse_file(generic_file)?.into_token_stream();
-
-        out.extend(quote! {
-            #[allow(unused_imports)]
-            use generic::*;
-            ///Common register and bit access and modify traits
-            pub mod generic {
-                #tokens
-            }
-        });
+    /*
+    for p in &d.instances {
+        out.extend(super::instance::render(p)?);
     }
 
     for p in &d.peripherals {
-        if target == Target::CortexM && core_peripherals.contains(&&*p.name.to_uppercase()) {
-            // Core peripherals are handled above
-            continue;
-        }
-
-        out.extend(peripheral::render(
-            p,
-            &d.peripherals,
-            &d.default_register_properties,
-            nightly,
-        )?);
-
-        if p.registers
-            .as_ref()
-            .map(|v| &v[..])
-            .unwrap_or(&[])
-            .is_empty()
-            && p.derived_from.is_none()
-        {
-            // No register block will be generated so don't put this peripheral
-            // in the `Peripherals` struct
-            continue;
-        }
-
-        let p = p.name.to_sanitized_upper_case();
-        let id = Ident::new(&p, Span::call_site());
-        fields.extend(quote! {
-            #[doc = #p]
-            pub #id: #id,
-        });
-        exprs.extend(quote!(#id: #id { _marker: PhantomData },));
+        out.extend(super::peripheral::render(p)?);
     }
-
-    let span = Span::call_site();
-    let take = match target {
-        Target::CortexM => Some(Ident::new("cortex_m", span)),
-        Target::Msp430 => Some(Ident::new("msp430", span)),
-        Target::RISCV => Some(Ident::new("riscv", span)),
-        Target::XtensaLX => Some(Ident::new("xtensa_lx", span)),
-        Target::None => None,
-    }
-    .map(|krate| {
-        quote! {
-            ///Returns all the peripherals *once*
-            #[inline]
-            pub fn take() -> Option<Self> {
-                #krate::interrupt::free(|_| {
-                    if unsafe { DEVICE_PERIPHERALS } {
-                        None
-                    } else {
-                        Some(unsafe { Peripherals::steal() })
-                    }
-                })
-            }
-        }
-    });
-
-    out.extend(quote! {
-        // NOTE `no_mangle` is used here to prevent linking different minor versions of the device
-        // crate as that would let you `take` the device peripherals more than once (one per minor
-        // version)
-        #[no_mangle]
-        static mut DEVICE_PERIPHERALS: bool = false;
-
-        ///All the peripherals
-        #[allow(non_snake_case)]
-        pub struct Peripherals {
-            #fields
-        }
-
-        impl Peripherals {
-            #take
-
-            ///Unchecked version of `Peripherals::take`
-            #[inline]
-            pub unsafe fn steal() -> Self {
-                DEVICE_PERIPHERALS = true;
-
-                Peripherals {
-                    #exprs
-                }
-            }
-        }
-    });
+     */
 
     Ok(out)
 }

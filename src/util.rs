@@ -1,11 +1,15 @@
 use std::borrow::Cow;
 
-use crate::svd::{Access, Cluster, Register, RegisterCluster};
+use crate::{
+    ir::*,
+    svd::{Access, Cluster, Register, RegisterCluster},
+};
 use inflections::Inflect;
 use proc_macro2::{Ident, Literal, Span, TokenStream};
 use quote::{quote, ToTokens};
 
 use anyhow::{anyhow, bail, Result};
+use syn::token::Token;
 
 pub const BITS_PER_BYTE: u32 = 8;
 
@@ -184,45 +188,12 @@ pub fn escape_brackets(s: &str) -> String {
         })
 }
 
-pub fn name_of(register: &Register) -> Cow<str> {
-    match register {
-        Register::Single(info) => Cow::from(&info.name),
-        Register::Array(info, _) => replace_suffix(&info.name, "").into(),
-    }
-}
-
 pub fn replace_suffix(name: &str, suffix: &str) -> String {
     if name.contains("[%s]") {
         name.replace("[%s]", suffix)
     } else {
         name.replace("%s", suffix)
     }
-}
-
-pub fn access_of(register: &Register) -> Access {
-    register.access.unwrap_or_else(|| {
-        if let Some(fields) = &register.fields {
-            if fields.iter().all(|f| f.access == Some(Access::ReadOnly)) {
-                Access::ReadOnly
-            } else if fields.iter().all(|f| f.access == Some(Access::WriteOnce)) {
-                Access::WriteOnce
-            } else if fields
-                .iter()
-                .all(|f| f.access == Some(Access::ReadWriteOnce))
-            {
-                Access::ReadWriteOnce
-            } else if fields
-                .iter()
-                .all(|f| f.access == Some(Access::WriteOnly) || f.access == Some(Access::WriteOnce))
-            {
-                Access::WriteOnly
-            } else {
-                Access::ReadWrite
-            }
-        } else {
-            Access::ReadWrite
-        }
-    })
 }
 
 /// Turns `n` into an unsuffixed separated hex token
@@ -307,46 +278,6 @@ impl U32Ext for u32 {
     }
 }
 
-/// Return the name of either register or cluster.
-pub fn erc_name(erc: &RegisterCluster) -> &String {
-    match erc {
-        RegisterCluster::Register(r) => &r.name,
-        RegisterCluster::Cluster(c) => &c.name,
-    }
-}
-
-/// Return the name of either register or cluster from which this register or cluster is derived.
-pub fn erc_derived_from(erc: &RegisterCluster) -> &Option<String> {
-    match erc {
-        RegisterCluster::Register(r) => &r.derived_from,
-        RegisterCluster::Cluster(c) => &c.derived_from,
-    }
-}
-
-/// Return only the clusters from the slice of either register or clusters.
-pub fn only_clusters(ercs: &[RegisterCluster]) -> Vec<&Cluster> {
-    let clusters: Vec<&Cluster> = ercs
-        .iter()
-        .filter_map(|x| match x {
-            RegisterCluster::Cluster(x) => Some(x),
-            _ => None,
-        })
-        .collect();
-    clusters
-}
-
-/// Return only the registers the given slice of either register or clusters.
-pub fn only_registers(ercs: &[RegisterCluster]) -> Vec<&Register> {
-    let registers: Vec<&Register> = ercs
-        .iter()
-        .filter_map(|x| match x {
-            RegisterCluster::Register(x) => Some(x),
-            _ => None,
-        })
-        .collect();
-    registers
-}
-
 pub fn build_rs() -> TokenStream {
     quote! {
         use std::env;
@@ -370,4 +301,32 @@ pub fn build_rs() -> TokenStream {
             println!("cargo:rerun-if-changed=build.rs");
         }
     }
+}
+
+/// Return a relative path to access a from b.
+pub fn relative_path(a: &Path, b: &Path) -> TokenStream {
+    let mut ma = &a.modules[..];
+    let mut mb = &b.modules[..];
+    while !ma.is_empty() && !mb.is_empty() && ma[0] == mb[0] {
+        ma = &ma[1..];
+        mb = &mb[1..];
+    }
+
+    let mut res = TokenStream::new();
+
+    // for each item left in b, append a `super`
+    for _ in mb {
+        res.extend(quote!(super::));
+    }
+
+    // for each item in a, append it
+    for ident in ma {
+        let ident = Ident::new(ident, Span::call_site());
+        res.extend(quote!(#ident::));
+    }
+
+    let ident = Ident::new(&a.name, Span::call_site());
+    res.extend(quote!(#ident));
+
+    res
 }
