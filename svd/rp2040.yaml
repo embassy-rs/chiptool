@@ -75,3 +75,9 @@ transforms:
     block: pio0::Pio0
     from: irq\d+
     to: irqs
+
+- MergeFieldsets:
+    from: dma::fields::Timer\d+
+    to: dma::fields::Timer
+    
+- FindDuplicateFieldsets: {}

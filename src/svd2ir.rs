@@ -46,7 +46,7 @@ pub fn convert(svd: &svd::Device) -> Device {
                         let fieldset_id = if let Some(fields) = &r.fields {
                             let mut fieldset = FieldSet {
                                 path: Path::new(
-                                    vec![p.name.clone(), "fields".to_owned()],
+                                    vec![p.name.clone(), "regs".to_owned()],
                                     rname.clone(),
                                 ),
                                 description: r.description.clone(),
@@ -64,7 +64,7 @@ pub fn convert(svd: &svd::Device) -> Device {
                                     let e = &f.enumerated_values[0];
                                     let enumm = Enum {
                                         path: Path::new(
-                                            vec![p.name.clone(), "values".to_owned()],
+                                            vec![p.name.clone(), "vals".to_owned()],
                                             format!("{}_{}", rname, f.name),
                                         ),
                                         description: r.description.clone(),

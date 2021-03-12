@@ -39,59 +39,70 @@ fn sanitize_path(p: &mut Path) {
     p.name = p.name.to_sanitized_pascal_case().to_string();
 }
 
-pub fn find_dup_enums(d: &mut Device) {
-    let mut suggested = HashSet::new();
+#[derive(Debug, Serialize, Deserialize)]
+pub struct FindDuplicateEnums {}
+impl FindDuplicateEnums {
+    pub fn run(&self, d: &mut Device) -> anyhow::Result<()> {
+        let mut suggested = HashSet::new();
 
-    for (id1, e1) in d.enums.iter() {
-        if suggested.contains(&id1) {
-            continue;
-        }
+        for (id1, e1) in d.enums.iter() {
+            if suggested.contains(&id1) {
+                continue;
+            }
 
-        let mut ids = Vec::new();
-        for (id2, e2) in d.enums.iter() {
-            if id1 != id2 && mergeable_enums(e1, e2) {
-                ids.push(id2)
+            let mut ids = Vec::new();
+            for (id2, e2) in d.enums.iter() {
+                if id1 != id2 && mergeable_enums(e1, e2) {
+                    ids.push(id2)
+                }
+            }
+
+            if !ids.is_empty() {
+                ids.push(id1);
+                info!("Duplicated enums:");
+                for id in ids {
+                    suggested.insert(id);
+                    info!("   {}", d.enums.get(id).path);
+                }
             }
         }
 
-        if !ids.is_empty() {
-            ids.push(id1);
-            info!("Duplicated enums:");
-            for id in ids {
-                suggested.insert(id);
-                info!("   {}", d.enums.get(id).path);
-            }
-        }
+        Ok(())
     }
 }
 
 fn mergeable_enums(a: &Enum, b: &Enum) -> bool {
     a.variants == b.variants
 }
+#[derive(Debug, Serialize, Deserialize)]
+pub struct FindDuplicateFieldsets {}
+impl FindDuplicateFieldsets {
+    pub fn run(&self, d: &mut Device) -> anyhow::Result<()> {
+        let mut suggested = HashSet::new();
 
-pub fn find_dup_fieldsets(d: &mut Device) {
-    let mut suggested = HashSet::new();
+        for (id1, fs1) in d.fieldsets.iter() {
+            if suggested.contains(&id1) {
+                continue;
+            }
 
-    for (id1, fs1) in d.fieldsets.iter() {
-        if suggested.contains(&id1) {
-            continue;
-        }
+            let mut ids = Vec::new();
+            for (id2, fs2) in d.fieldsets.iter() {
+                if id1 != id2 && mergeable_fieldsets(fs1, fs2) {
+                    ids.push(id2)
+                }
+            }
 
-        let mut ids = Vec::new();
-        for (id2, fs2) in d.fieldsets.iter() {
-            if id1 != id2 && mergeable_fieldsets(fs1, fs2) {
-                ids.push(id2)
+            if !ids.is_empty() {
+                ids.push(id1);
+                info!("Duplicated fieldsets:");
+                for id in ids {
+                    suggested.insert(id);
+                    info!("   {}", d.fieldsets.get(id).path);
+                }
             }
         }
 
-        if !ids.is_empty() {
-            ids.push(id1);
-            info!("Duplicated fieldsets:");
-            for id in ids {
-                suggested.insert(id);
-                info!("   {}", d.fieldsets.get(id).path);
-            }
-        }
+        Ok(())
     }
 }
 
@@ -516,6 +527,8 @@ pub enum Transform {
     RenameFields(RenameFields),
     MakeArray(MakeArray),
     MakeBlock(MakeBlock),
+    FindDuplicateEnums(FindDuplicateEnums),
+    FindDuplicateFieldsets(FindDuplicateFieldsets),
 }
 
 impl Transform {
@@ -527,6 +540,8 @@ impl Transform {
             Self::RenameFields(t) => t.run(d),
             Self::MakeArray(t) => t.run(d),
             Self::MakeBlock(t) => t.run(d),
+            Self::FindDuplicateEnums(t) => t.run(d),
+            Self::FindDuplicateFieldsets(t) => t.run(d),
         }
     }
 }

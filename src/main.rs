@@ -113,15 +113,15 @@ fn run() -> Result<()> {
 
     let mut device_x = String::new();
     let items = generate::render(&ir, target, &mut device_x)?;
-    let mut file = File::create("out/src/lib.rs").expect("Couldn't create lib.rs file");
+    let mut file = File::create("lib.rs").expect("Couldn't create lib.rs file");
 
     let data = items.to_string().replace("] ", "]\n");
     file.write_all(data.as_ref())
         .expect("Could not write code to lib.rs");
 
     if target == Target::CortexM || target == Target::Msp430 || target == Target::XtensaLX {
-        writeln!(File::create("out/device.x")?, "{}", device_x)?;
-        //writeln!(File::create("out/build.rs")?, "{}", build_rs())?;
+        writeln!(File::create("device.x")?, "{}", device_x)?;
+        writeln!(File::create("build.rs")?, "{}", util::build_rs())?;
     }
 
     Ok(())
