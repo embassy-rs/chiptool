@@ -99,6 +99,13 @@ pub fn render(d: &Device, fs: &FieldSet) -> Result<TokenStream> {
 
             #items
         }
+
+        impl Default for #name {
+            fn default() -> #name {
+                #name(0)
+            }
+        }
+
     };
 
     Ok(out)

@@ -50,14 +50,14 @@ pub fn render(d: &Device, b: &Block) -> Result<TokenStream> {
                         #doc
                         pub fn #name(self, n: usize) -> #ty {
                             assert!(n < #len);
-                            unsafe { Reg::new(self.0.add(#offset + n * #stride), #default) }
+                            unsafe { Reg::new(self.0.add(#offset + n * #stride)) }
                         }
                     ));
                 } else {
                     items.extend(quote!(
                         #doc
                         pub fn #name(self) -> #ty {
-                            unsafe { Reg::new(self.0.add(#offset), #default) }
+                            unsafe { Reg::new(self.0.add(#offset)) }
                         }
                     ));
                 }

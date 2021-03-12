@@ -184,7 +184,7 @@ pub struct Resets(*mut u8);
 impl Resets {
     // A register access function. This is just pointer arithmetic
     pub fn reset_done(self) -> Reg<fields::Peripherals, RW> {
-        unsafe { Reg::new(self.0.add(8usize), fields::Peripherals::from_bits(0)) }
+        unsafe { Reg::new(self.0.add(8usize))) }
     }
 }
 
