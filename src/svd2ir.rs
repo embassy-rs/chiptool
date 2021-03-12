@@ -84,8 +84,14 @@ pub fn convert_block(
                                 }));
                             }
 
+                            let enum_name = if rname == f.name {
+                                rname.clone()
+                            } else {
+                                format!("{}_{}", rname, f.name)
+                            };
+
                             let enumm = Enum {
-                                path: Path::new(vals_path.clone(), format!("{}_{}", rname, f.name)),
+                                path: Path::new(vals_path.clone(), enum_name),
                                 description: r.description.clone(),
                                 bit_size: f.bit_range.width,
                                 variants,

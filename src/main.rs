@@ -102,7 +102,6 @@ fn run() -> Result<()> {
     let device = svd::parse(xml)?;
     let mut ir = svd2ir::convert(&device);
     transform::sanitize(&mut ir);
-    transform::MergeIdenticalEnums {}.run(&mut ir)?;
 
     for t in &config.transforms {
         info!("running: {:?}", t);

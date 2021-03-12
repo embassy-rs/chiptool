@@ -157,7 +157,7 @@ This collapses all `smX_*` registers into a single cluster:
 example:
 
 ```yaml
-- MakeArray:
+- MakeRegisterArray:
     block: pio0::Pio0
     from: sm\d+
     to: sm
