@@ -29,6 +29,10 @@ pub fn convert_block(
     for r in regs {
         match r {
             svd::RegisterCluster::Register(r) => {
+                if r.derived_from.is_some() {
+                    warn!("unsupported derived_from in registers");
+                }
+
                 let rname = util::replace_suffix(&r.name, "");
 
                 let array = if let svd::Register::Array(_, dim) = r {
@@ -49,28 +53,44 @@ pub fn convert_block(
                         fields: Vec::new(),
                     };
                     for f in fields {
-                        if f.enumerated_values.len() > 1 {
-                            warn!("{}.{}.{}: multiple enumerated_values", name, r.name, f.name)
+                        if f.derived_from.is_some() {
+                            warn!("unsupported derived_from in fields");
                         }
-                        let enum_id = if f.enumerated_values.len() == 1 {
-                            let e = &f.enumerated_values[0];
+
+                        let enumm = if f.enumerated_values.len() == 0 {
+                            None
+                        } else {
+                            let mut variants = Vec::new();
+
+                            for e in &f.enumerated_values {
+                                if e.derived_from.is_some() {
+                                    warn!("unsupported derived_from in enums");
+                                }
+
+                                let prefix = if f.enumerated_values.len() == 1 {
+                                    ""
+                                } else {
+                                    match e.usage {
+                                        None => "",
+                                        Some(svd::Usage::Read) => "R_",
+                                        Some(svd::Usage::Write) => "W_",
+                                        Some(svd::Usage::ReadWrite) => "RW_",
+                                    }
+                                };
+                                variants.extend(e.values.iter().map(|v| EnumVariant {
+                                    description: v.description.clone(),
+                                    name: format!("{}{}", prefix, v.name),
+                                    value: v.value.unwrap() as _, // TODO what are variants without values used for??
+                                }));
+                            }
+
                             let enumm = Enum {
                                 path: Path::new(vals_path.clone(), format!("{}_{}", rname, f.name)),
                                 description: r.description.clone(),
                                 bit_size: f.bit_range.width,
-                                variants: e
-                                    .values
-                                    .iter()
-                                    .map(|v| EnumVariant {
-                                        description: v.description.clone(),
-                                        name: v.name.clone(),
-                                        value: v.value.unwrap() as _, // TODO what are variants without values used for??
-                                    })
-                                    .collect(),
+                                variants,
                             };
                             Some(ir.enums.put(enumm))
-                        } else {
-                            None
                         };
 
                         fieldset.fields.push(Field {
@@ -78,7 +98,7 @@ pub fn convert_block(
                             description: f.description.clone(),
                             bit_offset: f.bit_range.offset,
                             bit_size: f.bit_range.width,
-                            enumm: enum_id,
+                            enumm,
                         })
                     }
                     Some(ir.fieldsets.put(fieldset))
