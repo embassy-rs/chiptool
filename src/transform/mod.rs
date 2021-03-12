@@ -1,30 +1,30 @@
-use std::{
-    collections::{HashMap, HashSet},
-    ptr,
-};
+use std::collections::{HashMap, HashSet};
 
 use crate::ir::*;
-use crate::util;
 use crate::util::{ToSanitizedPascalCase, ToSanitizedSnakeCase, ToSanitizedUpperCase};
 use log::*;
 use serde::{Deserialize, Serialize};
 
-pub fn sanitize(d: &mut Device) {
-    for (_, b) in d.blocks.iter_mut() {
+pub fn sanitize(ir: &mut IR) {
+    for (_, d) in ir.devices.iter_mut() {
+        sanitize_path(&mut d.path);
+    }
+
+    for (_, b) in ir.blocks.iter_mut() {
         sanitize_path(&mut b.path);
         for i in b.items.iter_mut() {
             i.name = i.name.to_sanitized_snake_case().to_string();
         }
     }
 
-    for (_, fs) in d.fieldsets.iter_mut() {
+    for (_, fs) in ir.fieldsets.iter_mut() {
         sanitize_path(&mut fs.path);
         for f in fs.fields.iter_mut() {
             f.name = f.name.to_sanitized_snake_case().to_string();
         }
     }
 
-    for (_, e) in d.enums.iter_mut() {
+    for (_, e) in ir.enums.iter_mut() {
         sanitize_path(&mut e.path);
         for v in e.variants.iter_mut() {
             v.name = v.name.to_sanitized_upper_case().to_string();
@@ -42,16 +42,16 @@ fn sanitize_path(p: &mut Path) {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct FindDuplicateEnums {}
 impl FindDuplicateEnums {
-    pub fn run(&self, d: &mut Device) -> anyhow::Result<()> {
+    pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
         let mut suggested = HashSet::new();
 
-        for (id1, e1) in d.enums.iter() {
+        for (id1, e1) in ir.enums.iter() {
             if suggested.contains(&id1) {
                 continue;
             }
 
             let mut ids = Vec::new();
-            for (id2, e2) in d.enums.iter() {
+            for (id2, e2) in ir.enums.iter() {
                 if id1 != id2 && mergeable_enums(e1, e2) {
                     ids.push(id2)
                 }
@@ -62,8 +62,49 @@ impl FindDuplicateEnums {
                 info!("Duplicated enums:");
                 for id in ids {
                     suggested.insert(id);
-                    info!("   {}", d.enums.get(id).path);
+                    info!("   {}", ir.enums.get(id).path);
                 }
+            }
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct MergeIdenticalEnums {}
+impl MergeIdenticalEnums {
+    pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
+        let mut suggested = HashSet::new();
+        let mut merges = Vec::new();
+
+        for (id1, e1) in ir.enums.iter() {
+            if suggested.contains(&id1) {
+                continue;
+            }
+
+            let mut ids = Vec::new();
+            for (id2, e2) in ir.enums.iter() {
+                if id1 != id2 && e1.path == e2.path && mergeable_enums(e1, e2) {
+                    ids.push(id2)
+                }
+            }
+
+            if !ids.is_empty() {
+                ids.push(id1);
+                for &id in &ids {
+                    suggested.insert(id);
+                }
+                merges.push(ids);
+            }
+        }
+
+        for merge in merges {
+            let id = merge[0];
+            let other_ids: HashSet<Id<Enum>> = merge[1..].iter().map(|x| *x).collect();
+            replace_enum_ids(ir, &other_ids, id);
+            for id in other_ids {
+                ir.enums.remove(id)
             }
         }
 
@@ -74,19 +115,20 @@ impl FindDuplicateEnums {
 fn mergeable_enums(a: &Enum, b: &Enum) -> bool {
     a.variants == b.variants
 }
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct FindDuplicateFieldsets {}
 impl FindDuplicateFieldsets {
-    pub fn run(&self, d: &mut Device) -> anyhow::Result<()> {
+    pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
         let mut suggested = HashSet::new();
 
-        for (id1, fs1) in d.fieldsets.iter() {
+        for (id1, fs1) in ir.fieldsets.iter() {
             if suggested.contains(&id1) {
                 continue;
             }
 
             let mut ids = Vec::new();
-            for (id2, fs2) in d.fieldsets.iter() {
+            for (id2, fs2) in ir.fieldsets.iter() {
                 if id1 != id2 && mergeable_fieldsets(fs1, fs2) {
                     ids.push(id2)
                 }
@@ -97,7 +139,7 @@ impl FindDuplicateFieldsets {
                 info!("Duplicated fieldsets:");
                 for id in ids {
                     suggested.insert(id);
-                    info!("   {}", d.fieldsets.get(id).path);
+                    info!("   {}", ir.fieldsets.get(id).path);
                 }
             }
         }
@@ -117,36 +159,36 @@ pub struct MergeEnums {
 }
 
 impl MergeEnums {
-    pub fn run(&self, d: &mut Device) -> anyhow::Result<()> {
+    pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
         let re = regex::Regex::new(&format!("^{}$", &self.from))?;
-        let groups = path_groups(&d.enums, &re, &self.to);
+        let groups = path_groups(&ir.enums, &re, &self.to);
 
         for (to, group) in groups {
             info!("Merging enums, dest: {}", to);
             for id in &group {
-                info!("   {}", d.enums.get(*id).path);
+                info!("   {}", ir.enums.get(*id).path);
             }
-            self.merge_enums(d, group, to);
+            self.merge_enums(ir, group, to);
         }
 
         Ok(())
     }
 
-    fn merge_enums(&self, d: &mut Device, ids: HashSet<Id<Enum>>, to: Path) {
-        let mut e = d.enums.get(*ids.iter().next().unwrap()).clone();
+    fn merge_enums(&self, ir: &mut IR, ids: HashSet<Id<Enum>>, to: Path) {
+        let mut e = ir.enums.get(*ids.iter().next().unwrap()).clone();
 
         for id in &ids {
-            let e2 = d.enums.get(*id);
+            let e2 = ir.enums.get(*id);
             if !mergeable_enums(&e, e2) {
                 panic!("mergeing nonmergeable enums");
             }
         }
 
         e.path = to;
-        let final_id = d.enums.put(e);
-        replace_enum_ids(d, &ids, final_id);
+        let final_id = ir.enums.put(e);
+        replace_enum_ids(ir, &ids, final_id);
         for id in ids {
-            d.enums.remove(id)
+            ir.enums.remove(id)
         }
     }
 }
@@ -157,19 +199,19 @@ pub struct DeleteEnum {
 }
 
 impl DeleteEnum {
-    pub fn run(&self, d: &mut Device) -> anyhow::Result<()> {
+    pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
         let re = regex::Regex::new(&self.from)?;
 
         let mut ids: HashSet<Id<Enum>> = HashSet::new();
-        for (id, e) in d.enums.iter() {
+        for (id, e) in ir.enums.iter() {
             if path_matches(&e.path, &re) {
                 ids.insert(id);
             }
         }
 
-        remove_enum_ids(d, &ids);
+        remove_enum_ids(ir, &ids);
         for id in ids {
-            d.enums.remove(id)
+            ir.enums.remove(id)
         }
 
         Ok(())
@@ -183,36 +225,36 @@ pub struct MergeFieldsets {
 }
 
 impl MergeFieldsets {
-    pub fn run(&self, d: &mut Device) -> anyhow::Result<()> {
+    pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
         let re = regex::Regex::new(&format!("^{}$", &self.from))?;
-        let groups = path_groups(&d.fieldsets, &re, &self.to);
+        let groups = path_groups(&ir.fieldsets, &re, &self.to);
 
         for (to, group) in groups {
             info!("Merging fieldsets, dest: {}", to);
             for id in &group {
-                info!("   {}", d.fieldsets.get(*id).path);
+                info!("   {}", ir.fieldsets.get(*id).path);
             }
-            self.merge_fieldsets(d, group, to);
+            self.merge_fieldsets(ir, group, to);
         }
 
         Ok(())
     }
 
-    fn merge_fieldsets(&self, d: &mut Device, ids: HashSet<Id<FieldSet>>, to: Path) {
-        let mut fs = d.fieldsets.get(*ids.iter().next().unwrap()).clone();
+    fn merge_fieldsets(&self, ir: &mut IR, ids: HashSet<Id<FieldSet>>, to: Path) {
+        let mut fs = ir.fieldsets.get(*ids.iter().next().unwrap()).clone();
 
         for id in &ids {
-            let fs2 = d.fieldsets.get(*id);
+            let fs2 = ir.fieldsets.get(*id);
             if !mergeable_fieldsets(&fs, fs2) {
                 panic!("mergeing nonmergeable fieldsets");
             }
         }
 
         fs.path = to;
-        let final_id = d.fieldsets.put(fs);
-        replace_fieldset_ids(d, &ids, final_id);
+        let final_id = ir.fieldsets.put(fs);
+        replace_fieldset_ids(ir, &ids, final_id);
         for id in ids {
-            d.fieldsets.remove(id)
+            ir.fieldsets.remove(id)
         }
     }
 }
@@ -225,11 +267,11 @@ pub struct RenameFields {
 }
 
 impl RenameFields {
-    pub fn run(&self, d: &mut Device) -> anyhow::Result<()> {
+    pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
         let path_re = regex::Regex::new(&format!("^{}$", &self.fieldset))?;
         let re = regex::Regex::new(&format!("^{}$", &self.from))?;
-        for id in match_paths(&d.fieldsets, &path_re) {
-            let fs = d.fieldsets.get_mut(id);
+        for id in match_paths(&ir.fieldsets, &path_re) {
+            let fs = ir.fieldsets.get_mut(id);
             for f in &mut fs.fields {
                 if let Some(name) = string_match_expand(&f.name, &re, &self.to) {
                     f.name = name;
@@ -248,11 +290,11 @@ pub struct MakeArray {
 }
 
 impl MakeArray {
-    pub fn run(&self, d: &mut Device) -> anyhow::Result<()> {
+    pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
         let path_re = regex::Regex::new(&format!("^{}$", &self.block))?;
         let re = regex::Regex::new(&format!("^{}$", &self.from))?;
-        for id in match_paths(&d.blocks, &path_re) {
-            let b = d.blocks.get_mut(id);
+        for id in match_paths(&ir.blocks, &path_re) {
+            let b = ir.blocks.get_mut(id);
             let groups = string_groups(b.items.iter().map(|f| f.name.clone()), &re, &self.to);
             for (to, group) in groups {
                 info!("arrayizing to {}", to);
@@ -321,14 +363,14 @@ pub struct MakeBlock {
 }
 
 impl MakeBlock {
-    pub fn run(&self, d: &mut Device) -> anyhow::Result<()> {
+    pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
         let path_re = regex::Regex::new(&format!("^{}$", &self.block))?;
         let re = regex::Regex::new(&format!("^{}$", &self.from))?;
-        for id in match_paths(&d.blocks, &path_re) {
-            let b = d.blocks.get_mut(id);
+        for id in match_paths(&ir.blocks, &path_re) {
+            let b = ir.blocks.get_mut(id);
             let groups = string_groups(b.items.iter().map(|f| f.name.clone()), &re, &self.to_outer);
             for (to, group) in groups {
-                let b = d.blocks.get_mut(id);
+                let b = ir.blocks.get_mut(id);
                 info!("blockifizing to {}", to);
 
                 // Grab all items into a vec
@@ -369,15 +411,15 @@ impl MakeBlock {
                         })
                         .collect(),
                 };
-                let b2_id = if let Some((id, b3)) = d.blocks.find(|b| b.path == b2.path) {
+                let b2_id = if let Some((id, b3)) = ir.blocks.find(|b| b.path == b2.path) {
                     // todo check blocks are mergeable
                     id
                 } else {
-                    d.blocks.put(b2)
+                    ir.blocks.put(b2)
                 };
 
                 // Remove all items
-                let b = d.blocks.get_mut(id);
+                let b = ir.blocks.get_mut(id);
                 b.items.retain(|i| !group.contains(&i.name));
 
                 // Create the new block item
@@ -464,8 +506,8 @@ fn string_match_expand(s: &str, regex: &regex::Regex, res: &str) -> Option<Strin
     Some(dst)
 }
 
-pub fn replace_enum_ids(d: &mut Device, from: &HashSet<Id<Enum>>, to: Id<Enum>) {
-    for (_, fs) in d.fieldsets.iter_mut() {
+pub fn replace_enum_ids(ir: &mut IR, from: &HashSet<Id<Enum>>, to: Id<Enum>) {
+    for (_, fs) in ir.fieldsets.iter_mut() {
         for f in fs.fields.iter_mut() {
             if let Some(id) = f.enumm {
                 if from.contains(&id) {
@@ -476,8 +518,8 @@ pub fn replace_enum_ids(d: &mut Device, from: &HashSet<Id<Enum>>, to: Id<Enum>) 
     }
 }
 
-pub fn remove_enum_ids(d: &mut Device, from: &HashSet<Id<Enum>>) {
-    for (_, fs) in d.fieldsets.iter_mut() {
+pub fn remove_enum_ids(ir: &mut IR, from: &HashSet<Id<Enum>>) {
+    for (_, fs) in ir.fieldsets.iter_mut() {
         for f in fs.fields.iter_mut() {
             if let Some(id) = f.enumm {
                 if from.contains(&id) {
@@ -488,8 +530,8 @@ pub fn remove_enum_ids(d: &mut Device, from: &HashSet<Id<Enum>>) {
     }
 }
 
-pub fn replace_fieldset_ids(d: &mut Device, from: &HashSet<Id<FieldSet>>, to: Id<FieldSet>) {
-    for (_, b) in d.blocks.iter_mut() {
+pub fn replace_fieldset_ids(ir: &mut IR, from: &HashSet<Id<FieldSet>>, to: Id<FieldSet>) {
+    for (_, b) in ir.blocks.iter_mut() {
         for i in b.items.iter_mut() {
             if let BlockItemInner::Register(r) = &mut i.inner {
                 if let Some(id) = r.fieldset {
@@ -502,13 +544,16 @@ pub fn replace_fieldset_ids(d: &mut Device, from: &HashSet<Id<FieldSet>>, to: Id
     }
 }
 
-pub fn replace_block_ids(d: &mut Device, from: &HashSet<Id<Block>>, to: Id<Block>) {
-    for (_, p) in d.peripherals.iter_mut() {
-        if from.contains(&p.block) {
-            p.block = to
+pub fn replace_block_ids(ir: &mut IR, from: &HashSet<Id<Block>>, to: Id<Block>) {
+    for (_, d) in ir.devices.iter_mut() {
+        for p in d.peripherals.iter_mut() {
+            if from.contains(&p.block) {
+                p.block = to
+            }
         }
     }
-    for (_, b) in d.blocks.iter_mut() {
+
+    for (_, b) in ir.blocks.iter_mut() {
         for i in b.items.iter_mut() {
             if let BlockItemInner::Block(id) = &i.inner {
                 if from.contains(&id) {
@@ -532,16 +577,16 @@ pub enum Transform {
 }
 
 impl Transform {
-    pub fn run(&self, d: &mut Device) -> anyhow::Result<()> {
+    pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
         match self {
-            Self::DeleteEnum(t) => t.run(d),
-            Self::MergeEnums(t) => t.run(d),
-            Self::MergeFieldsets(t) => t.run(d),
-            Self::RenameFields(t) => t.run(d),
-            Self::MakeArray(t) => t.run(d),
-            Self::MakeBlock(t) => t.run(d),
-            Self::FindDuplicateEnums(t) => t.run(d),
-            Self::FindDuplicateFieldsets(t) => t.run(d),
+            Self::DeleteEnum(t) => t.run(ir),
+            Self::MergeEnums(t) => t.run(ir),
+            Self::MergeFieldsets(t) => t.run(ir),
+            Self::RenameFields(t) => t.run(ir),
+            Self::MakeArray(t) => t.run(ir),
+            Self::MakeBlock(t) => t.run(ir),
+            Self::FindDuplicateEnums(t) => t.run(ir),
+            Self::FindDuplicateFieldsets(t) => t.run(ir),
         }
     }
 }

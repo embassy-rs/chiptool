@@ -13,7 +13,7 @@ use anyhow::{anyhow, bail, Context, Result};
 
 use crate::ir::*;
 
-pub fn render(d: &Device, e: &Enum) -> Result<TokenStream> {
+pub fn render(ir: &IR, e: &Enum) -> Result<TokenStream> {
     let span = Span::call_site();
     let mut items = TokenStream::new();
 
@@ -42,16 +42,9 @@ pub fn render(d: &Device, e: &Enum) -> Result<TokenStream> {
         #doc
         #[repr(transparent)]
         #[derive(Copy, Clone)]
-        pub struct #name (#ty);
+        pub struct #name (pub #ty);
 
         impl #name {
-            pub const fn to_bits(&self) -> #ty {
-                self.0
-            }
-            pub const fn from_bits(val: #ty) -> #name {
-                #name(val)
-            }
-
             #items
         }
     };

@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::Write;
 use std::hash::{Hash, Hasher};
@@ -118,30 +119,30 @@ impl<T> Set<T> {
 }
 
 #[derive(Debug)]
-pub struct Device {
-    pub name: String,
-    pub cpu: Option<svd::Cpu>,
-    pub interrupts: Vec<Interrupt>,
-    pub instances: Set<PeripheralInstance>,
-    pub peripherals: Set<Peripheral>,
+pub struct IR {
+    pub devices: Set<Device>,
     pub blocks: Set<Block>,
     pub fieldsets: Set<FieldSet>,
     pub enums: Set<Enum>,
 }
 
-impl Device {
+impl IR {
     pub fn new() -> Self {
         Self {
-            name: "".to_string(),
-            cpu: None,
-            interrupts: Vec::new(),
-            instances: Set::new(),
-            peripherals: Set::new(),
+            devices: Set::new(),
             blocks: Set::new(),
             fieldsets: Set::new(),
             enums: Set::new(),
         }
     }
+}
+
+#[derive(Debug)]
+pub struct Device {
+    pub path: Path,
+    pub cpu: Option<svd::Cpu>,
+    pub interrupts: Vec<Interrupt>,
+    pub peripherals: Vec<Peripheral>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -152,17 +153,10 @@ pub struct Interrupt {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct PeripheralInstance {
-    pub path: Path,
+pub struct Peripheral {
+    pub name: String,
     pub description: Option<String>,
     pub base_address: u32,
-
-    pub peripheral: Id<Peripheral>,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct Peripheral {
-    pub path: Path,
     pub block: Id<Block>,
 }
 
@@ -239,7 +233,7 @@ pub struct Enum {
     pub variants: Vec<EnumVariant>,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct EnumVariant {
     pub name: String,
     pub description: Option<String>,
@@ -318,5 +312,4 @@ macro_rules! impl_pathed {
 impl_pathed!(Enum);
 impl_pathed!(FieldSet);
 impl_pathed!(Block);
-impl_pathed!(Peripheral);
-impl_pathed!(PeripheralInstance);
+impl_pathed!(Device);

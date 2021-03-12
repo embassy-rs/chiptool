@@ -2,8 +2,6 @@ mod block;
 mod device;
 mod enumm;
 mod fieldset;
-mod interrupt;
-mod peripheral_instance;
 
 use std::collections::HashMap;
 
@@ -62,35 +60,48 @@ impl Module {
     }
 }
 
-pub fn render(d: &Device, target: Target, device_x: &mut String) -> Result<TokenStream> {
+pub fn render(ir: &IR, target: Target, device_x: &mut String) -> Result<TokenStream> {
     let mut root = Module::new();
-
     root.items = TokenStream::new(); // Remove default contents
-    root.items.extend(device::render(d, target)?);
-    root.items.extend(interrupt::render(d, target, device_x)?);
 
-    for (_, i) in d.instances.iter() {
-        root.get_by_path(&i.path.modules)
+    let commit_info = {
+        let tmp = include_str!(concat!(env!("OUT_DIR"), "/commit-info.txt"));
+
+        if tmp.is_empty() {
+            " (untracked)"
+        } else {
+            tmp
+        }
+    };
+
+    let doc = format!(
+        "Peripheral access API (generated using svd2rust v{}{})",
+        env!("CARGO_PKG_VERSION"),
+        commit_info
+    );
+
+    for (_, d) in ir.devices.iter() {
+        root.get_by_path(&d.path.modules)
             .items
-            .extend(peripheral_instance::render(d, i)?);
+            .extend(device::render(ir, d)?);
     }
 
-    for (_, b) in d.blocks.iter() {
+    for (_, b) in ir.blocks.iter() {
         root.get_by_path(&b.path.modules)
             .items
-            .extend(block::render(d, b)?);
+            .extend(block::render(ir, b)?);
     }
 
-    for (_, fs) in d.fieldsets.iter() {
+    for (_, fs) in ir.fieldsets.iter() {
         root.get_by_path(&fs.path.modules)
             .items
-            .extend(fieldset::render(d, fs)?);
+            .extend(fieldset::render(ir, fs)?);
     }
 
-    for (_, e) in d.enums.iter() {
+    for (_, e) in ir.enums.iter() {
         root.get_by_path(&e.path.modules)
             .items
-            .extend(enumm::render(d, e)?);
+            .extend(enumm::render(ir, e)?);
     }
 
     let generic_file = std::str::from_utf8(include_bytes!("generic.rs"))?;

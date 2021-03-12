@@ -37,7 +37,7 @@ unsafe impl<T: Copy, A: Access> Send for Reg<T, A> {}
 unsafe impl<T: Copy, A: Access> Sync for Reg<T, A> {}
 
 impl<T: Copy, A: Access> Reg<T, A> {
-    pub(crate) fn new(ptr: *mut u8) -> Self {
+    pub fn from_ptr(ptr: *mut u8) -> Self {
         Self {
             ptr,
             phantom: PhantomData,
@@ -55,10 +55,13 @@ impl<T: Copy, A: Read> Reg<T, A> {
     }
 }
 
-impl<T: Default + Copy, A: Write> Reg<T, A> {
+impl<T: Copy, A: Write> Reg<T, A> {
     pub unsafe fn write_value(&self, val: T) {
         (self.ptr as *mut T).write_volatile(val)
     }
+}
+
+impl<T: Default + Copy, A: Write> Reg<T, A> {
     pub unsafe fn write<R>(&self, f: impl FnOnce(&mut T) -> R) -> R {
         let mut val = Default::default();
         let res = f(&mut val);

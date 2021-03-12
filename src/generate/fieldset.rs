@@ -13,7 +13,7 @@ use anyhow::{anyhow, bail, Context, Result};
 
 use crate::ir::*;
 
-pub fn render(d: &Device, fs: &FieldSet) -> Result<TokenStream> {
+pub fn render(ir: &IR, fs: &FieldSet) -> Result<TokenStream> {
     let span = Span::call_site();
     let mut items = TokenStream::new();
 
@@ -37,7 +37,7 @@ pub fn render(d: &Device, fs: &FieldSet) -> Result<TokenStream> {
         let from_bits: TokenStream;
 
         if let Some(e) = f.enumm {
-            let e = d.enums.get(e);
+            let e = ir.enums.get(e);
 
             let enum_ty = match e.bit_size {
                 1..=8 => quote!(u8),
@@ -48,8 +48,8 @@ pub fn render(d: &Device, fs: &FieldSet) -> Result<TokenStream> {
             };
 
             field_ty = util::relative_path(&e.path, &fs.path);
-            to_bits = quote!(val.to_bits() as #ty);
-            from_bits = quote!(#field_ty::from_bits(val as #enum_ty));
+            to_bits = quote!(val.0 as #ty);
+            from_bits = quote!(#field_ty(val as #enum_ty));
         } else {
             field_ty = match f.bit_size {
                 1 => quote!(bool),
@@ -87,16 +87,9 @@ pub fn render(d: &Device, fs: &FieldSet) -> Result<TokenStream> {
         #doc
         #[repr(transparent)]
         #[derive(Copy, Clone)]
-        pub struct #name (#ty);
+        pub struct #name (pub #ty);
 
         impl #name {
-            pub const fn to_bits(&self) -> #ty {
-                self.0
-            }
-            pub const fn from_bits(val: #ty) -> #name {
-                #name(val)
-            }
-
             #items
         }
 

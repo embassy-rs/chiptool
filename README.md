@@ -47,7 +47,7 @@ Current svd2rust provides "read proxy" and "write proxy" structs with methods to
 Solution: for each register with fields, a "fieldset" struct is generated. This struct wraps the raw `u32` and allows getting/setting individual fields.
 
 ```rust
-let val = pac::watchdog::fields::Tick::from_bits(0);
+let val = pac::watchdog::fields::Tick(0);
 val.set_cycles(XOSC_MHZ as u16);
 val.set_enable(true);
 info!("enabled: {:bool}", val.enable());
