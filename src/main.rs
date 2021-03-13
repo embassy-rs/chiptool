@@ -1,5 +1,6 @@
 #![recursion_limit = "128"]
 
+use ir::IR;
 use log::error;
 use svd_parser as svd;
 use transform::Transform;
@@ -17,8 +18,6 @@ use std::process;
 use anyhow::{Context, Result};
 use clap::{App, Arg};
 use log::*;
-
-use crate::util::Target;
 
 fn run() -> Result<()> {
     use std::io::Read;
@@ -65,11 +64,6 @@ fn run() -> Result<()> {
 
     setup_logging(&matches);
 
-    let target = matches
-        .value_of("target")
-        .map(|s| Target::parse(s))
-        .unwrap_or(Ok(Target::CortexM))?;
-
     let config = match matches.value_of("config") {
         Some(file) => {
             let config = &mut String::new();
@@ -100,8 +94,9 @@ fn run() -> Result<()> {
     }
 
     let device = svd::parse(xml)?;
-    let mut ir = svd2ir::convert(&device);
-    transform::sanitize(&mut ir);
+    let mut ir = IR::new();
+    svd2ir::convert(&mut ir, &device, vec![])?;
+    transform::Sanitize {}.run(&mut ir);
 
     for t in &config.transforms {
         info!("running: {:?}", t);
@@ -111,18 +106,12 @@ fn run() -> Result<()> {
     //transform::find_dup_enums(&mut ir);
     //transform::find_dup_fieldsets(&mut ir);
 
-    let mut device_x = String::new();
-    let items = generate::render(&ir, target, &mut device_x)?;
+    let items = generate::render(&ir)?;
     let mut file = File::create("lib.rs").expect("Couldn't create lib.rs file");
 
     let data = items.to_string().replace("] ", "]\n");
     file.write_all(data.as_ref())
         .expect("Could not write code to lib.rs");
-
-    if target == Target::CortexM || target == Target::Msp430 || target == Target::XtensaLX {
-        writeln!(File::create("device.x")?, "{}", device_x)?;
-        writeln!(File::create("build.rs")?, "{}", util::build_rs())?;
-    }
 
     Ok(())
 }

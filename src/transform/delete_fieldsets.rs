@@ -10,6 +10,8 @@ pub struct DeleteFieldsets {
     pub from: String,
     #[serde(default)]
     pub useless: bool,
+    #[serde(default)]
+    pub soft: bool,
 }
 
 impl DeleteFieldsets {
@@ -25,8 +27,11 @@ impl DeleteFieldsets {
         }
 
         remove_fieldset_ids(ir, &ids);
-        for id in ids {
-            ir.fieldsets.remove(id)
+
+        if !self.soft {
+            for id in ids {
+                ir.fieldsets.remove(id)
+            }
         }
 
         Ok(())

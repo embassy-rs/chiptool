@@ -6,7 +6,7 @@ use super::common::*;
 use crate::ir::*;
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct MergeFieldsets {
+pub struct MergeBlocks {
     pub from: String,
     pub to: String,
     pub main: Option<String>,
@@ -14,26 +14,26 @@ pub struct MergeFieldsets {
     pub check: CheckLevel,
 }
 
-impl MergeFieldsets {
+impl MergeBlocks {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
         let re = make_regex(&self.from)?;
-        let groups = path_groups(&ir.fieldsets, &re, &self.to);
+        let groups = path_groups(&ir.blocks, &re, &self.to);
 
         for (to, group) in groups {
             info!("Merging fieldsets, dest: {}", to);
             for id in &group {
-                info!("   {}", ir.fieldsets.get(*id).path);
+                info!("   {}", ir.blocks.get(*id).path);
             }
-            self.merge_fieldsets(ir, group, to, self.main.as_ref())?;
+            self.merge_blocks(ir, group, to, self.main.as_ref())?;
         }
 
         Ok(())
     }
 
-    fn merge_fieldsets(
+    fn merge_blocks(
         &self,
         ir: &mut IR,
-        ids: HashSet<Id<FieldSet>>,
+        ids: HashSet<Id<Block>>,
         to: Path,
         main: Option<&String>,
     ) -> anyhow::Result<()> {
@@ -41,25 +41,26 @@ impl MergeFieldsets {
         if let Some(main) = main {
             let re = make_regex(main)?;
             for &id in ids.iter() {
-                let fs = ir.fieldsets.get(id);
+                let fs = ir.blocks.get(id);
                 if re.is_match(&fs.path.to_string()) {
                     main_id = id;
                     break;
                 }
             }
         }
-        let mut fs = ir.fieldsets.get(main_id).clone();
+        let mut fs = ir.blocks.get(main_id).clone();
 
         for id in &ids {
-            let fs2 = ir.fieldsets.get(*id);
-            check_mergeable_fieldsets(&fs, fs2, self.check)?;
+            let fs2 = ir.blocks.get(*id);
+            // todo
+            //check_mergeable_blocks(&fs, fs2, self.check)?;
         }
 
         fs.path = to;
-        let final_id = ir.fieldsets.put(fs);
-        replace_fieldset_ids(ir, &ids, final_id);
+        let final_id = ir.blocks.put(fs);
+        replace_block_ids(ir, &ids, final_id);
         for id in ids {
-            ir.fieldsets.remove(id)
+            ir.blocks.remove(id)
         }
 
         Ok(())

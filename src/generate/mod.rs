@@ -7,12 +7,10 @@ use std::collections::HashMap;
 
 use anyhow::Result;
 use proc_macro2::{Ident, Span, TokenStream};
-use quote::quote;
 use quote::ToTokens;
+use quote::{quote, TokenStreamExt};
 
 use crate::ir::*;
-use crate::util;
-use crate::Target;
 
 struct Module {
     items: TokenStream,
@@ -60,7 +58,7 @@ impl Module {
     }
 }
 
-pub fn render(ir: &IR, target: Target, device_x: &mut String) -> Result<TokenStream> {
+pub fn render(ir: &IR) -> Result<TokenStream> {
     let mut root = Module::new();
     root.items = TokenStream::new(); // Remove default contents
 
@@ -79,6 +77,11 @@ pub fn render(ir: &IR, target: Target, device_x: &mut String) -> Result<TokenStr
         env!("CARGO_PKG_VERSION"),
         commit_info
     );
+
+    root.items.extend(quote!(
+        #![no_std]
+        #![doc=#doc]
+    ));
 
     for (_, d) in ir.devices.iter() {
         root.get_by_path(&d.path.modules)

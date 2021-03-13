@@ -18,9 +18,7 @@ impl FindDuplicateFieldsets {
 
             let mut ids = Vec::new();
             for (id2, fs2) in ir.fieldsets.iter() {
-                if id1 != id2
-                    && check_mergeable_fieldsets(fs1, fs2, FieldsetMergeCheck::Names).is_ok()
-                {
+                if id1 != id2 && check_mergeable_fieldsets(fs1, fs2, CheckLevel::Names).is_ok() {
                     ids.push(id2)
                 }
             }

@@ -20,14 +20,14 @@ fn dtrue() -> bool {
 }
 
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone, Copy, Serialize, Deserialize)]
-pub enum FieldsetMergeCheck {
+pub enum CheckLevel {
     None,
     Layout,
     Names,
     Descriptions,
 }
 
-impl Default for FieldsetMergeCheck {
+impl Default for CheckLevel {
     fn default() -> Self {
         Self::Names
     }
@@ -36,9 +36,9 @@ impl Default for FieldsetMergeCheck {
 pub(crate) fn check_mergeable_fieldsets(
     a: &FieldSet,
     b: &FieldSet,
-    check: FieldsetMergeCheck,
+    level: CheckLevel,
 ) -> anyhow::Result<()> {
-    if let Err(e) = check_mergeable_fieldsets_inner(a, b, check) {
+    if let Err(e) = check_mergeable_fieldsets_inner(a, b, level) {
         bail!(
             "Cannot merge fieldsets.\nfirst: {:#?}\nsecond: {:#?}\ncause: {:?}",
             a,
@@ -49,30 +49,36 @@ pub(crate) fn check_mergeable_fieldsets(
     Ok(())
 }
 
+pub(crate) fn mergeable_fields(a: &Field, b: &Field, level: CheckLevel) -> bool {
+    let mut res = true;
+    if level >= CheckLevel::Layout {
+        res &= a.bit_size == b.bit_size
+            && a.bit_offset == b.bit_offset
+            && a.enumm == b.enumm
+            && a.array == b.array;
+    }
+    if level >= CheckLevel::Names {
+        res &= a.name == b.name;
+    }
+    if level >= CheckLevel::Descriptions {
+        res &= a.description == b.description;
+    }
+    res
+}
+
 pub(crate) fn check_mergeable_fieldsets_inner(
     a: &FieldSet,
     b: &FieldSet,
-    check: FieldsetMergeCheck,
+    level: CheckLevel,
 ) -> anyhow::Result<()> {
     if a.bit_size != b.bit_size {
         bail!("Different bit size: {} vs {}", a.bit_size, b.bit_size)
     }
 
-    if check >= FieldsetMergeCheck::Layout {
+    if level >= CheckLevel::Layout {
         if a.fields.len() != b.fields.len() {
             bail!("Different field count")
         }
-
-        let field_match = |fa: &Field, fb: &Field| {
-            let mut res = fa.bit_size == fb.bit_size && fa.bit_offset == fb.bit_offset;
-            if check >= FieldsetMergeCheck::Names {
-                res &= fa.name == fb.name;
-            }
-            if check >= FieldsetMergeCheck::Descriptions {
-                res &= fa.description == fb.description;
-            }
-            res
-        };
 
         let mut aok = [false; 128];
         let mut bok = [false; 128];
@@ -82,7 +88,7 @@ pub(crate) fn check_mergeable_fieldsets_inner(
                 .fields
                 .iter()
                 .enumerate()
-                .find(|(ib, fb)| !bok[*ib] && field_match(fa, fb))
+                .find(|(ib, fb)| !bok[*ib] && mergeable_fields(fa, fb, level))
             {
                 aok[ia] = true;
                 bok[ib] = true;

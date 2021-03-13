@@ -1,17 +1,10 @@
-use std::borrow::Cow;
-use std::cmp::Ordering;
-use std::collections::HashMap;
-
-use log::warn;
+use anyhow::Result;
 use proc_macro2::TokenStream;
-use proc_macro2::{Ident, Punct, Spacing, Span};
-use quote::{quote, ToTokens};
-use svd_parser::derive_from::DeriveFrom;
-
-use crate::util;
-use anyhow::{anyhow, bail, Context, Result};
+use proc_macro2::{Ident, Span};
+use quote::quote;
 
 use crate::ir::*;
+use crate::util;
 
 pub fn render(ir: &IR, fs: &FieldSet) -> Result<TokenStream> {
     let span = Span::call_site();
@@ -67,17 +60,38 @@ pub fn render(ir: &IR, fs: &FieldSet) -> Result<TokenStream> {
             }
         }
 
-        items.extend(quote!(
-            #doc
-            pub const fn #name(&self) -> #field_ty{
-                let val = (self.0 >> #bit_offset) & #mask;
-                #from_bits
-            }
-            #doc
-            pub fn #name_set(&mut self, val: #field_ty) {
-                self.0 = (self.0 & !(#mask << #bit_offset)) | (((#to_bits) & #mask) << #bit_offset);
-            }
-        ));
+        if let Some(array) = &f.array {
+            let len = array.len as usize;
+            let stride = array.stride as u32;
+
+            items.extend(quote!(
+                #doc
+                pub fn #name(&self, n: usize) -> #field_ty{
+                    assert!(n < #len);
+                    let offs = #bit_offset + (n as u32)*#stride;
+                    let val = (self.0 >> offs) & #mask;
+                    #from_bits
+                }
+                #doc
+                pub fn #name_set(&mut self, n: usize, val: #field_ty) {
+                    assert!(n < #len);
+                    let offs = #bit_offset + (n as u32)*#stride;
+                    self.0 = (self.0 & !(#mask << offs)) | (((#to_bits) & #mask) << offs);
+                }
+            ));
+        } else {
+            items.extend(quote!(
+                #doc
+                pub const fn #name(&self) -> #field_ty{
+                    let val = (self.0 >> #bit_offset) & #mask;
+                    #from_bits
+                }
+                #doc
+                pub fn #name_set(&mut self, val: #field_ty) {
+                    self.0 = (self.0 & !(#mask << #bit_offset)) | (((#to_bits) & #mask) << #bit_offset);
+                }
+            ));
+        }
     }
 
     let name = Ident::new(&fs.path.name, span);

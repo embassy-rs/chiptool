@@ -7,7 +7,7 @@ use crate::ir::*;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MakeBlock {
-    pub block: String,
+    pub blocks: String,
     pub from: String,
     pub to_outer: String,
     pub to_block: String,
@@ -16,7 +16,7 @@ pub struct MakeBlock {
 
 impl MakeBlock {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
-        let path_re = make_regex(&self.block)?;
+        let path_re = make_regex(&self.blocks)?;
         let re = make_regex(&self.from)?;
         for id in match_paths(&ir.blocks, &path_re) {
             let b = ir.blocks.get_mut(id);

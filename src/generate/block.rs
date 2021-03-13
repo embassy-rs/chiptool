@@ -41,7 +41,7 @@ pub fn render(ir: &IR, b: &Block) -> Result<TokenStream> {
                 let ty = quote!(Reg<#reg_ty, #access>);
                 if let Some(array) = &i.array {
                     let len = array.len as usize;
-                    let stride = array.byte_stride as usize;
+                    let stride = array.stride as usize;
                     items.extend(quote!(
                         #doc
                         pub fn #name(self, n: usize) -> #ty {
@@ -63,7 +63,7 @@ pub fn render(ir: &IR, b: &Block) -> Result<TokenStream> {
                 let ty = util::relative_path(&b2.path, &b.path);
                 if let Some(array) = &i.array {
                     let len = array.len as usize;
-                    let stride = array.byte_stride as usize;
+                    let stride = array.stride as usize;
                     items.extend(quote!(
                         #doc
                         pub fn #name(self, n: usize) -> #ty {

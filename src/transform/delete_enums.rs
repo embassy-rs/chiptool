@@ -9,6 +9,8 @@ use crate::ir::*;
 pub struct DeleteEnums {
     pub from: String,
     pub bit_size: Option<u32>,
+    #[serde(default)]
+    pub soft: bool,
 }
 
 impl DeleteEnums {
@@ -25,8 +27,11 @@ impl DeleteEnums {
         }
 
         remove_enum_ids(ir, &ids);
-        for id in ids {
-            ir.enums.remove(id)
+
+        if !self.soft {
+            for id in ids {
+                ir.enums.remove(id)
+            }
         }
 
         Ok(())

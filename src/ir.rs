@@ -186,7 +186,7 @@ pub enum BlockItemInner {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Array {
     pub len: u32,
-    pub byte_stride: u32,
+    pub stride: u32,
     //pub index_names: Vec<String>,
 }
 
@@ -221,6 +221,7 @@ pub struct Field {
 
     pub bit_offset: u32,
     pub bit_size: u32,
+    pub array: Option<Array>,
     pub enumm: Option<Id<Enum>>,
 }
 

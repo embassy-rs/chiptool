@@ -5,30 +5,30 @@ use super::common::*;
 use crate::ir::*;
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct MakeRegisterArray {
-    pub blocks: String,
+pub struct MakeFieldArray {
+    pub fieldsets: String,
     pub from: String,
     pub to: String,
 }
 
-impl MakeRegisterArray {
+impl MakeFieldArray {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
-        let path_re = make_regex(&self.blocks)?;
+        let path_re = make_regex(&self.fieldsets)?;
         let re = make_regex(&self.from)?;
-        for id in match_paths(&ir.blocks, &path_re) {
-            let b = ir.blocks.get_mut(id);
-            let groups = string_groups(b.items.iter().map(|f| f.name.clone()), &re, &self.to);
+        for id in match_paths(&ir.fieldsets, &path_re) {
+            let b = ir.fieldsets.get_mut(id);
+            let groups = string_groups(b.fields.iter().map(|f| f.name.clone()), &re, &self.to);
             for (to, group) in groups {
                 info!("arrayizing to {}", to);
 
                 // Grab all items into a vec
                 let mut items = Vec::new();
-                for i in b.items.iter().filter(|i| group.contains(&i.name)) {
+                for i in b.fields.iter().filter(|i| group.contains(&i.name)) {
                     items.push(i);
                 }
 
                 // Sort by offs
-                items.sort_by_key(|i| i.byte_offset);
+                items.sort_by_key(|i| i.bit_offset);
                 for i in &items {
                     info!("    {}", i.name);
                 }
@@ -37,14 +37,14 @@ impl MakeRegisterArray {
                 // todo check they're not arrays (arrays of arrays not supported)
 
                 // Guess stride.
-                let byte_offset = items[0].byte_offset;
+                let bit_offset = items[0].bit_offset;
                 let len = items.len() as u32;
-                let byte_stride = if len == 1 {
+                let bit_stride = if len == 1 {
                     // If there's only 1 item, we can't know the stride, but it
                     // doesn't really matter!
                     0
                 } else {
-                    items[1].byte_offset - items[0].byte_offset
+                    items[1].bit_offset - items[0].bit_offset
                 };
 
                 // Check the stride guess is OK
@@ -52,26 +52,26 @@ impl MakeRegisterArray {
                 if items
                     .iter()
                     .enumerate()
-                    .any(|(n, i)| i.byte_offset != byte_offset + (n as u32) * byte_stride)
+                    .any(|(n, i)| i.bit_offset != bit_offset + (n as u32) * bit_stride)
                 {
                     panic!("arrayize: items are not evenly spaced")
                 }
 
-                info!("offs {} stride {}", byte_offset, byte_stride);
+                info!("offs {} stride {}", bit_offset, bit_stride);
 
                 let mut item = items[0].clone();
 
                 // Remove all
-                b.items.retain(|i| !group.contains(&i.name));
+                b.fields.retain(|i| !group.contains(&i.name));
 
                 // Create the new array item
                 item.name = to;
                 item.array = Some(Array {
-                    stride: byte_stride,
+                    stride: bit_stride,
                     len,
                 });
-                item.byte_offset = byte_offset;
-                b.items.push(item);
+                item.bit_offset = bit_offset;
+                b.fields.push(item);
             }
         }
         Ok(())

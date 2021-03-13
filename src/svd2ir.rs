@@ -20,11 +20,8 @@ pub fn convert_block(
         items: Vec::new(),
     };
 
-    let mut regs_path = path.clone();
-    regs_path.push("regs".to_owned());
-
-    let mut vals_path = path.clone();
-    vals_path.push("vals".to_owned());
+    let mut regs_path = pushit(&path, "regs".to_owned());
+    let mut vals_path = pushit(&path, "vals".to_owned());
 
     for r in regs {
         match r {
@@ -38,7 +35,7 @@ pub fn convert_block(
                 let array = if let svd::Register::Array(_, dim) = r {
                     Some(Array {
                         len: dim.dim,
-                        byte_stride: dim.dim_increment,
+                        stride: dim.dim_increment,
                     })
                 } else {
                     None
@@ -104,6 +101,7 @@ pub fn convert_block(
                             description: f.description.clone(),
                             bit_offset: f.bit_range.offset,
                             bit_size: f.bit_range.width,
+                            array: None,
                             enumm,
                         })
                     }
@@ -140,15 +138,13 @@ pub fn convert_block(
                 let array = if let svd::Cluster::Array(_, dim) = c {
                     Some(Array {
                         len: dim.dim,
-                        byte_stride: dim.dim_increment,
+                        stride: dim.dim_increment,
                     })
                 } else {
                     None
                 };
 
-                let mut block_path = path.clone();
-                block_path.push(cname.clone());
-
+                let block_path = pushit(&path, cname.clone());
                 let id = convert_block(
                     ir,
                     block_path,
@@ -171,16 +167,20 @@ pub fn convert_block(
     ir.blocks.put(block)
 }
 
-pub fn convert(svd: &svd::Device) -> IR {
-    let mut ir = IR::new();
+fn pushit(v: &Vec<String>, s: String) -> Vec<String> {
+    let mut r = v.clone();
+    r.push(s);
+    r
+}
 
+pub fn convert(ir: &mut IR, svd: &svd::Device, path: Vec<String>) -> anyhow::Result<()> {
     let mut peripheral_ids = HashMap::new();
 
     for p in &svd.peripherals {
         if let Some(regs) = &p.registers {
             let id = convert_block(
-                &mut ir,
-                vec![p.name.clone()],
+                ir,
+                pushit(&path, p.name.clone()),
                 p.name.clone(),
                 p.description.clone(),
                 regs,
@@ -192,7 +192,7 @@ pub fn convert(svd: &svd::Device) -> IR {
     // Device
 
     let mut device = Device {
-        path: Path::new(vec![svd.name.clone()], "Device".to_owned()),
+        path: Path::new(path, "Device".to_owned()),
         cpu: svd.cpu.clone(),
         interrupts: vec![],
         peripherals: vec![],
@@ -222,5 +222,5 @@ pub fn convert(svd: &svd::Device) -> IR {
 
     ir.devices.put(device);
 
-    ir
+    Ok(())
 }
