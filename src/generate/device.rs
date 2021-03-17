@@ -11,13 +11,16 @@ pub fn render(ir: &IR, d: &Device) -> Result<TokenStream> {
     let mut out = TokenStream::new();
     let span = Span::call_site();
 
+    let mut interrupts_sorted = d.interrupts.clone();
+    interrupts_sorted.sort_by_key(|i| i.value);
+
     let mut interrupts = TokenStream::new();
     let mut peripherals = TokenStream::new();
     let mut vectors = TokenStream::new();
     let mut names = vec![];
 
     let mut pos = 0;
-    for i in &d.interrupts {
+    for i in &interrupts_sorted {
         while pos < i.value {
             vectors.extend(quote!(Vector { _reserved: 0 },));
             pos += 1;
