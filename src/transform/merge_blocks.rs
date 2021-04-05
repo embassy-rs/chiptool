@@ -33,7 +33,7 @@ impl MergeBlocks {
     fn merge_blocks(
         &self,
         ir: &mut IR,
-        ids: HashSet<Id<Block>>,
+        ids: HashSet<String>,
         to: Path,
         main: Option<&String>,
     ) -> anyhow::Result<()> {

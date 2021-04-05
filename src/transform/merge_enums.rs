@@ -27,7 +27,7 @@ impl MergeEnums {
         Ok(())
     }
 
-    fn merge_enums(&self, ir: &mut IR, ids: HashSet<Id<Enum>>, to: Path) {
+    fn merge_enums(&self, ir: &mut IR, ids: HashSet<String>, to: Path) {
         let mut e = ir.enums.get(*ids.iter().next().unwrap()).clone();
 
         for id in &ids {

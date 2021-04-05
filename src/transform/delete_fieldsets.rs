@@ -18,7 +18,7 @@ impl DeleteFieldsets {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
         let re = make_regex(&self.from)?;
 
-        let mut ids: HashSet<Id<FieldSet>> = HashSet::new();
+        let mut ids: HashSet<String> = HashSet::new();
         for (id, fs) in ir.fieldsets.iter() {
             if path_matches(&fs.path, &re) && (!self.useless | is_useless(fs)) {
                 info!("deleting fieldset {}", fs.path);
@@ -41,12 +41,18 @@ impl DeleteFieldsets {
 fn is_useless(fs: &FieldSet) -> bool {
     match &fs.fields[..] {
         [] => true,
-        [f] => fs.bit_size == f.bit_size && f.bit_offset == 0 && f.enumm.is_none(),
+        [f] => {
+            fs.bit_size == f.bit_size
+                && f.bit_offset == 0
+                && f.enum_read.is_none()
+                && f.enum_write.is_none()
+                && f.enum_readwrite.is_none()
+        }
         _ => false,
     }
 }
 
-fn remove_fieldset_ids(ir: &mut IR, from: &HashSet<Id<FieldSet>>) {
+pub(crate) fn remove_fieldset_ids(ir: &mut IR, from: &HashSet<String>) {
     for (_, b) in ir.blocks.iter_mut() {
         for i in b.items.iter_mut() {
             if let BlockItemInner::Register(reg) = &mut i.inner {

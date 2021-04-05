@@ -1,6 +1,10 @@
 use anyhow::bail;
+use array::IntoIter;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::{
+    array,
+    collections::{HashMap, HashSet},
+};
 
 use crate::ir::*;
 
@@ -54,7 +58,9 @@ pub(crate) fn mergeable_fields(a: &Field, b: &Field, level: CheckLevel) -> bool 
     if level >= CheckLevel::Layout {
         res &= a.bit_size == b.bit_size
             && a.bit_offset == b.bit_offset
-            && a.enumm == b.enumm
+            && a.enum_read == b.enum_read
+            && a.enum_write == b.enum_write
+            && a.enum_readwrite == b.enum_readwrite
             && a.array == b.array;
     }
     if level >= CheckLevel::Names {
@@ -101,44 +107,24 @@ pub(crate) fn check_mergeable_fieldsets_inner(
     Ok(())
 }
 
-pub(crate) fn match_paths<T: Pathed>(set: &Set<T>, re: &regex::Regex) -> HashSet<Id<T>> {
-    let mut ids: HashSet<Id<T>> = HashSet::new();
-    for (id, e) in set.iter() {
-        if path_matches(e.path(), &re) {
+pub(crate) fn match_all(set: impl Iterator<Item = String>, re: &regex::Regex) -> HashSet<String> {
+    let mut ids: HashSet<String> = HashSet::new();
+    for id in set {
+        if re.is_match(&id) {
             ids.insert(id);
         }
     }
     ids
 }
 
-pub(crate) fn path_groups<T: Pathed>(
-    set: &Set<T>,
-    re: &regex::Regex,
-    to: &String,
-) -> HashMap<Path, HashSet<Id<T>>> {
-    let mut groups: HashMap<Path, HashSet<Id<T>>> = HashMap::new();
-    for (id, e) in set.iter() {
-        if let Some(to) = path_match_expand(e.path(), &re, to) {
-            if let Some(v) = groups.get_mut(&to) {
-                v.insert(id);
-            } else {
-                let mut s = HashSet::new();
-                s.insert(id);
-                groups.insert(to, s);
-            }
-        }
-    }
-    groups
-}
-
-pub(crate) fn string_groups(
+pub(crate) fn match_groups(
     set: impl Iterator<Item = String>,
     re: &regex::Regex,
     to: &String,
 ) -> HashMap<String, HashSet<String>> {
     let mut groups: HashMap<String, HashSet<String>> = HashMap::new();
     for s in set {
-        if let Some(to) = string_match_expand(&s, &re, to) {
+        if let Some(to) = match_expand(&s, &re, to) {
             if let Some(v) = groups.get_mut(&to) {
                 v.insert(s);
             } else {
@@ -151,45 +137,20 @@ pub(crate) fn string_groups(
     groups
 }
 
-pub(crate) fn path_matches(path: &Path, regex: &regex::Regex) -> bool {
-    let path = path.to_string();
-    regex.is_match(&path)
-}
-
-pub(crate) fn path_match_expand(path: &Path, regex: &regex::Regex, res: &str) -> Option<Path> {
-    let path = path.to_string();
-    let m = regex.captures(&path)?;
-    let mut dst = String::new();
-    m.expand(res, &mut dst);
-    Some(Path::new_from_string(&dst))
-}
-
-pub(crate) fn string_match_expand(s: &str, regex: &regex::Regex, res: &str) -> Option<String> {
+pub(crate) fn match_expand(s: &str, regex: &regex::Regex, res: &str) -> Option<String> {
     let m = regex.captures(&s)?;
     let mut dst = String::new();
     m.expand(res, &mut dst);
     Some(dst)
 }
 
-pub(crate) fn replace_enum_ids(ir: &mut IR, from: &HashSet<Id<Enum>>, to: Id<Enum>) {
+pub(crate) fn replace_enum_ids(ir: &mut IR, from: &HashSet<String>, to: String) {
     for (_, fs) in ir.fieldsets.iter_mut() {
         for f in fs.fields.iter_mut() {
-            if let Some(id) = f.enumm {
-                if from.contains(&id) {
-                    f.enumm = Some(to)
-                }
-            }
-        }
-    }
-}
-
-pub(crate) fn replace_fieldset_ids(ir: &mut IR, from: &HashSet<Id<FieldSet>>, to: Id<FieldSet>) {
-    for (_, b) in ir.blocks.iter_mut() {
-        for i in b.items.iter_mut() {
-            if let BlockItemInner::Register(r) = &mut i.inner {
-                if let Some(id) = r.fieldset {
-                    if from.contains(&id) {
-                        r.fieldset = Some(to)
+            for e in IntoIter::new([&mut f.enum_read, &mut f.enum_write, &mut f.enum_readwrite]) {
+                if let Some(id) = e {
+                    if from.contains(id) {
+                        *e = Some(to.clone())
                     }
                 }
             }
@@ -197,7 +158,22 @@ pub(crate) fn replace_fieldset_ids(ir: &mut IR, from: &HashSet<Id<FieldSet>>, to
     }
 }
 
-pub(crate) fn replace_block_ids(ir: &mut IR, from: &HashSet<Id<Block>>, to: Id<Block>) {
+pub(crate) fn replace_fieldset_ids(ir: &mut IR, from: &HashSet<String>, to: String) {
+    for (_, b) in ir.blocks.iter_mut() {
+        for i in b.items.iter_mut() {
+            if let BlockItemInner::Register(r) = &mut i.inner {
+                if let Some(id) = &r.fieldset {
+                    if from.contains(id) {
+                        r.fieldset = Some(to.clone())
+                    }
+                }
+            }
+        }
+    }
+}
+
+pub(crate) fn replace_block_ids(ir: &mut IR, from: &HashSet<String>, to: String) {
+    /*
     for (_, d) in ir.devices.iter_mut() {
         for p in d.peripherals.iter_mut() {
             if from.contains(&p.block) {
@@ -205,12 +181,13 @@ pub(crate) fn replace_block_ids(ir: &mut IR, from: &HashSet<Id<Block>>, to: Id<B
             }
         }
     }
+     */
 
     for (_, b) in ir.blocks.iter_mut() {
         for i in b.items.iter_mut() {
             if let BlockItemInner::Block(id) = &i.inner {
-                if from.contains(&id) {
-                    i.inner = BlockItemInner::Block(to)
+                if from.contains(id) {
+                    i.inner = BlockItemInner::Block(to.clone())
                 }
             }
         }

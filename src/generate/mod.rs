@@ -1,5 +1,5 @@
 mod block;
-mod device;
+//mod device;
 mod enumm;
 mod fieldset;
 
@@ -28,13 +28,13 @@ impl Module {
         }
     }
 
-    fn get_by_path(&mut self, path: &[String]) -> &mut Module {
+    fn get_by_path(&mut self, path: &[&str]) -> &mut Module {
         if path.is_empty() {
             return self;
         }
 
         self.children
-            .entry(path[0].clone())
+            .entry(path[0].to_owned())
             .or_insert_with(|| Module::new())
             .get_by_path(&path[1..])
     }
@@ -83,36 +83,47 @@ pub fn render(ir: &IR) -> Result<TokenStream> {
         #![doc=#doc]
     ));
 
+    /*
     for (_, d) in ir.devices.iter() {
         root.get_by_path(&d.path.modules)
             .items
             .extend(device::render(ir, d)?);
     }
+     */
 
-    for (_, b) in ir.blocks.iter() {
-        root.get_by_path(&b.path.modules)
+    for (p, b) in ir.blocks.iter() {
+        let (mods, _) = split_path(p);
+        root.get_by_path(&mods)
             .items
-            .extend(block::render(ir, b)?);
+            .extend(block::render(ir, b, p)?);
     }
 
-    for (_, fs) in ir.fieldsets.iter() {
-        root.get_by_path(&fs.path.modules)
+    for (p, fs) in ir.fieldsets.iter() {
+        let (mods, _) = split_path(p);
+        root.get_by_path(&mods)
             .items
-            .extend(fieldset::render(ir, fs)?);
+            .extend(fieldset::render(ir, fs, p)?);
     }
 
-    for (_, e) in ir.enums.iter() {
-        root.get_by_path(&e.path.modules)
+    for (p, e) in ir.enums.iter() {
+        let (mods, _) = split_path(p);
+        root.get_by_path(&mods)
             .items
-            .extend(enumm::render(ir, e)?);
+            .extend(enumm::render(ir, e, p)?);
     }
 
     let generic_file = std::str::from_utf8(include_bytes!("generic.rs"))?;
     let tokens = syn::parse_file(generic_file)?.into_token_stream();
 
-    let generic_mod = root.get_by_path(&["generic".to_owned()]);
+    let generic_mod = root.get_by_path(&["generic"]);
     generic_mod.items = TokenStream::new(); // Remove default contents
     generic_mod.items.extend(tokens);
 
     root.render()
+}
+
+fn split_path(s: &str) -> (Vec<&str>, &str) {
+    let mut v: Vec<&str> = s.split("::").collect();
+    let n = v.pop().unwrap();
+    (v, n)
 }

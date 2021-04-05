@@ -13,7 +13,7 @@ use anyhow::{anyhow, bail, Context, Result};
 
 use crate::ir::*;
 
-pub fn render(ir: &IR, e: &Enum) -> Result<TokenStream> {
+pub fn render(ir: &IR, e: &Enum, path: &str) -> Result<TokenStream> {
     let span = Span::call_site();
     let mut items = TokenStream::new();
 
@@ -35,7 +35,8 @@ pub fn render(ir: &IR, e: &Enum) -> Result<TokenStream> {
         ));
     }
 
-    let name = Ident::new(&e.path.name, span);
+    let (_, name) = super::split_path(path);
+    let name = Ident::new(name, span);
     let doc = util::doc(&e.description);
 
     let out = quote! {

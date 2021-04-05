@@ -18,9 +18,9 @@ impl MakeBlock {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
         let path_re = make_regex(&self.blocks)?;
         let re = make_regex(&self.from)?;
-        for id in match_paths(&ir.blocks, &path_re) {
+        for id in match_all(&ir.blocks, &path_re) {
             let b = ir.blocks.get_mut(id);
-            let groups = string_groups(b.items.iter().map(|f| f.name.clone()), &re, &self.to_outer);
+            let groups = match_groups(b.items.iter().map(|f| f.name.clone()), &re, &self.to_outer);
             for (to, group) in groups {
                 let b = ir.blocks.get_mut(id);
                 info!("blockifizing to {}", to);
@@ -57,7 +57,7 @@ impl MakeBlock {
                         .iter()
                         .map(|&i| {
                             let mut i = i.clone();
-                            i.name = string_match_expand(&i.name, &re, &self.to_inner).unwrap();
+                            i.name = match_expand(&i.name, &re, &self.to_inner).unwrap();
                             i.byte_offset -= byte_offset;
                             i
                         })

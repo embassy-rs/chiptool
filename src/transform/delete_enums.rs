@@ -1,6 +1,9 @@
 use log::*;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::{
+    array::IntoIter,
+    collections::{HashMap, HashSet},
+};
 
 use super::common::*;
 use crate::ir::*;
@@ -17,7 +20,7 @@ impl DeleteEnums {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
         let re = make_regex(&self.from)?;
 
-        let mut ids: HashSet<Id<Enum>> = HashSet::new();
+        let mut ids: HashSet<String> = HashSet::new();
         for (id, e) in ir.enums.iter() {
             let bit_size_matches = self.bit_size.map_or(true, |s| s == e.bit_size);
             if path_matches(&e.path, &re) && bit_size_matches {
@@ -38,12 +41,14 @@ impl DeleteEnums {
     }
 }
 
-fn remove_enum_ids(ir: &mut IR, from: &HashSet<Id<Enum>>) {
+pub(crate) fn remove_enum_ids(ir: &mut IR, from: &HashSet<String>) {
     for (_, fs) in ir.fieldsets.iter_mut() {
         for f in fs.fields.iter_mut() {
-            if let Some(id) = f.enumm {
-                if from.contains(&id) {
-                    f.enumm = None
+            for e in IntoIter::new([&mut f.enum_read, &mut f.enum_write, &mut f.enum_readwrite]) {
+                if let Some(id) = *e {
+                    if from.contains(&id) {
+                        *e = None
+                    }
                 }
             }
         }

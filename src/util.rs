@@ -282,9 +282,12 @@ pub fn build_rs() -> TokenStream {
 }
 
 /// Return a relative path to access a from b.
-pub fn relative_path(a: &Path, b: &Path) -> TokenStream {
-    let mut ma = &a.modules[..];
-    let mut mb = &b.modules[..];
+pub fn relative_path(a: &str, b: &str) -> TokenStream {
+    let a: Vec<&str> = a.split("::").collect();
+    let b: Vec<&str> = b.split("::").collect();
+
+    let mut ma = &a[..a.len() - 1];
+    let mut mb = &b[..b.len() - 1];
     while !ma.is_empty() && !mb.is_empty() && ma[0] == mb[0] {
         ma = &ma[1..];
         mb = &mb[1..];
@@ -303,7 +306,7 @@ pub fn relative_path(a: &Path, b: &Path) -> TokenStream {
         res.extend(quote!(#ident::));
     }
 
-    let ident = Ident::new(&a.name, Span::call_site());
+    let ident = Ident::new(&a[a.len() - 1], Span::call_site());
     res.extend(quote!(#ident));
 
     res

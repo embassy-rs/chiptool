@@ -2,8 +2,9 @@
 
 use ir::IR;
 use log::error;
+use regex::Regex;
 use svd_parser as svd;
-use transform::Transform;
+use transform::map_names;
 
 mod generate;
 mod ir;
@@ -11,60 +12,62 @@ mod svd2ir;
 mod transform;
 mod util;
 
-use std::fs::File;
+use std::io::Read;
 use std::io::Write;
 use std::process;
+use std::{fs::File, io::stdout};
 
 use anyhow::{Context, Result};
-use clap::{App, Arg};
+use clap::Clap;
 use log::*;
 
-fn run() -> Result<()> {
-    use std::io::Read;
+#[derive(Clap)]
+#[clap(version = "1.0", author = "Dirbaio <dirbaio@dirbaio.net>")]
+struct Opts {
+    #[clap(subcommand)]
+    subcommand: Subcommand,
+}
 
-    let matches = App::new("svd2rust")
-        .about("Generate a Rust API from SVD files")
-        .arg(
-            Arg::with_name("input")
-                .help("Input SVD file")
-                .short("i")
-                .takes_value(true)
-                .value_name("FILE"),
-        )
-        .arg(
-            Arg::with_name("config")
-                .help("Config file")
-                .short("c")
-                .takes_value(true)
-                .value_name("CONFIG"),
-        )
-        .arg(
-            Arg::with_name("target")
-                .long("target")
-                .help("Target architecture")
-                .takes_value(true)
-                .value_name("ARCH"),
-        )
-        .arg(
-            Arg::with_name("log_level")
-                .long("log")
-                .short("l")
-                .help(&format!(
-                    "Choose which messages to log (overrides {})",
-                    env_logger::DEFAULT_FILTER_ENV
-                ))
-                .takes_value(true)
-                .possible_values(&["off", "error", "warn", "info", "debug", "trace"]),
-        )
-        .version(concat!(
-            env!("CARGO_PKG_VERSION"),
-            include_str!(concat!(env!("OUT_DIR"), "/commit-info.txt"))
-        ))
-        .get_matches();
+#[derive(Clap)]
+enum Subcommand {
+    Extract(Extract),
+    Generate(Generate),
+}
 
-    setup_logging(&matches);
+/// Extract peripheral from SVD to YAML
+#[derive(Clap)]
+struct Extract {
+    /// SVD file path
+    #[clap(long)]
+    svd: String,
+    /// Peripheral from the SVD
+    #[clap(long)]
+    peri: String,
+    /// Transforms file path
+    #[clap(long)]
+    xfrm: Option<String>,
+}
+/// Generate a PAC from a set of peripheral YAMLs
+#[derive(Clap)]
+struct Generate {
+    /// Input directory containing the peripheral YAMLs
+    #[clap(long)]
+    dir: String,
+}
 
-    let config = match matches.value_of("config") {
+fn main() -> Result<()> {
+    env_logger::init();
+
+    let opts: Opts = Opts::parse();
+
+    match opts.subcommand {
+        Subcommand::Extract(x) => extract(x),
+        Subcommand::Generate(x) => generate(x),
+    }
+}
+
+fn extract(args: Extract) -> Result<()> {
+    let config = match args.xfrm {
         Some(file) => {
             let config = &mut String::new();
             File::open(file)
@@ -77,38 +80,61 @@ fn run() -> Result<()> {
     };
 
     let xml = &mut String::new();
-    match matches.value_of("input") {
-        Some(file) => {
-            File::open(file)
-                .context("Cannot open the SVD file")?
-                .read_to_string(xml)
-                .context("Cannot read the SVD file")?;
-        }
-        None => {
-            let stdin = std::io::stdin();
-            stdin
-                .lock()
-                .read_to_string(xml)
-                .context("Cannot read from stdin")?;
-        }
-    }
+    File::open(args.svd)
+        .context("Cannot open the SVD file")?
+        .read_to_string(xml)
+        .context("Cannot read the SVD file")?;
 
     let device = svd::parse(xml)?;
     let mut ir = IR::new();
-    svd2ir::convert(&mut ir, &device, vec![])?;
-    transform::Sanitize {}.run(&mut ir);
+
+    let peri = args.peri;
+    let p = device.peripherals.iter().find(|p| p.name == peri).unwrap();
+
+    svd2ir::convert_peripheral(&mut ir, &p)?;
+
+    // Fix weird newline spam in descriptions.
+    let re = Regex::new("[ \n]+").unwrap();
+    transform::map_descriptions(&mut ir, |d| re.replace_all(d, " ").into_owned());
 
     for t in &config.transforms {
         info!("running: {:?}", t);
         t.run(&mut ir)?;
     }
 
-    //transform::find_dup_enums(&mut ir);
-    //transform::find_dup_fieldsets(&mut ir);
+    serde_yaml::to_writer(stdout(), &ir).unwrap();
+    Ok(())
+}
+
+fn generate(args: Generate) -> Result<()> {
+    let mut ir = IR::new();
+    for f in std::fs::read_dir(&args.dir)
+        .unwrap()
+        .filter_map(|res| res.unwrap().file_name().to_str().map(|s| s.to_string()))
+        .filter(|s| s.ends_with(".yaml"))
+    {
+        let name = f.strip_suffix(".yaml").unwrap();
+        info!("loading {}", name);
+        let mut peri: IR =
+            serde_yaml::from_reader(File::open(format!("{}/{}", args.dir, f)).unwrap()).unwrap();
+
+        let prefix = name;
+
+        transform::map_names(&mut peri, |s, k| match k {
+            transform::NameKind::Block => format!("{}::{}", prefix, s),
+            transform::NameKind::Fieldset => format!("{}::regs::{}", prefix, s),
+            transform::NameKind::Enum => format!("{}::vals::{}", prefix, s),
+            _ => s.to_string(),
+        })
+        .unwrap();
+
+        ir.merge(peri);
+    }
+
+    transform::Sanitize {}.run(&mut ir).unwrap();
 
     let items = generate::render(&ir)?;
     let mut file = File::create("lib.rs").expect("Couldn't create lib.rs file");
-
     let data = items.to_string().replace("] ", "]\n");
     file.write_all(data.as_ref())
         .expect("Could not write code to lib.rs");
@@ -116,43 +142,9 @@ fn run() -> Result<()> {
     Ok(())
 }
 
-fn setup_logging(matches: &clap::ArgMatches) {
-    // * Log at info by default.
-    // * Allow users the option of setting complex logging filters using
-    //   env_logger's `RUST_LOG` environment variable.
-    // * Override both of those if the logging level is set via the `--log`
-    //   command line argument.
-    let env = env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info");
-    let mut builder = env_logger::Builder::from_env(env);
-    builder.format_timestamp(None);
-
-    let log_lvl_from_env = std::env::var_os(env_logger::DEFAULT_FILTER_ENV).is_some();
-
-    if log_lvl_from_env {
-        log::set_max_level(log::LevelFilter::Trace);
-    } else {
-        let level = match matches.value_of("log_level") {
-            Some(lvl) => lvl.parse().unwrap(),
-            None => log::LevelFilter::Info,
-        };
-        log::set_max_level(level);
-        builder.filter_level(level);
-    }
-
-    builder.init();
-}
-
-fn main() {
-    if let Err(ref e) = run() {
-        error!("{:?}", e);
-
-        process::exit(1);
-    }
-}
-
 #[derive(serde::Serialize, serde::Deserialize)]
 struct Config {
-    transforms: Vec<Transform>,
+    transforms: Vec<transform::Transform>,
 }
 
 impl Default for Config {

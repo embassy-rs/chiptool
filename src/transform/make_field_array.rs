@@ -15,9 +15,9 @@ impl MakeFieldArray {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
         let path_re = make_regex(&self.fieldsets)?;
         let re = make_regex(&self.from)?;
-        for id in match_paths(&ir.fieldsets, &path_re) {
-            let b = ir.fieldsets.get_mut(id);
-            let groups = string_groups(b.fields.iter().map(|f| f.name.clone()), &re, &self.to);
+        for id in match_all(ir.fieldsets.keys().cloned(), &path_re) {
+            let b = ir.fieldsets.get_mut(&id).unwrap();
+            let groups = match_groups(b.fields.iter().map(|f| f.name.clone()), &re, &self.to);
             for (to, group) in groups {
                 info!("arrayizing to {}", to);
 

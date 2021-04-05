@@ -33,7 +33,7 @@ impl MergeFieldsets {
     fn merge_fieldsets(
         &self,
         ir: &mut IR,
-        ids: HashSet<Id<FieldSet>>,
+        ids: HashSet<String>,
         to: Path,
         main: Option<&String>,
     ) -> anyhow::Result<()> {

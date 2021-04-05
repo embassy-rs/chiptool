@@ -6,7 +6,7 @@ use quote::quote;
 use crate::ir::*;
 use crate::util;
 
-pub fn render(ir: &IR, fs: &FieldSet) -> Result<TokenStream> {
+pub fn render(ir: &IR, fs: &FieldSet, path: &str) -> Result<TokenStream> {
     let span = Span::call_site();
     let mut items = TokenStream::new();
 
@@ -29,8 +29,8 @@ pub fn render(ir: &IR, fs: &FieldSet) -> Result<TokenStream> {
         let to_bits: TokenStream;
         let from_bits: TokenStream;
 
-        if let Some(e) = f.enumm {
-            let e = ir.enums.get(e);
+        if let Some(e_path) = &f.enum_readwrite {
+            let e = ir.enums.get(e_path).unwrap();
 
             let enum_ty = match e.bit_size {
                 1..=8 => quote!(u8),
@@ -40,7 +40,7 @@ pub fn render(ir: &IR, fs: &FieldSet) -> Result<TokenStream> {
                 _ => panic!("Invalid bit_size {}", e.bit_size),
             };
 
-            field_ty = util::relative_path(&e.path, &fs.path);
+            field_ty = util::relative_path(e_path, path);
             to_bits = quote!(val.0 as #ty);
             from_bits = quote!(#field_ty(val as #enum_ty));
         } else {
@@ -94,7 +94,8 @@ pub fn render(ir: &IR, fs: &FieldSet) -> Result<TokenStream> {
         }
     }
 
-    let name = Ident::new(&fs.path.name, span);
+    let (_, name) = super::split_path(path);
+    let name = Ident::new(name, span);
     let doc = util::doc(&fs.description);
 
     let out = quote! {

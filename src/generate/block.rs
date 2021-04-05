@@ -13,7 +13,7 @@ use anyhow::{anyhow, bail, Context, Result};
 
 use crate::ir::*;
 
-pub fn render(ir: &IR, b: &Block) -> Result<TokenStream> {
+pub fn render(ir: &IR, b: &Block, path: &str) -> Result<TokenStream> {
     let span = Span::call_site();
     let mut items = TokenStream::new();
 
@@ -25,9 +25,9 @@ pub fn render(ir: &IR, b: &Block) -> Result<TokenStream> {
 
         match &i.inner {
             BlockItemInner::Register(r) => {
-                let reg_ty = if let Some(f) = r.fieldset {
-                    let f = ir.fieldsets.get(f);
-                    util::relative_path(&f.path, &b.path)
+                let reg_ty = if let Some(fieldset_path) = &r.fieldset {
+                    let f = ir.fieldsets.get(fieldset_path).unwrap();
+                    util::relative_path(fieldset_path, path)
                 } else {
                     quote!(u32) // todo
                 };
@@ -58,9 +58,9 @@ pub fn render(ir: &IR, b: &Block) -> Result<TokenStream> {
                     ));
                 }
             }
-            BlockItemInner::Block(b2) => {
-                let b2 = ir.blocks.get(*b2);
-                let ty = util::relative_path(&b2.path, &b.path);
+            BlockItemInner::Block(block_path) => {
+                let b2 = ir.blocks.get(block_path).unwrap();
+                let ty = util::relative_path(block_path, path);
                 if let Some(array) = &i.array {
                     let len = array.len as usize;
                     let stride = array.stride as usize;
@@ -83,7 +83,8 @@ pub fn render(ir: &IR, b: &Block) -> Result<TokenStream> {
         }
     }
 
-    let name = Ident::new(&b.path.name, span);
+    let (_, name) = super::split_path(path);
+    let name = Ident::new(name, span);
     let doc = util::doc(&b.description);
     let out = quote! {
         #doc
