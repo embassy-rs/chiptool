@@ -54,6 +54,9 @@ pub struct Peripheral {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Block {
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub extends: Option<String>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
     pub items: Vec<BlockItem>,
 }
@@ -107,6 +110,9 @@ pub enum Access {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct FieldSet {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub extends: Option<String>,
+
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
     #[serde(default = "default_32", skip_serializing_if = "is_32")]

@@ -122,34 +122,37 @@ fn sanitize_path(p: &str) -> String {
 
 mod common;
 
-//mod delete;
-//mod delete_enums;
-//mod delete_fieldsets;
+mod delete;
+mod delete_enums;
+mod delete_fieldsets;
 //mod find_duplicate_enums;
 //mod find_duplicate_fieldsets;
 //mod load_svd;
 //mod make_block;
 mod make_field_array;
-//mod make_register_array;
+mod make_register_array;
 //mod merge_blocks;
-//mod merge_enums;
-//mod merge_fieldsets;
+mod merge_enums;
+mod merge_fieldsets;
 //mod rename;
 //mod rename_fields;
+pub(crate) mod expand_extends;
+pub(crate) mod sort;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Transform {
     //LoadSvd(load_svd::LoadSvd),
     Sanitize(Sanitize),
-    //Delete(delete::Delete),
-    //DeleteEnums(delete_enums::DeleteEnums),
-    //DeleteFieldsets(delete_fieldsets::DeleteFieldsets),
+    Sort(sort::Sort),
+    Delete(delete::Delete),
+    DeleteEnums(delete_enums::DeleteEnums),
+    DeleteFieldsets(delete_fieldsets::DeleteFieldsets),
     //MergeBlocks(merge_blocks::MergeBlocks),
-    //MergeEnums(merge_enums::MergeEnums),
-    //MergeFieldsets(merge_fieldsets::MergeFieldsets),
+    MergeEnums(merge_enums::MergeEnums),
+    MergeFieldsets(merge_fieldsets::MergeFieldsets),
     //Rename(rename::Rename),
     //RenameFields(rename_fields::RenameFields),
-    //MakeRegisterArray(make_register_array::MakeRegisterArray),
+    MakeRegisterArray(make_register_array::MakeRegisterArray),
     MakeFieldArray(make_field_array::MakeFieldArray),
     //MakeBlock(make_block::MakeBlock),
     //FindDuplicateEnums(find_duplicate_enums::FindDuplicateEnums),
@@ -160,16 +163,17 @@ impl Transform {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
         match self {
             Self::Sanitize(t) => t.run(ir),
+            Self::Sort(t) => t.run(ir),
             //Self::LoadSvd(t) => t.run(ir),
-            //Self::Delete(t) => t.run(ir),
-            //Self::DeleteEnums(t) => t.run(ir),
-            //Self::DeleteFieldsets(t) => t.run(ir),
+            Self::Delete(t) => t.run(ir),
+            Self::DeleteEnums(t) => t.run(ir),
+            Self::DeleteFieldsets(t) => t.run(ir),
             //Self::MergeBlocks(t) => t.run(ir),
-            //Self::MergeEnums(t) => t.run(ir),
-            //Self::MergeFieldsets(t) => t.run(ir),
+            Self::MergeEnums(t) => t.run(ir),
+            Self::MergeFieldsets(t) => t.run(ir),
             //Self::Rename(t) => t.run(ir),
             //Self::RenameFields(t) => t.run(ir),
-            //Self::MakeRegisterArray(t) => t.run(ir),
+            Self::MakeRegisterArray(t) => t.run(ir),
             Self::MakeFieldArray(t) => t.run(ir),
             //Self::MakeBlock(t) => t.run(ir),
             //Self::FindDuplicateEnums(t) => t.run(ir),

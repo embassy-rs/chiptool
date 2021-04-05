@@ -2,6 +2,7 @@
 
 use ir::IR;
 use log::error;
+use quote::__private::ext;
 use regex::Regex;
 use svd_parser as svd;
 use transform::map_names;
@@ -95,12 +96,15 @@ fn extract(args: Extract) -> Result<()> {
 
     // Fix weird newline spam in descriptions.
     let re = Regex::new("[ \n]+").unwrap();
-    transform::map_descriptions(&mut ir, |d| re.replace_all(d, " ").into_owned());
+    transform::map_descriptions(&mut ir, |d| re.replace_all(d, " ").into_owned())?;
 
     for t in &config.transforms {
         info!("running: {:?}", t);
         t.run(&mut ir)?;
     }
+
+    // Ensure consistent sort order in the YAML.
+    transform::sort::Sort {}.run(&mut ir).unwrap();
 
     serde_yaml::to_writer(stdout(), &ir).unwrap();
     Ok(())
@@ -120,6 +124,10 @@ fn generate(args: Generate) -> Result<()> {
 
         let prefix = name;
 
+        transform::expand_extends::ExpandExtends {}
+            .run(&mut peri)
+            .unwrap();
+
         transform::map_names(&mut peri, |s, k| match k {
             transform::NameKind::Block => format!("{}::{}", prefix, s),
             transform::NameKind::Fieldset => format!("{}::regs::{}", prefix, s),
@@ -131,6 +139,9 @@ fn generate(args: Generate) -> Result<()> {
         ir.merge(peri);
     }
 
+    // Cleanups!
+
+    transform::sort::Sort {}.run(&mut ir).unwrap();
     transform::Sanitize {}.run(&mut ir).unwrap();
 
     let items = generate::render(&ir)?;

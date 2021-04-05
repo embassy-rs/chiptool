@@ -1,6 +1,6 @@
 use log::*;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 use super::common::*;
 use crate::ir::*;
@@ -20,9 +20,9 @@ impl DeleteFieldsets {
 
         let mut ids: HashSet<String> = HashSet::new();
         for (id, fs) in ir.fieldsets.iter() {
-            if path_matches(&fs.path, &re) && (!self.useless | is_useless(fs)) {
-                info!("deleting fieldset {}", fs.path);
-                ids.insert(id);
+            if re.is_match(id) && (!self.useless | is_useless(fs)) {
+                info!("deleting fieldset {}", id);
+                ids.insert(id.clone());
             }
         }
 
@@ -30,7 +30,7 @@ impl DeleteFieldsets {
 
         if !self.soft {
             for id in ids {
-                ir.fieldsets.remove(id)
+                ir.fieldsets.remove(&id);
             }
         }
 
@@ -56,8 +56,8 @@ pub(crate) fn remove_fieldset_ids(ir: &mut IR, from: &HashSet<String>) {
     for (_, b) in ir.blocks.iter_mut() {
         for i in b.items.iter_mut() {
             if let BlockItemInner::Register(reg) = &mut i.inner {
-                if let Some(id) = reg.fieldset {
-                    if from.contains(&id) {
+                if let Some(id) = &reg.fieldset {
+                    if from.contains(id) {
                         reg.fieldset = None
                     }
                 }

@@ -16,44 +16,44 @@ impl Delete {
 
         let mut ids: HashSet<String> = HashSet::new();
         for (id, fs) in ir.fieldsets.iter() {
-            if path_matches(&fs.path, &re) {
-                info!("deleting fieldset {}", fs.path);
-                ids.insert(id);
+            if re.is_match(id) {
+                info!("deleting fieldset {}", id);
+                ids.insert(id.clone());
             }
         }
 
         super::delete_fieldsets::remove_fieldset_ids(ir, &ids);
 
         for id in ids {
-            ir.fieldsets.remove(id)
+            ir.fieldsets.remove(&id);
         }
 
         let mut ids: HashSet<String> = HashSet::new();
         for (id, e) in ir.enums.iter() {
-            if path_matches(&e.path, &re) {
-                info!("deleting enum {}", e.path);
-                ids.insert(id);
+            if re.is_match(id) {
+                info!("deleting enum {}", id);
+                ids.insert(id.clone());
             }
         }
 
         super::delete_enums::remove_enum_ids(ir, &ids);
 
         for id in ids {
-            ir.enums.remove(id)
+            ir.enums.remove(&id);
         }
 
         let mut ids: HashSet<String> = HashSet::new();
         for (id, b) in ir.blocks.iter() {
-            if path_matches(&b.path, &re) {
-                info!("deleting block {}", b.path);
-                ids.insert(id);
+            if re.is_match(id) {
+                info!("deleting block {}", id);
+                ids.insert(id.clone());
             }
         }
 
         remove_block_ids(ir, &ids);
 
         for id in ids {
-            ir.blocks.remove(id)
+            ir.blocks.remove(&id);
         }
 
         Ok(())
@@ -63,15 +63,15 @@ impl Delete {
 pub(crate) fn remove_block_ids(ir: &mut IR, from: &HashSet<String>) {
     for (_, b) in ir.blocks.iter_mut() {
         b.items.retain(|i| {
-            if let BlockItemInner::Block(bid) = i.inner {
-                !from.contains(&bid)
+            if let BlockItemInner::Block(bid) = &i.inner {
+                !from.contains(bid)
             } else {
                 true
             }
         });
     }
 
-    for (_, d) in ir.devices.iter_mut() {
-        d.peripherals.retain(|p| !from.contains(&p.block));
-    }
+    //for (_, d) in ir.devices.iter_mut() {
+    //    d.peripherals.retain(|p| !from.contains(&p.block));
+    //}
 }

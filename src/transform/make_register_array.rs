@@ -15,8 +15,8 @@ impl MakeRegisterArray {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
         let path_re = make_regex(&self.blocks)?;
         let re = make_regex(&self.from)?;
-        for id in match_all(&ir.blocks, &path_re) {
-            let b = ir.blocks.get_mut(id);
+        for id in match_all(ir.blocks.keys().cloned(), &path_re) {
+            let b = ir.blocks.get_mut(&id).unwrap();
             let groups = match_groups(b.items.iter().map(|f| f.name.clone()), &re, &self.to);
             for (to, group) in groups {
                 info!("arrayizing to {}", to);

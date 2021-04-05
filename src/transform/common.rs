@@ -12,10 +12,6 @@ pub(crate) fn make_regex(r: &str) -> Result<regex::Regex, regex::Error> {
     regex::Regex::new(&format!("^{}$", r))
 }
 
-pub(crate) fn mergeable_enums(a: &Enum, b: &Enum) -> bool {
-    a.variants == b.variants
-}
-
 fn dfalse() -> bool {
     false
 }
@@ -25,10 +21,70 @@ fn dtrue() -> bool {
 
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone, Copy, Serialize, Deserialize)]
 pub enum CheckLevel {
-    None,
+    NoCheck,
     Layout,
     Names,
     Descriptions,
+}
+
+pub(crate) fn check_mergeable_enums(a: &Enum, b: &Enum, level: CheckLevel) -> anyhow::Result<()> {
+    if let Err(e) = check_mergeable_enums_inner(a, b, level) {
+        bail!(
+            "Cannot merge enums.\nfirst: {:#?}\nsecond: {:#?}\ncause: {:?}",
+            a,
+            b,
+            e
+        )
+    }
+    Ok(())
+}
+pub(crate) fn check_mergeable_enums_inner(
+    a: &Enum,
+    b: &Enum,
+    level: CheckLevel,
+) -> anyhow::Result<()> {
+    if a.bit_size != b.bit_size {
+        bail!("Different bit size: {} vs {}", a.bit_size, b.bit_size)
+    }
+
+    if level >= CheckLevel::Layout {
+        if a.variants.len() != b.variants.len() {
+            bail!("Different variant count")
+        }
+
+        let mut aok = [false; 128];
+        let mut bok = [false; 128];
+
+        for (ia, fa) in a.variants.iter().enumerate() {
+            if let Some((ib, fb)) = b
+                .variants
+                .iter()
+                .enumerate()
+                .find(|(ib, fb)| !bok[*ib] && mergeable_variants(fa, fb, level))
+            {
+                aok[ia] = true;
+                bok[ib] = true;
+            } else {
+                bail!("Variant in first enum has no match: {:?}", fa);
+            }
+        }
+    }
+
+    Ok(())
+}
+
+pub(crate) fn mergeable_variants(a: &EnumVariant, b: &EnumVariant, level: CheckLevel) -> bool {
+    let mut res = true;
+    if level >= CheckLevel::Layout {
+        res &= a.value == b.value;
+    }
+    if level >= CheckLevel::Names {
+        res &= a.name == b.name;
+    }
+    if level >= CheckLevel::Descriptions {
+        res &= a.description == b.description;
+    }
+    res
 }
 
 impl Default for CheckLevel {

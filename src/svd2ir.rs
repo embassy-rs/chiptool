@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use log::*;
+use quote::__private::ext;
 use svd_parser as svd;
 
 use crate::ir::*;
@@ -92,6 +93,7 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
     // Convert blocks
     for proto in &blocks {
         let mut block = Block {
+            extends: None,
             description: proto.description.clone(),
             items: Vec::new(),
         };
@@ -184,6 +186,7 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
     // Convert fieldsets
     for proto in &fieldsets {
         let mut fieldset = FieldSet {
+            extends: None,
             description: proto.description.clone(),
             bit_size: proto.bit_size,
             fields: Vec::new(),
