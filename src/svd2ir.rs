@@ -258,40 +258,42 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
         assert!(ir.enums.insert(enum_name.clone(), enumm).is_none());
     }
 
-    /*
+    Ok(())
+}
+
+pub fn convert_device(svd: &svd::Device) -> anyhow::Result<Device> {
     let mut device = Device {
-        path: Path::new(path, "Device".to_owned()),
-        cpu: svd.cpu.clone(),
-        interrupts: vec![],
+        name: svd.name.clone(),
         peripherals: vec![],
     };
 
     for p in &svd.peripherals {
-        let peripheral_name = p.derived_from.as_ref().unwrap_or(&p.name);
-        let block = *peripheral_ids.get(peripheral_name).unwrap();
+        let block_name = p.derived_from.as_ref().unwrap_or(&p.name);
 
-        device.peripherals.push(Peripheral {
+        let mut peri = Peripheral {
             name: p.name.clone(),
             description: p.description.clone(),
             base_address: p.base_address,
-            block,
-        });
+            block: block_name.clone(),
+            interrupts: vec![],
+        };
 
         for i in &p.interrupt {
-            if !device.interrupts.iter().any(|i2| i2.name == i.name) {
-                device.interrupts.push(Interrupt {
-                    name: i.name.clone(),
-                    description: i.description.clone(),
-                    value: i.value,
-                })
+            if peri.interrupts.iter().any(|j| j.name == i.name) {
+                continue;
             }
+
+            peri.interrupts.push(Interrupt {
+                name: i.name.clone(),
+                description: i.description.clone(),
+                value: i.value,
+            })
         }
+
+        device.peripherals.push(peri);
     }
 
-    ir.devices.put(device);
-     */
-
-    Ok(())
+    Ok(device)
 }
 
 fn collect_blocks(

@@ -31,13 +31,14 @@ struct Opts {
 
 #[derive(Clap)]
 enum Subcommand {
-    Extract(Extract),
+    ExtractPeripheral(ExtractPeripheral),
+    ExtractDevice(ExtractDevice),
     Generate(Generate),
 }
 
 /// Extract peripheral from SVD to YAML
 #[derive(Clap)]
-struct Extract {
+struct ExtractPeripheral {
     /// SVD file path
     #[clap(long)]
     svd: String,
@@ -48,6 +49,15 @@ struct Extract {
     #[clap(long)]
     xfrm: Option<String>,
 }
+
+/// Extract peripheral from SVD to YAML
+#[derive(Clap)]
+struct ExtractDevice {
+    /// SVD file path
+    #[clap(long)]
+    svd: String,
+}
+
 /// Generate a PAC from a set of peripheral YAMLs
 #[derive(Clap)]
 struct Generate {
@@ -62,12 +72,34 @@ fn main() -> Result<()> {
     let opts: Opts = Opts::parse();
 
     match opts.subcommand {
-        Subcommand::Extract(x) => extract(x),
+        Subcommand::ExtractPeripheral(x) => extract_peripheral(x),
+        Subcommand::ExtractDevice(x) => extract_device(x),
         Subcommand::Generate(x) => generate(x),
     }
 }
 
-fn extract(args: Extract) -> Result<()> {
+fn load_svd(path: &str) -> Result<svd::Device> {
+    let xml = &mut String::new();
+    File::open(path)
+        .context("Cannot open the SVD file")?
+        .read_to_string(xml)
+        .context("Cannot read the SVD file")?;
+
+    let device = svd::parse(xml)?;
+    Ok(device)
+}
+
+fn extract_device(args: ExtractDevice) -> Result<()> {
+    let svd = load_svd(&args.svd)?;
+
+    let device = svd2ir::convert_device(&svd)?;
+
+    serde_yaml::to_writer(stdout(), &device).unwrap();
+
+    Ok(())
+}
+
+fn extract_peripheral(args: ExtractPeripheral) -> Result<()> {
     let config = match args.xfrm {
         Some(file) => {
             let config = &mut String::new();
@@ -80,17 +112,11 @@ fn extract(args: Extract) -> Result<()> {
         None => Config::default(),
     };
 
-    let xml = &mut String::new();
-    File::open(args.svd)
-        .context("Cannot open the SVD file")?
-        .read_to_string(xml)
-        .context("Cannot read the SVD file")?;
-
-    let device = svd::parse(xml)?;
+    let svd = load_svd(&args.svd)?;
     let mut ir = IR::new();
 
     let peri = args.peri;
-    let p = device.peripherals.iter().find(|p| p.name == peri).unwrap();
+    let p = svd.peripherals.iter().find(|p| p.name == peri).unwrap();
 
     svd2ir::convert_peripheral(&mut ir, &p)?;
 

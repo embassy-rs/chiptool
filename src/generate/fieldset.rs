@@ -101,7 +101,7 @@ pub fn render(ir: &IR, fs: &FieldSet, path: &str) -> Result<TokenStream> {
     let out = quote! {
         #doc
         #[repr(transparent)]
-        #[derive(Copy, Clone)]
+        #[derive(Copy, Clone, Eq, PartialEq)]
         pub struct #name (pub #ty);
 
         impl #name {

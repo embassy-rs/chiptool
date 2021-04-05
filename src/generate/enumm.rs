@@ -42,7 +42,7 @@ pub fn render(ir: &IR, e: &Enum, path: &str) -> Result<TokenStream> {
     let out = quote! {
         #doc
         #[repr(transparent)]
-        #[derive(Copy, Clone)]
+        #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
         pub struct #name (pub #ty);
 
         impl #name {

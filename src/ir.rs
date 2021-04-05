@@ -26,30 +26,29 @@ impl IR {
     }
 }
 
-/*
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Device {
-    pub path: String,
-    pub cpu: Option<svd::Cpu>,
-    pub interrupts: Vec<Interrupt>,
+    pub name: String,
     pub peripherals: Vec<Peripheral>,
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct Interrupt {
-    pub name: String,
-    pub description: Option<String>,
-    pub value: u32,
-}
-
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Peripheral {
     pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
     pub base_address: u32,
     pub block: String,
+    pub interrupts: Vec<Interrupt>,
 }
- */
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Interrupt {
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    pub value: u32,
+}
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Block {
