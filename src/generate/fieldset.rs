@@ -61,21 +61,19 @@ pub fn render(ir: &IR, fs: &FieldSet, path: &str) -> Result<TokenStream> {
         }
 
         if let Some(array) = &f.array {
-            let len = array.len as usize;
-            let stride = array.stride as u32;
-
+            let (len, offs_expr) = super::process_array(array);
             items.extend(quote!(
                 #doc
                 pub fn #name(&self, n: usize) -> #field_ty{
                     assert!(n < #len);
-                    let offs = #bit_offset + (n as u32)*#stride;
+                    let offs = #bit_offset + #offs_expr;
                     let val = (self.0 >> offs) & #mask;
                     #from_bits
                 }
                 #doc
                 pub fn #name_set(&mut self, n: usize, val: #field_ty) {
                     assert!(n < #len);
-                    let offs = #bit_offset + (n as u32)*#stride;
+                    let offs = #bit_offset + #offs_expr;
                     self.0 = (self.0 & !(#mask << offs)) | (((#to_bits) & #mask) << offs);
                 }
             ));
@@ -113,7 +111,6 @@ pub fn render(ir: &IR, fs: &FieldSet, path: &str) -> Result<TokenStream> {
                 #name(0)
             }
         }
-
     };
 
     Ok(out)

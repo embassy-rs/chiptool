@@ -83,15 +83,26 @@ pub struct BlockItem {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum BlockItemInner {
-    Register(Register),
     Block(BlockItemBlock),
+    Register(Register),
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct Array {
+#[serde(untagged)]
+pub enum Array {
+    Regular(RegularArray),
+    Cursed(CursedArray),
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct RegularArray {
     pub len: u32,
     pub stride: u32,
-    //pub index_names: Vec<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct CursedArray {
+    pub offsets: Vec<u32>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

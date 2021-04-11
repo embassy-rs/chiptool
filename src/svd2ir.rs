@@ -115,10 +115,10 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
                     };
 
                     let array = if let svd::Register::Array(_, dim) = r {
-                        Some(Array {
+                        Some(Array::Regular(RegularArray {
                             len: dim.dim,
                             stride: dim.dim_increment,
-                        })
+                        }))
                     } else {
                         None
                     };
@@ -156,10 +156,10 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
                     let cname = util::replace_suffix(&c.name, "");
 
                     let array = if let svd::Cluster::Array(_, dim) = c {
-                        Some(Array {
+                        Some(Array::Regular(RegularArray {
                             len: dim.dim,
                             stride: dim.dim_increment,
-                        })
+                        }))
                     } else {
                         None
                     };

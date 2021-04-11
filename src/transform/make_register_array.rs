@@ -9,6 +9,8 @@ pub struct MakeRegisterArray {
     pub blocks: String,
     pub from: String,
     pub to: String,
+    #[serde(default)]
+    pub allow_cursed: bool,
 }
 
 impl MakeRegisterArray {
@@ -27,37 +29,21 @@ impl MakeRegisterArray {
                     items.push(i);
                 }
 
+                // todo check they're mergeable
+                // todo check they're not arrays (arrays of arrays not supported)
+
                 // Sort by offs
                 items.sort_by_key(|i| i.byte_offset);
                 for i in &items {
                     info!("    {}", i.name);
                 }
 
-                // todo check they're mergeable
-                // todo check they're not arrays (arrays of arrays not supported)
-
-                // Guess stride.
-                let byte_offset = items[0].byte_offset;
-                let len = items.len() as u32;
-                let byte_stride = if len == 1 {
-                    // If there's only 1 item, we can't know the stride, but it
-                    // doesn't really matter!
-                    0
-                } else {
-                    items[1].byte_offset - items[0].byte_offset
-                };
-
-                // Check the stride guess is OK
-
-                if items
-                    .iter()
-                    .enumerate()
-                    .any(|(n, i)| i.byte_offset != byte_offset + (n as u32) * byte_stride)
-                {
-                    panic!("arrayize: items are not evenly spaced")
+                let (offset, array) = calc_array(items.iter().map(|x| x.byte_offset).collect());
+                if let Array::Cursed(_) = &array {
+                    if !self.allow_cursed {
+                        panic!("arrayize: items are not evenly spaced. Set `allow_cursed: true` to allow this.")
+                    }
                 }
-
-                info!("offs {} stride {}", byte_offset, byte_stride);
 
                 let mut item = items[0].clone();
 
@@ -66,11 +52,8 @@ impl MakeRegisterArray {
 
                 // Create the new array item
                 item.name = to;
-                item.array = Some(Array {
-                    stride: byte_stride,
-                    len,
-                });
-                item.byte_offset = byte_offset;
+                item.array = Some(array);
+                item.byte_offset = offset;
                 b.items.push(item);
             }
         }

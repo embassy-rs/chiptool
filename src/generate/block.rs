@@ -40,13 +40,12 @@ pub fn render(ir: &IR, b: &Block, path: &str) -> Result<TokenStream> {
 
                 let ty = quote!(Reg<#reg_ty, #access>);
                 if let Some(array) = &i.array {
-                    let len = array.len as usize;
-                    let stride = array.stride as usize;
+                    let (len, offs_expr) = super::process_array(array);
                     items.extend(quote!(
                         #doc
                         pub fn #name(self, n: usize) -> #ty {
                             assert!(n < #len);
-                            unsafe { Reg::from_ptr(self.0.add(#offset + n * #stride)) }
+                            unsafe { Reg::from_ptr(self.0.add(#offset + #offs_expr)) }
                         }
                     ));
                 } else {
@@ -63,13 +62,13 @@ pub fn render(ir: &IR, b: &Block, path: &str) -> Result<TokenStream> {
                 let b2 = ir.blocks.get(block_path).unwrap();
                 let ty = util::relative_path(block_path, path);
                 if let Some(array) = &i.array {
-                    let len = array.len as usize;
-                    let stride = array.stride as usize;
+                    let (len, offs_expr) = super::process_array(array);
+
                     items.extend(quote!(
                         #doc
                         pub fn #name(self, n: usize) -> #ty {
                             assert!(n < #len);
-                            unsafe { #ty(self.0.add(#offset + n * #stride)) }
+                            unsafe { #ty(self.0.add(#offset + #offs_expr)) }
                         }
                     ));
                 } else {

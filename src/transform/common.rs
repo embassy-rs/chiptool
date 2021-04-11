@@ -249,3 +249,41 @@ pub(crate) fn replace_block_ids(ir: &mut IR, from: &HashSet<String>, to: String)
         }
     }
 }
+
+pub(crate) fn calc_array(mut offsets: Vec<u32>) -> (u32, Array) {
+    offsets.sort();
+
+    // Guess stride.
+    let start_offset = offsets[0];
+    let len = offsets.len() as u32;
+    let stride = if len == 1 {
+        // If there's only 1 item, we can't know the stride, but it
+        // doesn't really matter!
+        0
+    } else {
+        offsets[1] - offsets[0]
+    };
+
+    // Check the stride guess is OK
+
+    if offsets
+        .iter()
+        .enumerate()
+        .all(|(n, &i)| i == start_offset + (n as u32) * stride)
+    {
+        // Array is regular,
+        (
+            start_offset,
+            Array::Regular(RegularArray {
+                len: offsets.len() as _,
+                stride,
+            }),
+        )
+    } else {
+        // Array is irregular,
+        for o in &mut offsets {
+            *o -= start_offset
+        }
+        (start_offset, Array::Cursed(CursedArray { offsets }))
+    }
+}

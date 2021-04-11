@@ -127,3 +127,20 @@ fn split_path(s: &str) -> (Vec<&str>, &str) {
     let n = v.pop().unwrap();
     (v, n)
 }
+
+fn process_array(array: &Array) -> (usize, TokenStream) {
+    match array {
+        Array::Regular(array) => {
+            let len = array.len as usize;
+            let stride = array.stride as u32;
+            let offs_expr = quote!((n as u32)*#stride);
+            (len, offs_expr)
+        }
+        Array::Cursed(array) => {
+            let len = array.offsets.len();
+            let offsets = &array.offsets;
+            let offs_expr = quote!([#(#offsets),*][n]);
+            (len, offs_expr)
+        }
+    }
+}
