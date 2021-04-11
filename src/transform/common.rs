@@ -241,9 +241,9 @@ pub(crate) fn replace_block_ids(ir: &mut IR, from: &HashSet<String>, to: String)
 
     for (_, b) in ir.blocks.iter_mut() {
         for i in b.items.iter_mut() {
-            if let BlockItemInner::Block(id) = &i.inner {
-                if from.contains(id) {
-                    i.inner = BlockItemInner::Block(to.clone())
+            if let BlockItemInner::Block(bi) = &mut i.inner {
+                if from.contains(&bi.block) {
+                    bi.block = to.clone()
                 }
             }
         }

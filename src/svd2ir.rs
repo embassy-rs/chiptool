@@ -173,7 +173,7 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
                         description: c.description.clone(),
                         array,
                         byte_offset: c.address_offset,
-                        inner: BlockItemInner::Block(block_name),
+                        inner: BlockItemInner::Block(BlockItemBlock { block: block_name }),
                     });
                 }
             }
@@ -265,29 +265,52 @@ pub fn convert_device(svd: &svd::Device) -> anyhow::Result<Device> {
     let mut device = Device {
         name: svd.name.clone(),
         peripherals: vec![],
+        interrupts: vec![],
     };
 
     for p in &svd.peripherals {
         let block_name = p.derived_from.as_ref().unwrap_or(&p.name);
+        let periname = p.name.to_ascii_uppercase();
 
         let mut peri = Peripheral {
-            name: p.name.clone(),
+            name: periname.clone(),
             description: p.description.clone(),
             base_address: p.base_address,
             block: block_name.clone(),
-            interrupts: vec![],
+            interrupts: HashMap::new(),
         };
 
+        let mut irqs: Vec<&svd::Interrupt> = vec![];
         for i in &p.interrupt {
-            if peri.interrupts.iter().any(|j| j.name == i.name) {
-                continue;
+            if !irqs.iter().any(|&j| j.name == i.name) {
+                irqs.push(i)
+            }
+        }
+        irqs.sort_by(|a, b| a.name.cmp(&b.name));
+
+        for (n, &i) in irqs.iter().enumerate() {
+            let iname = i.name.to_ascii_uppercase();
+
+            if !device.interrupts.iter().any(|j| j.name == iname) {
+                device.interrupts.push(Interrupt {
+                    name: iname.clone(),
+                    description: i.description.clone(),
+                    value: i.value,
+                });
             }
 
-            peri.interrupts.push(Interrupt {
-                name: i.name.clone(),
-                description: i.description.clone(),
-                value: i.value,
-            })
+            /*
+            let name = if iname.len() > periname.len() && iname.starts_with(&periname) {
+                let s = iname.strip_prefix(&periname).unwrap();
+                s.trim_matches('_').to_string()
+            } else if irqs.len() == 1 {
+                "IRQ".to_string()
+            } else {
+                format!("IRQ{}", n)
+            };
+
+            peri.interrupts.insert(name, iname.clone());
+             */
         }
 
         device.peripherals.push(peri);

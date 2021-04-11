@@ -1,6 +1,6 @@
 use de::MapAccess;
 use serde::{de, de::Visitor, ser::SerializeMap, Deserialize, Deserializer, Serialize, Serializer};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -30,6 +30,7 @@ impl IR {
 pub struct Device {
     pub name: String,
     pub peripherals: Vec<Peripheral>,
+    pub interrupts: Vec<Interrupt>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -39,7 +40,12 @@ pub struct Peripheral {
     pub description: Option<String>,
     pub base_address: u32,
     pub block: String,
-    pub interrupts: Vec<Interrupt>,
+    #[serde(
+        default,
+        skip_serializing_if = "HashMap::is_empty",
+        serialize_with = "ordered_map"
+    )]
+    pub interrupts: HashMap<String, String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -78,7 +84,7 @@ pub struct BlockItem {
 #[serde(untagged)]
 pub enum BlockItemInner {
     Register(Register),
-    Block(String),
+    Block(BlockItemBlock),
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -98,6 +104,10 @@ pub struct Register {
     pub bit_size: u32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fieldset: Option<String>,
+}
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct BlockItemBlock {
+    pub block: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -281,4 +291,12 @@ impl<'de> Deserialize<'de> for IR {
     {
         deserializer.deserialize_map(IRVisitor)
     }
+}
+
+fn ordered_map<S>(value: &HashMap<String, String>, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    let ordered: BTreeMap<_, _> = value.iter().collect();
+    ordered.serialize(serializer)
 }

@@ -58,7 +58,8 @@ pub fn render(ir: &IR, b: &Block, path: &str) -> Result<TokenStream> {
                     ));
                 }
             }
-            BlockItemInner::Block(block_path) => {
+            BlockItemInner::Block(b) => {
+                let block_path = &b.block;
                 let b2 = ir.blocks.get(block_path).unwrap();
                 let ty = util::relative_path(block_path, path);
                 if let Some(array) = &i.array {

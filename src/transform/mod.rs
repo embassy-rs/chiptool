@@ -40,7 +40,9 @@ pub fn map_names(ir: &mut IR, mut ff: impl FnMut(&str, NameKind) -> String) -> a
             i.name = ff(&i.name, NameKind::BlockItem);
             match &mut i.inner {
                 BlockItemInner::Block(p) => {
-                    i.inner = BlockItemInner::Block(ff(&p, NameKind::Block))
+                    i.inner = BlockItemInner::Block(BlockItemBlock {
+                        block: ff(&p.block, NameKind::Block),
+                    })
                 }
                 BlockItemInner::Register(r) => {
                     r.fieldset = r.fieldset.as_ref().map(|p| ff(p, NameKind::Fieldset));

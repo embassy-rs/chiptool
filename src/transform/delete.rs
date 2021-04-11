@@ -63,8 +63,8 @@ impl Delete {
 pub(crate) fn remove_block_ids(ir: &mut IR, from: &HashSet<String>) {
     for (_, b) in ir.blocks.iter_mut() {
         b.items.retain(|i| {
-            if let BlockItemInner::Block(bid) = &i.inner {
-                !from.contains(bid)
+            if let BlockItemInner::Block(bi) = &i.inner {
+                !from.contains(&bi.block)
             } else {
                 true
             }

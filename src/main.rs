@@ -3,7 +3,7 @@
 use ir::IR;
 use log::error;
 use quote::__private::ext;
-use regex::Regex;
+use regex::{Captures, Regex};
 use svd_parser as svd;
 use transform::map_names;
 
@@ -15,8 +15,8 @@ mod util;
 
 use std::io::Read;
 use std::io::Write;
-use std::process;
 use std::{fs::File, io::stdout};
+use std::{process, u32};
 
 use anyhow::{Context, Result};
 use clap::Clap;
@@ -44,10 +44,10 @@ struct ExtractPeripheral {
     svd: String,
     /// Peripheral from the SVD
     #[clap(long)]
-    peri: String,
+    peripheral: String,
     /// Transforms file path
     #[clap(long)]
-    xfrm: Option<String>,
+    transform: Option<String>,
 }
 
 /// Extract peripheral from SVD to YAML
@@ -92,15 +92,26 @@ fn load_svd(path: &str) -> Result<svd::Device> {
 fn extract_device(args: ExtractDevice) -> Result<()> {
     let svd = load_svd(&args.svd)?;
 
-    let device = svd2ir::convert_device(&svd)?;
+    let mut device = svd2ir::convert_device(&svd)?;
 
-    serde_yaml::to_writer(stdout(), &device).unwrap();
+    device.peripherals.sort_by_key(|p| p.name.clone());
+    device.interrupts.sort_by_key(|p| p.value);
+
+    let y = serde_yaml::to_string(&device).unwrap();
+
+    // Convert all addresses to hex...
+    let re = Regex::new("base_address: (\\d+)").unwrap();
+    let y = re.replace_all(&y, |caps: &Captures| {
+        format!("base_address: 0x{:08x}", &caps[1].parse::<u32>().unwrap())
+    });
+
+    stdout().write_all(y.as_bytes()).unwrap();
 
     Ok(())
 }
 
 fn extract_peripheral(args: ExtractPeripheral) -> Result<()> {
-    let config = match args.xfrm {
+    let config = match args.transform {
         Some(file) => {
             let config = &mut String::new();
             File::open(file)
@@ -115,8 +126,12 @@ fn extract_peripheral(args: ExtractPeripheral) -> Result<()> {
     let svd = load_svd(&args.svd)?;
     let mut ir = IR::new();
 
-    let peri = args.peri;
-    let p = svd.peripherals.iter().find(|p| p.name == peri).unwrap();
+    let peri = args.peripheral;
+    let p = svd
+        .peripherals
+        .iter()
+        .find(|p| p.name == peri)
+        .expect("peripheral not found");
 
     svd2ir::convert_peripheral(&mut ir, &p)?;
 
