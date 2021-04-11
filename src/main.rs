@@ -127,11 +127,19 @@ fn extract_peripheral(args: ExtractPeripheral) -> Result<()> {
     let mut ir = IR::new();
 
     let peri = args.peripheral;
-    let p = svd
+    let mut p = svd
         .peripherals
         .iter()
         .find(|p| p.name == peri)
         .expect("peripheral not found");
+
+    if let Some(f) = &p.derived_from {
+        p = svd
+            .peripherals
+            .iter()
+            .find(|p| p.name == *f)
+            .expect("derivedFrom peripheral not found");
+    }
 
     svd2ir::convert_peripheral(&mut ir, &p)?;
 
