@@ -132,14 +132,18 @@ fn process_array(array: &Array) -> (usize, TokenStream) {
     match array {
         Array::Regular(array) => {
             let len = array.len as usize;
-            let stride = array.stride as u32;
-            let offs_expr = quote!((n as u32)*#stride);
+            let stride = array.stride as usize;
+            let offs_expr = quote!(n*#stride);
             (len, offs_expr)
         }
         Array::Cursed(array) => {
             let len = array.offsets.len();
-            let offsets = &array.offsets;
-            let offs_expr = quote!([#(#offsets),*][n]);
+            let offsets = array
+                .offsets
+                .iter()
+                .map(|&x| x as usize)
+                .collect::<Vec<_>>();
+            let offs_expr = quote!(([#(#offsets),*][n] as usize));
             (len, offs_expr)
         }
     }

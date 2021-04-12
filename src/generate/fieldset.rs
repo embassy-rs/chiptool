@@ -21,9 +21,9 @@ pub fn render(ir: &IR, fs: &FieldSet, path: &str) -> Result<TokenStream> {
     for f in &fs.fields {
         let name = Ident::new(&f.name, span);
         let name_set = Ident::new(&format!("set_{}", f.name), span);
-        let bit_offset = f.bit_offset;
-        let bit_size = f.bit_size;
-        let mask = util::hex(1u64.wrapping_shl(bit_size).wrapping_sub(1));
+        let bit_offset = f.bit_offset as usize;
+        let bit_size = f.bit_size as usize;
+        let mask = util::hex(1u64.wrapping_shl(f.bit_size).wrapping_sub(1));
         let doc = util::doc(&f.description);
         let field_ty: TokenStream;
         let to_bits: TokenStream;
