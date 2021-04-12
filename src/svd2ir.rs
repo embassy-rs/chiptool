@@ -141,7 +141,6 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
                             access, // todo
                             bit_size: r.size.unwrap_or(32),
                             fieldset: fieldset_name.clone(),
-                            reset_value: r.reset_value.map(|v| v as _),
                         }),
                     };
 

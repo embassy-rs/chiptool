@@ -107,8 +107,6 @@ pub struct CursedArray {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Register {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reset_value: Option<u64>,
     #[serde(default = "default_readwrite", skip_serializing_if = "is_readwrite")]
     pub access: Access,
     #[serde(default = "default_32", skip_serializing_if = "is_32")]
