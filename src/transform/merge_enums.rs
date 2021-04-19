@@ -11,6 +11,8 @@ pub struct MergeEnums {
     pub to: String,
     #[serde(default)]
     pub check: CheckLevel,
+    #[serde(default)]
+    pub skip_unmergeable: bool,
 }
 
 impl MergeEnums {
@@ -34,7 +36,14 @@ impl MergeEnums {
 
         for id in &ids {
             let e2 = ir.enums.get(id).unwrap();
-            check_mergeable_enums(&e, e2, self.check)?;
+            if let Err(e) = check_mergeable_enums(&e, e2, self.check) {
+                if self.skip_unmergeable {
+                    info!("skipping: {:?}", to);
+                    return Ok(());
+                } else {
+                    return Err(e);
+                }
+            }
         }
         for id in &ids {
             ir.enums.remove(id);
