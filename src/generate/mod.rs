@@ -1,5 +1,5 @@
 mod block;
-//mod device;
+mod device;
 mod enumm;
 mod fieldset;
 
@@ -83,13 +83,12 @@ pub fn render(ir: &IR) -> Result<TokenStream> {
         #![doc=#doc]
     ));
 
-    /*
-    for (_, d) in ir.devices.iter() {
-        root.get_by_path(&d.path.modules)
+    for (p, d) in ir.devices.iter() {
+        let (mods, _) = split_path(p);
+        root.get_by_path(&mods)
             .items
-            .extend(device::render(ir, d)?);
+            .extend(device::render(ir, d, p)?);
     }
-     */
 
     for (p, b) in ir.blocks.iter() {
         let (mods, _) = split_path(p);

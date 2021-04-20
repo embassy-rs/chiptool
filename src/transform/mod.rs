@@ -11,6 +11,9 @@ pub struct Sanitize {}
 impl Sanitize {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
         map_names(ir, |p, k| match k {
+            NameKind::Device => sanitize_path(p),
+            NameKind::DevicePeripheral => p.to_sanitized_upper_case().to_string(),
+            NameKind::DeviceInterrupt => p.to_sanitized_upper_case().to_string(),
             NameKind::Block => sanitize_path(p),
             NameKind::Fieldset => sanitize_path(p),
             NameKind::Enum => sanitize_path(p),
@@ -22,6 +25,9 @@ impl Sanitize {
 }
 
 pub enum NameKind {
+    Device,
+    DevicePeripheral,
+    DeviceInterrupt,
     Block,
     BlockItem,
     Fieldset,
@@ -31,9 +37,20 @@ pub enum NameKind {
 }
 
 pub fn map_names(ir: &mut IR, mut ff: impl FnMut(&str, NameKind) -> String) -> anyhow::Result<()> {
+    remap_names(&mut ir.devices, |p| ff(p, NameKind::Device));
     remap_names(&mut ir.blocks, |p| ff(p, NameKind::Block));
     remap_names(&mut ir.fieldsets, |p| ff(p, NameKind::Fieldset));
     remap_names(&mut ir.enums, |p| ff(p, NameKind::Enum));
+
+    for (_, d) in ir.devices.iter_mut() {
+        for p in &mut d.peripherals {
+            p.name = ff(&p.name, NameKind::DevicePeripheral);
+            p.block = p.block.as_ref().map(|p| ff(p, NameKind::Block));
+        }
+        for i in &mut d.interrupts {
+            i.name = ff(&i.name, NameKind::DeviceInterrupt);
+        }
+    }
 
     for (_, b) in ir.blocks.iter_mut() {
         for i in b.items.iter_mut() {

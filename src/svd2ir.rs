@@ -262,7 +262,6 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
 
 pub fn convert_device(svd: &svd::Device) -> anyhow::Result<Device> {
     let mut device = Device {
-        name: svd.name.clone(),
         peripherals: vec![],
         interrupts: vec![],
     };
@@ -275,7 +274,8 @@ pub fn convert_device(svd: &svd::Device) -> anyhow::Result<Device> {
             name: periname.clone(),
             description: p.description.clone(),
             base_address: p.base_address,
-            block: block_name.clone(),
+            block: Some(block_name.clone()),
+            array: None,
             interrupts: HashMap::new(),
         };
 

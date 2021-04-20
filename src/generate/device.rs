@@ -7,7 +7,7 @@ use anyhow::Result;
 
 use crate::ir::*;
 
-pub fn render(ir: &IR, d: &Device) -> Result<TokenStream> {
+pub fn render(ir: &IR, d: &Device, path: &str) -> Result<TokenStream> {
     let mut out = TokenStream::new();
     let span = Span::call_site();
 
@@ -50,16 +50,24 @@ pub fn render(ir: &IR, d: &Device) -> Result<TokenStream> {
     }
 
     for p in &d.peripherals {
-        let b = ir.blocks.get(p.block);
         let name = Ident::new(&p.name, span);
-        let path = util::relative_path(&b.path, &d.path);
         let address = util::hex(p.base_address as u64);
         let doc = util::doc(&p.description);
 
-        peripherals.extend(quote! {
-            #doc
-            pub const #name: #path = #path(#address as u32 as _);
-        });
+        if let Some(block_name) = &p.block {
+            let b = ir.blocks.get(block_name);
+            let path = util::relative_path(block_name, path);
+
+            peripherals.extend(quote! {
+                #doc
+                pub const #name: #path = #path(#address as u32 as _);
+            });
+        } else {
+            peripherals.extend(quote! {
+                #doc
+                pub const #name: *mut () = #address as u32 as _;
+            });
+        }
     }
 
     let n = util::unsuffixed(pos as u64);
@@ -99,6 +107,7 @@ pub fn render(ir: &IR, d: &Device) -> Result<TokenStream> {
         #peripherals
     ));
 
+    /*
     if let Some(cpu) = d.cpu.as_ref() {
         let bits = util::unsuffixed(u64::from(cpu.nvic_priority_bits));
 
@@ -107,6 +116,7 @@ pub fn render(ir: &IR, d: &Device) -> Result<TokenStream> {
             pub const NVIC_PRIO_BITS: u8 = #bits;
         });
     }
+     */
 
     Ok(out)
 }

@@ -5,6 +5,7 @@ use std::fmt;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct IR {
+    pub devices: HashMap<String, Device>,
     pub blocks: HashMap<String, Block>,
     pub fieldsets: HashMap<String, FieldSet>,
     pub enums: HashMap<String, Enum>,
@@ -13,6 +14,7 @@ pub struct IR {
 impl IR {
     pub fn new() -> Self {
         Self {
+            devices: HashMap::new(),
             blocks: HashMap::new(),
             fieldsets: HashMap::new(),
             enums: HashMap::new(),
@@ -20,6 +22,7 @@ impl IR {
     }
 
     pub fn merge(&mut self, other: IR) {
+        self.devices.extend(other.devices);
         self.blocks.extend(other.blocks);
         self.fieldsets.extend(other.fieldsets);
         self.enums.extend(other.enums);
@@ -28,7 +31,6 @@ impl IR {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Device {
-    pub name: String,
     pub peripherals: Vec<Peripheral>,
     pub interrupts: Vec<Interrupt>,
 }
@@ -39,7 +41,12 @@ pub struct Peripheral {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
     pub base_address: u32,
-    pub block: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub array: Option<Array>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub block: Option<String>,
+
     #[serde(
         default,
         skip_serializing_if = "HashMap::is_empty",
