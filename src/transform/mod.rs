@@ -141,22 +141,22 @@ fn sanitize_path(p: &str) -> String {
 
 mod common;
 
-mod delete;
-mod delete_enums;
-mod delete_fieldsets;
-//mod find_duplicate_enums;
-//mod find_duplicate_fieldsets;
-//mod load_svd;
-//mod make_block;
-mod make_field_array;
-mod make_register_array;
-//mod merge_blocks;
-mod merge_enums;
-mod merge_fieldsets;
-//mod rename;
-//mod rename_fields;
-pub(crate) mod expand_extends;
-pub(crate) mod sort;
+pub mod delete;
+pub mod delete_enums;
+pub mod delete_fieldsets;
+//pub mod find_duplicate_enums;
+//pub mod find_duplicate_fieldsets;
+//pub mod load_svd;
+//pub mod make_block;
+pub mod make_field_array;
+pub mod make_register_array;
+//pub mod merge_blocks;
+pub mod merge_enums;
+pub mod merge_fieldsets;
+//pub mod rename;
+//pub mod rename_fields;
+pub mod expand_extends;
+pub mod sort;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Transform {
