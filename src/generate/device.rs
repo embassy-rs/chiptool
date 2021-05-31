@@ -77,31 +77,29 @@ pub fn render(ir: &IR, d: &Device, path: &str) -> Result<TokenStream> {
             #interrupts
         }
 
-        #[cfg(feature = "rt")]
-        extern "C" {
-            #(fn #names();)*
-        }
-
-        #[doc(hidden)]
-        pub union Vector {
-            _handler: unsafe extern "C" fn(),
-            _reserved: u32,
-        }
-
-        #[cfg(feature = "rt")]
-        #[doc(hidden)]
-        #[link_section = ".vector_table.interrupts"]
-        #[no_mangle]
-        pub static __INTERRUPTS: [Vector; #n] = [
-            #vectors
-        ];
-
-
         unsafe impl cortex_m::interrupt::InterruptNumber for Interrupt {
             #[inline(always)]
             fn number(self) -> u16 {
                 self as u16
             }
+        }
+
+        #[cfg(feature = "rt")]
+        mod _vectors {
+            extern "C" {
+                #(fn #names();)*
+            }
+
+            pub union Vector {
+                _handler: unsafe extern "C" fn(),
+                _reserved: u32,
+            }
+
+            #[link_section = ".vector_table.interrupts"]
+            #[no_mangle]
+            pub static __INTERRUPTS: [Vector; #n] = [
+                #vectors
+            ];
         }
 
         #peripherals
