@@ -7,7 +7,7 @@ use anyhow::Result;
 
 use crate::ir::*;
 
-pub fn render(ir: &IR, d: &Device, path: &str) -> Result<TokenStream> {
+pub fn render(opts: &super::Options, ir: &IR, d: &Device, path: &str) -> Result<TokenStream> {
     let mut out = TokenStream::new();
     let span = Span::call_site();
 

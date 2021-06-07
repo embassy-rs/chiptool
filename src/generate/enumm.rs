@@ -13,7 +13,7 @@ use anyhow::{anyhow, bail, Context, Result};
 
 use crate::ir::*;
 
-pub fn render(ir: &IR, e: &Enum, path: &str) -> Result<TokenStream> {
+pub fn render(opts: &super::Options, ir: &IR, e: &Enum, path: &str) -> Result<TokenStream> {
     let span = Span::call_site();
     let mut items = TokenStream::new();
 

@@ -13,7 +13,9 @@ use anyhow::{anyhow, bail, Context, Result};
 
 use crate::ir::*;
 
-pub fn render(ir: &IR, b: &Block, path: &str) -> Result<TokenStream> {
+pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<TokenStream> {
+    let common_path = &opts.common_path;
+
     let span = Span::call_site();
     let mut items = TokenStream::new();
 
@@ -33,26 +35,26 @@ pub fn render(ir: &IR, b: &Block, path: &str) -> Result<TokenStream> {
                 };
 
                 let access = match r.access {
-                    Access::Read => quote!(R),
-                    Access::Write => quote!(W),
-                    Access::ReadWrite => quote!(RW),
+                    Access::Read => quote!(#common_path::R),
+                    Access::Write => quote!(#common_path::W),
+                    Access::ReadWrite => quote!(#common_path::RW),
                 };
 
-                let ty = quote!(Reg<#reg_ty, #access>);
+                let ty = quote!(#common_path::Reg<#reg_ty, #access>);
                 if let Some(array) = &i.array {
                     let (len, offs_expr) = super::process_array(array);
                     items.extend(quote!(
                         #doc
                         pub fn #name(self, n: usize) -> #ty {
                             assert!(n < #len);
-                            unsafe { Reg::from_ptr(self.0.add(#offset + #offs_expr)) }
+                            unsafe { #common_path::Reg::from_ptr(self.0.add(#offset + #offs_expr)) }
                         }
                     ));
                 } else {
                     items.extend(quote!(
                         #doc
                         pub fn #name(self) -> #ty {
-                            unsafe { Reg::from_ptr(self.0.add(#offset)) }
+                            unsafe { #common_path::Reg::from_ptr(self.0.add(#offset)) }
                         }
                     ));
                 }

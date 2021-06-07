@@ -12,6 +12,8 @@ use quote::{quote, TokenStreamExt};
 
 use crate::ir::*;
 
+pub const COMMON_MODULE: &[u8] = include_bytes!("common.rs");
+
 struct Module {
     items: TokenStream,
     children: HashMap<String, Module>,
@@ -21,9 +23,7 @@ impl Module {
     fn new() -> Self {
         Self {
             // Default mod contents
-            items: quote!(
-                use crate::generic::*;
-            ),
+            items: quote!(),
             children: HashMap::new(),
         }
     }
@@ -58,7 +58,11 @@ impl Module {
     }
 }
 
-pub fn render(ir: &IR) -> Result<TokenStream> {
+pub struct Options {
+    pub common_path: syn::Path,
+}
+
+pub fn render(ir: &IR, opts: &Options) -> Result<TokenStream> {
     let mut root = Module::new();
     root.items = TokenStream::new(); // Remove default contents
 
@@ -87,36 +91,40 @@ pub fn render(ir: &IR) -> Result<TokenStream> {
         let (mods, _) = split_path(p);
         root.get_by_path(&mods)
             .items
-            .extend(device::render(ir, d, p)?);
+            .extend(device::render(opts, ir, d, p)?);
     }
 
     for (p, b) in ir.blocks.iter() {
         let (mods, _) = split_path(p);
         root.get_by_path(&mods)
             .items
-            .extend(block::render(ir, b, p)?);
+            .extend(block::render(opts, ir, b, p)?);
     }
 
     for (p, fs) in ir.fieldsets.iter() {
         let (mods, _) = split_path(p);
         root.get_by_path(&mods)
             .items
-            .extend(fieldset::render(ir, fs, p)?);
+            .extend(fieldset::render(opts, ir, fs, p)?);
     }
 
     for (p, e) in ir.enums.iter() {
         let (mods, _) = split_path(p);
         root.get_by_path(&mods)
             .items
-            .extend(enumm::render(ir, e, p)?);
+            .extend(enumm::render(opts, ir, e, p)?);
     }
 
+    /*
     let generic_file = std::str::from_utf8(include_bytes!("generic.rs"))?;
     let tokens = syn::parse_file(generic_file)?.into_token_stream();
 
     let generic_mod = root.get_by_path(&["generic"]);
     generic_mod.items = TokenStream::new(); // Remove default contents
     generic_mod.items.extend(tokens);
+     */
+
+    let x: syn::Path = syn::parse_str("asdf").unwrap();
 
     root.render()
 }

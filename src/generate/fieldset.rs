@@ -6,7 +6,7 @@ use quote::quote;
 use crate::ir::*;
 use crate::util;
 
-pub fn render(ir: &IR, fs: &FieldSet, path: &str) -> Result<TokenStream> {
+pub fn render(opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Result<TokenStream> {
     let span = Span::call_site();
     let mut items = TokenStream::new();
 
