@@ -151,11 +151,12 @@ pub mod delete_fieldsets;
 pub mod make_field_array;
 pub mod make_register_array;
 //pub mod merge_blocks;
+pub mod expand_extends;
 pub mod merge_enums;
 pub mod merge_fieldsets;
-//pub mod rename;
-//pub mod rename_fields;
-pub mod expand_extends;
+pub mod rename;
+pub mod rename_fields;
+pub mod rename_registers;
 pub mod sort;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -169,8 +170,9 @@ pub enum Transform {
     //MergeBlocks(merge_blocks::MergeBlocks),
     MergeEnums(merge_enums::MergeEnums),
     MergeFieldsets(merge_fieldsets::MergeFieldsets),
-    //Rename(rename::Rename),
-    //RenameFields(rename_fields::RenameFields),
+    Rename(rename::Rename),
+    RenameFields(rename_fields::RenameFields),
+    RenameRegisters(rename_registers::RenameRegisters),
     MakeRegisterArray(make_register_array::MakeRegisterArray),
     MakeFieldArray(make_field_array::MakeFieldArray),
     //MakeBlock(make_block::MakeBlock),
@@ -190,8 +192,9 @@ impl Transform {
             //Self::MergeBlocks(t) => t.run(ir),
             Self::MergeEnums(t) => t.run(ir),
             Self::MergeFieldsets(t) => t.run(ir),
-            //Self::Rename(t) => t.run(ir),
-            //Self::RenameFields(t) => t.run(ir),
+            Self::Rename(t) => t.run(ir),
+            Self::RenameFields(t) => t.run(ir),
+            Self::RenameRegisters(t) => t.run(ir),
             Self::MakeRegisterArray(t) => t.run(ir),
             Self::MakeFieldArray(t) => t.run(ir),
             //Self::MakeBlock(t) => t.run(ir),
