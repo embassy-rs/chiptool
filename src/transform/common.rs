@@ -56,7 +56,7 @@ pub(crate) fn check_mergeable_enums_inner(
         let mut bok = [false; 128];
 
         for (ia, fa) in a.variants.iter().enumerate() {
-            if let Some((ib, fb)) = b
+            if let Some((ib, _fb)) = b
                 .variants
                 .iter()
                 .enumerate()
@@ -146,7 +146,7 @@ pub(crate) fn check_mergeable_fieldsets_inner(
         let mut bok = [false; 128];
 
         for (ia, fa) in a.fields.iter().enumerate() {
-            if let Some((ib, fb)) = b
+            if let Some((ib, _fb)) = b
                 .fields
                 .iter()
                 .enumerate()

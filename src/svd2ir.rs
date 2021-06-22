@@ -1,7 +1,5 @@
-use std::collections::HashMap;
-
 use log::*;
-use quote::__private::ext;
+use std::collections::HashMap;
 use svd_parser as svd;
 
 use crate::ir::*;
@@ -270,7 +268,7 @@ pub fn convert_device(svd: &svd::Device) -> anyhow::Result<Device> {
         let block_name = p.derived_from.as_ref().unwrap_or(&p.name);
         let periname = p.name.to_ascii_uppercase();
 
-        let mut peri = Peripheral {
+        let peri = Peripheral {
             name: periname.clone(),
             description: p.description.clone(),
             base_address: p.base_address,
@@ -287,7 +285,7 @@ pub fn convert_device(svd: &svd::Device) -> anyhow::Result<Device> {
         }
         irqs.sort_by(|a, b| a.name.cmp(&b.name));
 
-        for (n, &i) in irqs.iter().enumerate() {
+        for (_n, &i) in irqs.iter().enumerate() {
             let iname = i.name.to_ascii_uppercase();
 
             if !device.interrupts.iter().any(|j| j.name == iname) {

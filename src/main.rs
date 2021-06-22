@@ -2,16 +2,12 @@
 
 use anyhow::{Context, Result};
 use clap::Clap;
-use log::error;
 use log::*;
-use quote::__private::ext;
 use regex::{Captures, Regex};
-use serde::Deserialize;
-use std::collections::HashMap;
 use std::io::Read;
 use std::io::Write;
+use std::u32;
 use std::{fs::File, io::stdout};
-use std::{process, u32};
 
 use chiptool::ir::IR;
 

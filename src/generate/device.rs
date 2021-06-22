@@ -1,13 +1,11 @@
-use proc_macro2::{Ident, Span, TokenStream};
-use quote::{quote, ToTokens, TokenStreamExt};
-use util::ToSanitizedSnakeCase;
-
-use crate::util::{self, ToSanitizedUpperCase};
 use anyhow::Result;
+use proc_macro2::{Ident, Span, TokenStream};
+use quote::quote;
 
 use crate::ir::*;
+use crate::util::{self, ToSanitizedUpperCase};
 
-pub fn render(opts: &super::Options, ir: &IR, d: &Device, path: &str) -> Result<TokenStream> {
+pub fn render(_opts: &super::Options, ir: &IR, d: &Device, path: &str) -> Result<TokenStream> {
     let mut out = TokenStream::new();
     let span = Span::call_site();
 
@@ -55,7 +53,7 @@ pub fn render(opts: &super::Options, ir: &IR, d: &Device, path: &str) -> Result<
         let doc = util::doc(&p.description);
 
         if let Some(block_name) = &p.block {
-            let b = ir.blocks.get(block_name);
+            let _b = ir.blocks.get(block_name);
             let path = util::relative_path(block_name, path);
 
             peripherals.extend(quote! {

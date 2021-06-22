@@ -1,13 +1,8 @@
-use std::borrow::Cow;
-
-use crate::ir::*;
+use anyhow::{anyhow, Result};
 use inflections::Inflect;
 use proc_macro2::{Ident, Literal, Span, TokenStream};
 use quote::{quote, ToTokens};
-use svd_parser::{Access, Cluster, Register, RegisterCluster};
-
-use anyhow::{anyhow, bail, Result};
-use syn::token::Token;
+use std::borrow::Cow;
 
 pub const BITS_PER_BYTE: u32 = 8;
 

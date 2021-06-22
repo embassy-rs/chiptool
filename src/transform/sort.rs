@@ -1,8 +1,5 @@
-use log::*;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
 
-use super::common::*;
 use crate::ir::*;
 
 #[derive(Debug, Serialize, Deserialize)]

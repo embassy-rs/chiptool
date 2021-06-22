@@ -1,19 +1,12 @@
-use std::borrow::Cow;
-use std::cmp::Ordering;
-use std::collections::HashMap;
-
-use log::warn;
+use anyhow::Result;
 use proc_macro2::TokenStream;
-use proc_macro2::{Ident, Punct, Spacing, Span};
-use quote::{quote, ToTokens};
-use svd_parser::derive_from::DeriveFrom;
-
-use crate::util;
-use anyhow::{anyhow, bail, Context, Result};
+use proc_macro2::{Ident, Span};
+use quote::quote;
 
 use crate::ir::*;
+use crate::util;
 
-pub fn render(opts: &super::Options, ir: &IR, e: &Enum, path: &str) -> Result<TokenStream> {
+pub fn render(_opts: &super::Options, _ir: &IR, e: &Enum, path: &str) -> Result<TokenStream> {
     let span = Span::call_site();
     let mut items = TokenStream::new();
 

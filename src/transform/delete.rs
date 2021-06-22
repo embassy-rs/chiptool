@@ -1,6 +1,6 @@
 use log::*;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 use super::common::*;
 use crate::ir::*;
@@ -15,7 +15,7 @@ impl Delete {
         let re = make_regex(&self.from)?;
 
         let mut ids: HashSet<String> = HashSet::new();
-        for (id, fs) in ir.fieldsets.iter() {
+        for (id, _fs) in ir.fieldsets.iter() {
             if re.is_match(id) {
                 info!("deleting fieldset {}", id);
                 ids.insert(id.clone());
@@ -29,7 +29,7 @@ impl Delete {
         }
 
         let mut ids: HashSet<String> = HashSet::new();
-        for (id, e) in ir.enums.iter() {
+        for (id, _e) in ir.enums.iter() {
             if re.is_match(id) {
                 info!("deleting enum {}", id);
                 ids.insert(id.clone());
@@ -43,7 +43,7 @@ impl Delete {
         }
 
         let mut ids: HashSet<String> = HashSet::new();
-        for (id, b) in ir.blocks.iter() {
+        for (id, _b) in ir.blocks.iter() {
             if re.is_match(id) {
                 info!("deleting block {}", id);
                 ids.insert(id.clone());

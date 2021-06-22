@@ -3,12 +3,10 @@ mod device;
 mod enumm;
 mod fieldset;
 
-use std::collections::HashMap;
-
 use anyhow::Result;
 use proc_macro2::{Ident, Span, TokenStream};
-use quote::ToTokens;
-use quote::{quote, TokenStreamExt};
+use quote::quote;
+use std::collections::HashMap;
 
 use crate::ir::*;
 
@@ -124,7 +122,7 @@ pub fn render(ir: &IR, opts: &Options) -> Result<TokenStream> {
     generic_mod.items.extend(tokens);
      */
 
-    let x: syn::Path = syn::parse_str("asdf").unwrap();
+    let _x: syn::Path = syn::parse_str("asdf").unwrap();
 
     root.render()
 }

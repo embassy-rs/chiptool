@@ -6,7 +6,7 @@ use quote::quote;
 use crate::ir::*;
 use crate::util;
 
-pub fn render(opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Result<TokenStream> {
+pub fn render(_opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Result<TokenStream> {
     let span = Span::call_site();
     let mut items = TokenStream::new();
 
@@ -22,7 +22,7 @@ pub fn render(opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Resu
         let name = Ident::new(&f.name, span);
         let name_set = Ident::new(&format!("set_{}", f.name), span);
         let bit_offset = f.bit_offset as usize;
-        let bit_size = f.bit_size as usize;
+        let _bit_size = f.bit_size as usize;
         let mask = util::hex(1u64.wrapping_shl(f.bit_size).wrapping_sub(1));
         let doc = util::doc(&f.description);
         let field_ty: TokenStream;

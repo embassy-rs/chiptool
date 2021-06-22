@@ -1,17 +1,10 @@
-use std::borrow::Cow;
-use std::cmp::Ordering;
-use std::collections::HashMap;
-
-use log::warn;
+use anyhow::Result;
 use proc_macro2::TokenStream;
-use proc_macro2::{Ident, Punct, Spacing, Span};
-use quote::{quote, ToTokens};
-use svd_parser::derive_from::DeriveFrom;
-
-use crate::util;
-use anyhow::{anyhow, bail, Context, Result};
+use proc_macro2::{Ident, Span};
+use quote::quote;
 
 use crate::ir::*;
+use crate::util;
 
 pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<TokenStream> {
     let common_path = &opts.common_path;
@@ -28,7 +21,7 @@ pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<T
         match &i.inner {
             BlockItemInner::Register(r) => {
                 let reg_ty = if let Some(fieldset_path) = &r.fieldset {
-                    let f = ir.fieldsets.get(fieldset_path).unwrap();
+                    let _f = ir.fieldsets.get(fieldset_path).unwrap();
                     util::relative_path(fieldset_path, path)
                 } else {
                     quote!(u32) // todo
@@ -61,7 +54,7 @@ pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<T
             }
             BlockItemInner::Block(b) => {
                 let block_path = &b.block;
-                let b2 = ir.blocks.get(block_path).unwrap();
+                let _b2 = ir.blocks.get(block_path).unwrap();
                 let ty = util::relative_path(block_path, path);
                 if let Some(array) = &i.array {
                     let (len, offs_expr) = super::process_array(array);
