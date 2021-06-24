@@ -17,22 +17,17 @@ impl Rename {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
         let re = make_regex(&self.from)?;
 
-        do_rename(&re, &self.to, &mut ir.devices);
-        do_rename(&re, &self.to, &mut ir.blocks);
-        do_rename(&re, &self.to, &mut ir.fieldsets);
-        do_rename(&re, &self.to, &mut ir.enums);
+        let renamer = |name: &mut String| {
+            if let Some(res) = match_expand(name, &re, &self.to) {
+                *name = res
+            }
+        };
+
+        super::map_device_names(ir, &renamer);
+        super::map_block_names(ir, &renamer);
+        super::map_fieldset_names(ir, &renamer);
+        super::map_enum_names(ir, &renamer);
 
         Ok(())
-    }
-}
-
-fn do_rename<T>(from: &Regex, to: &str, data: &mut HashMap<String, T>) {
-    let old_data = mem::replace(data, HashMap::new());
-    for (name, x) in old_data {
-        if let Some(res) = match_expand(&name, from, to) {
-            data.insert(res, x);
-        } else {
-            data.insert(name, x);
-        }
     }
 }

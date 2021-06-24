@@ -7,6 +7,7 @@ use anyhow::Result;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 use std::collections::HashMap;
+use std::str::FromStr;
 
 use crate::ir::*;
 
@@ -56,8 +57,22 @@ impl Module {
     }
 }
 
+pub enum CommonModule {
+    Builtin,
+    External(syn::Path),
+}
+
 pub struct Options {
-    pub common_path: syn::Path,
+    pub common_module: CommonModule,
+}
+
+impl Options {
+    fn common_path(&self) -> syn::Path {
+        match &self.common_module {
+            CommonModule::Builtin => syn::parse_str("crate::common").unwrap(),
+            CommonModule::External(path) => path.clone(),
+        }
+    }
 }
 
 pub fn render(ir: &IR, opts: &Options) -> Result<TokenStream> {
@@ -113,14 +128,17 @@ pub fn render(ir: &IR, opts: &Options) -> Result<TokenStream> {
             .extend(enumm::render(opts, ir, e, p)?);
     }
 
-    /*
-    let generic_file = std::str::from_utf8(include_bytes!("generic.rs"))?;
-    let tokens = syn::parse_file(generic_file)?.into_token_stream();
+    match &opts.common_module {
+        CommonModule::Builtin => {
+            let tokens =
+                TokenStream::from_str(std::str::from_utf8(COMMON_MODULE).unwrap()).unwrap();
 
-    let generic_mod = root.get_by_path(&["generic"]);
-    generic_mod.items = TokenStream::new(); // Remove default contents
-    generic_mod.items.extend(tokens);
-     */
+            let module = root.get_by_path(&["common"]);
+            module.items = TokenStream::new(); // Remove default contents
+            module.items.extend(tokens);
+        }
+        CommonModule::External(_) => {}
+    }
 
     let _x: syn::Path = syn::parse_str("asdf").unwrap();
 

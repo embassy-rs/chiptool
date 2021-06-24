@@ -1,12 +1,12 @@
 #![recursion_limit = "128"]
 
 use anyhow::{Context, Result};
+use chiptool::{generate, svd2ir};
 use clap::Clap;
 use log::*;
-use regex::{Captures, Regex};
+use regex::Regex;
+use std::fs;
 use std::io::Read;
-use std::io::Write;
-use std::u32;
 use std::{fs::File, io::stdout};
 
 use chiptool::ir::IR;
@@ -20,8 +20,8 @@ struct Opts {
 
 #[derive(Clap)]
 enum Subcommand {
+    Generate(Generate),
     ExtractPeripheral(ExtractPeripheral),
-    ExtractDevice(ExtractDevice),
 }
 
 /// Extract peripheral from SVD to YAML
@@ -38,12 +38,15 @@ struct ExtractPeripheral {
     transform: Option<String>,
 }
 
-/// Extract peripheral from SVD to YAML
+/// Generate a PAC directly from a SVD
 #[derive(Clap)]
-struct ExtractDevice {
+struct Generate {
     /// SVD file path
     #[clap(long)]
     svd: String,
+    /// Transforms file path
+    #[clap(long)]
+    transform: Option<String>,
 }
 
 fn main() -> Result<()> {
@@ -53,7 +56,7 @@ fn main() -> Result<()> {
 
     match opts.subcommand {
         Subcommand::ExtractPeripheral(x) => extract_peripheral(x),
-        Subcommand::ExtractDevice(x) => extract_device(x),
+        Subcommand::Generate(x) => gen(x),
     }
 }
 
@@ -68,37 +71,14 @@ fn load_svd(path: &str) -> Result<svd_parser::Device> {
     Ok(device)
 }
 
-fn extract_device(args: ExtractDevice) -> Result<()> {
-    let svd = load_svd(&args.svd)?;
-
-    let mut device = chiptool::svd2ir::convert_device(&svd)?;
-
-    device.peripherals.sort_by_key(|p| p.name.clone());
-    device.interrupts.sort_by_key(|p| p.value);
-
-    let y = serde_yaml::to_string(&device).unwrap();
-
-    // Convert all addresses to hex...
-    let re = Regex::new("base_address: (\\d+)").unwrap();
-    let y = re.replace_all(&y, |caps: &Captures| {
-        format!("base_address: 0x{:08x}", &caps[1].parse::<u32>().unwrap())
-    });
-
-    stdout().write_all(y.as_bytes()).unwrap();
-
-    Ok(())
+fn load_config(path: &str) -> Result<Config> {
+    let config = fs::read(path).context("Cannot read the config file")?;
+    Ok(serde_yaml::from_slice(&config).context("cannot deserialize config")?)
 }
 
 fn extract_peripheral(args: ExtractPeripheral) -> Result<()> {
     let config = match args.transform {
-        Some(file) => {
-            let config = &mut String::new();
-            File::open(file)
-                .context("Cannot open the config file")?
-                .read_to_string(config)
-                .context("Cannot read the config file")?;
-            serde_yaml::from_str(config).context("cannot deserialize config")?
-        }
+        Some(s) => load_config(&s)?,
         None => Config::default(),
     };
 
@@ -135,6 +115,33 @@ fn extract_peripheral(args: ExtractPeripheral) -> Result<()> {
     chiptool::transform::sort::Sort {}.run(&mut ir).unwrap();
 
     serde_yaml::to_writer(stdout(), &ir).unwrap();
+    Ok(())
+}
+
+fn gen(args: Generate) -> Result<()> {
+    let config = match args.transform {
+        Some(s) => load_config(&s)?,
+        None => Config::default(),
+    };
+
+    let svd = load_svd(&args.svd)?;
+    let mut ir = svd2ir::convert_svd(&svd)?;
+
+    // Fix weird newline spam in descriptions.
+    let re = Regex::new("[ \n]+").unwrap();
+    chiptool::transform::map_descriptions(&mut ir, |d| re.replace_all(d, " ").into_owned())?;
+
+    for t in &config.transforms {
+        info!("running: {:?}", t);
+        t.run(&mut ir)?;
+    }
+
+    let generate_opts = generate::Options {
+        common_module: generate::CommonModule::Builtin,
+    };
+    let items = generate::render(&ir, &generate_opts).unwrap();
+    fs::write("lib.rs", items.to_string())?;
+
     Ok(())
 }
 

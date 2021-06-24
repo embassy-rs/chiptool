@@ -2,8 +2,8 @@ use log::*;
 use std::collections::HashMap;
 use svd_parser as svd;
 
-use crate::ir::*;
 use crate::util;
+use crate::{ir::*, transform};
 
 struct ProtoBlock {
     name: Vec<String>,
@@ -258,7 +258,9 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
     Ok(())
 }
 
-pub fn convert_device(svd: &svd::Device) -> anyhow::Result<Device> {
+pub fn convert_svd(svd: &svd::Device) -> anyhow::Result<IR> {
+    let mut ir = IR::new();
+
     let mut device = Device {
         peripherals: vec![],
         interrupts: vec![],
@@ -266,13 +268,14 @@ pub fn convert_device(svd: &svd::Device) -> anyhow::Result<Device> {
 
     for p in &svd.peripherals {
         let block_name = p.derived_from.as_ref().unwrap_or(&p.name);
+        let block_name = format!("{}::{}", block_name, block_name);
         let periname = p.name.to_ascii_uppercase();
 
         let peri = Peripheral {
             name: periname.clone(),
             description: p.description.clone(),
             base_address: p.base_address,
-            block: Some(block_name.clone()),
+            block: Some(block_name),
             array: None,
             interrupts: HashMap::new(),
         };
@@ -283,7 +286,7 @@ pub fn convert_device(svd: &svd::Device) -> anyhow::Result<Device> {
                 irqs.push(i)
             }
         }
-        irqs.sort_by(|a, b| a.name.cmp(&b.name));
+        irqs.sort_by_key(|i| &i.name);
 
         for (_n, &i) in irqs.iter().enumerate() {
             let iname = i.name.to_ascii_uppercase();
@@ -311,9 +314,29 @@ pub fn convert_device(svd: &svd::Device) -> anyhow::Result<Device> {
         }
 
         device.peripherals.push(peri);
+
+        if p.derived_from.is_none() {
+            let mut pir = IR::new();
+            convert_peripheral(&mut pir, &p)?;
+
+            let path = &p.name;
+            transform::map_names(&mut pir, |k, s| match k {
+                transform::NameKind::Block => *s = format!("{}::{}", path, s),
+                transform::NameKind::Fieldset => *s = format!("{}::regs::{}", path, s),
+                transform::NameKind::Enum => *s = format!("{}::vals::{}", path, s),
+                _ => {}
+            });
+
+            ir.merge(pir);
+        }
     }
 
-    Ok(device)
+    ir.devices.insert("".to_string(), device);
+
+    transform::sort::Sort {}.run(&mut ir).unwrap();
+    transform::Sanitize {}.run(&mut ir).unwrap();
+
+    Ok(ir)
 }
 
 fn collect_blocks(

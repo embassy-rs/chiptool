@@ -71,7 +71,10 @@ pub(crate) fn remove_block_ids(ir: &mut IR, from: &HashSet<String>) {
         });
     }
 
-    //for (_, d) in ir.devices.iter_mut() {
-    //    d.peripherals.retain(|p| !from.contains(&p.block));
-    //}
+    for (_, d) in ir.devices.iter_mut() {
+        d.peripherals.retain(|p| match &p.block {
+            Some(block) => !from.contains(block),
+            None => true,
+        });
+    }
 }

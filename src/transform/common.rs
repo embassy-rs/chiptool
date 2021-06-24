@@ -229,15 +229,15 @@ pub(crate) fn replace_fieldset_ids(ir: &mut IR, from: &HashSet<String>, to: Stri
 }
 
 pub(crate) fn replace_block_ids(ir: &mut IR, from: &HashSet<String>, to: String) {
-    /*
     for (_, d) in ir.devices.iter_mut() {
         for p in d.peripherals.iter_mut() {
-            if from.contains(&p.block) {
-                p.block = to
+            if let Some(block) = &mut p.block {
+                if from.contains(block) {
+                    *block = to.clone()
+                }
             }
         }
     }
-     */
 
     for (_, b) in ir.blocks.iter_mut() {
         for i in b.items.iter_mut() {

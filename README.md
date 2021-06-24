@@ -1,9 +1,10 @@
-[![crates.io](https://img.shields.io/crates/d/svd2rust.svg)](https://crates.io/crates/svd2rust)
-[![crates.io](https://img.shields.io/crates/v/svd2rust.svg)](https://crates.io/crates/svd2rust)
+# chiptool
 
-# `svd2rust` experiments
+`chiptool` is an experimental fork of `svd2rust` to experiment with:
 
-This repo contains an experimental fork of `svd2rust` to experiment with API changes in the generated code.
+- Different API for the generated code.
+- Integrating "transforms" in the generation process
+- New workflow for storing register definitions in standalone YAML files.
 
 ## Example
 
@@ -17,6 +18,7 @@ Tested with the RP2040 SVD. Other SVDs might not work quite right yet.
 ## Changes from svd2rust main
 
 ### No owned structs
+
 Original svd2rust generates an owned struct for each peripheral. However, there are many cases where the HAL wants to "split up" a peripheral into multiple owned parts. Examples:
 
 - Many pins in a GPIO port peripheral.
@@ -41,7 +43,7 @@ Reasons:
 
 Current svd2rust provides "read proxy" and "write proxy" structs with methods to access register fields when reading/writing. However:
 
-- There's no type-safe way to save the *value* of a register in a variable to write later. (there's `.bits()`, but it's not typesafe)
+- There's no type-safe way to save the _value_ of a register in a variable to write later. (there's `.bits()`, but it's not typesafe)
 - There's no way to read/modify register fields on a saved value (if using `.bits()`, the user has a raw u32, they need to extract the fields manually with bitwise manipulation)
 
 Solution: for each register with fields, a "fieldset" struct is generated. This struct wraps the raw `u32` and allows getting/setting individual fields.
@@ -74,9 +76,9 @@ pac::WATCHDOG.tick().write(|w| {
 
 ### Structs representing enumerated values
 
-For each EnumeratedValues in a field, a struct is generated. 
+For each EnumeratedValues in a field, a struct is generated.
 
-This struct is *not* a Rust enum, it is a struct with associated constants.
+This struct is _not_ a Rust enum, it is a struct with associated constants.
 
 ### Possibility to share items (blocks, fieldsets, enums)
 
@@ -92,7 +94,7 @@ Example: the RP2040 chip has two GPIO banks: `BANK0` and `QSPI`. These share man
     to: io::values::${1}over
 ```
 
-This merges all `INOVER`, `OUTOVER`, `OEOVER` and `IRQOVER` enums (144 enums!) into just 4. 
+This merges all `INOVER`, `OUTOVER`, `OEOVER` and `IRQOVER` enums (144 enums!) into just 4.
 
 - huge reduction in generated code, mitigating long compile times which is one of the top complaints of current PACs.
 - Better code sharing in HALs since they can use a single enum/fieldset to read/write to multiple registers.
@@ -143,7 +145,7 @@ This collapses all `smX_*` registers into a single cluster:
       sm1
       sm2
       sm3
-    
+
     StateMachine block:
       clkdiv
       execctrl
@@ -174,7 +176,6 @@ example:
     RegisterBlock:
       sm (array of length 4)
 
-
 ### RegisterBlocks and Registers wrap pointers
 
 ```rust
@@ -198,12 +199,10 @@ pub struct Reg<T: Copy, A: Access> {
 - No need to calculate and fill padding holes in RegisterBlock structs
 - No problem if registers overlap (currently svd2rust has to check for this, and falls back to a function-based codegen similar to this one)
 - Pointer provenance is not erased. Previous codegen causes pointers to become references (&), so it's undefined behavior to do arithmetic with a register pointer to write somewhere else. This is useful in a few niche situations:
-  - calculating a pointer to a particular register bit in the bitbanding region 
+  - calculating a pointer to a particular register bit in the bitbanding region
   - The RP2040 chip has register aliases that atomically set/clear/xor register bits at addr + 0x1000/0x2000/0x3000
 
 This generates the same assembly code as original svd2rust when optimizations are enabled.
-
-
 
 ## Running
 
@@ -221,6 +220,7 @@ Missing features:
 - registers with bit width other than 32
 
 Nice to have features:
+
 - More transforms (deletes, renames, move entire module...)
 - clean up doc comments better
 
@@ -243,8 +243,8 @@ additional terms or conditions.
 ## Code of Conduct
 
 Contribution to this crate is organized under the terms of the [Rust Code of
-Conduct][CoC], the maintainer of this crate, the [Tools team][team], promises
+Conduct][coc], the maintainer of this crate, the [Tools team][team], promises
 to intervene to uphold that code of conduct.
 
-[CoC]: CODE_OF_CONDUCT.md
+[coc]: CODE_OF_CONDUCT.md
 [team]: https://github.com/rust-embedded/wg#the-tools-team

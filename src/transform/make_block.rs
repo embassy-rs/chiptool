@@ -1,6 +1,5 @@
 use log::*;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
 
 use super::common::*;
 use crate::ir::*;
@@ -18,11 +17,11 @@ impl MakeBlock {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
         let path_re = make_regex(&self.blocks)?;
         let re = make_regex(&self.from)?;
-        for id in match_all(&ir.blocks, &path_re) {
-            let b = ir.blocks.get_mut(id);
+        for id in match_all(ir.blocks.keys().cloned(), &path_re) {
+            let b = ir.blocks.get_mut(&id).unwrap();
             let groups = match_groups(b.items.iter().map(|f| f.name.clone()), &re, &self.to_outer);
             for (to, group) in groups {
-                let b = ir.blocks.get_mut(id);
+                let b = ir.blocks.get_mut(&id).unwrap();
                 info!("blockifizing to {}", to);
 
                 // Grab all items into a vec
@@ -41,17 +40,9 @@ impl MakeBlock {
                 // todo check they're not arrays (arrays of arrays not supported)
 
                 let byte_offset = items[0].byte_offset;
-                let len = items.len() as u32;
-                let byte_stride = if len == 1 {
-                    // If there's only 1 item, we can't know the stride, but it
-                    // doesn't really matter!
-                    0
-                } else {
-                    items[1].byte_offset - items[0].byte_offset
-                };
 
                 let b2 = Block {
-                    path: Path::new_from_string(&self.to_block), // todo regex
+                    extends: None,
                     description: None,
                     items: items
                         .iter()
@@ -63,15 +54,13 @@ impl MakeBlock {
                         })
                         .collect(),
                 };
-                let b2_id = if let Some((id, b3)) = ir.blocks.find(|b| b.path == b2.path) {
-                    // todo check blocks are mergeable
-                    id
-                } else {
-                    ir.blocks.put(b2)
-                };
+
+                // TODO if destination block exists, check mergeable
+                let dest = self.to_block.clone(); // todo regex
+                ir.blocks.insert(dest.clone(), b2);
 
                 // Remove all items
-                let b = ir.blocks.get_mut(id);
+                let b = ir.blocks.get_mut(&id).unwrap();
                 b.items.retain(|i| !group.contains(&i.name));
 
                 // Create the new block item
@@ -80,7 +69,7 @@ impl MakeBlock {
                     description: None,
                     array: None,
                     byte_offset,
-                    inner: BlockItemInner::Block(b2_id),
+                    inner: BlockItemInner::Block(BlockItemBlock { block: dest }),
                 });
             }
         }

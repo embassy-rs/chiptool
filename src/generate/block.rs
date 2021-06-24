@@ -7,7 +7,7 @@ use crate::ir::*;
 use crate::util;
 
 pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<TokenStream> {
-    let common_path = &opts.common_path;
+    let common_path = opts.common_path();
 
     let span = Span::call_site();
     let mut items = TokenStream::new();
