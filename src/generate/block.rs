@@ -83,7 +83,7 @@ pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<T
     let doc = util::doc(&b.description);
     let out = quote! {
         #doc
-        #[derive(Copy, Clone)]
+        #[derive(Copy, Clone, Eq, PartialEq)]
         pub struct #name (pub *mut u8);
         unsafe impl Send for #name {}
         unsafe impl Sync for #name {}
