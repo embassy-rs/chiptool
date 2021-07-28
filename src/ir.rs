@@ -40,7 +40,7 @@ pub struct Peripheral {
     pub name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
-    pub base_address: u32,
+    pub base_address: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub array: Option<Array>,
 
