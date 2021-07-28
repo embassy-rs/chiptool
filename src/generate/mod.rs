@@ -59,7 +59,7 @@ impl Module {
 
 pub enum CommonModule {
     Builtin,
-    External(syn::Path),
+    External(TokenStream),
 }
 
 pub struct Options {
@@ -67,9 +67,9 @@ pub struct Options {
 }
 
 impl Options {
-    fn common_path(&self) -> syn::Path {
+    fn common_path(&self) -> TokenStream {
         match &self.common_module {
-            CommonModule::Builtin => syn::parse_str("crate::common").unwrap(),
+            CommonModule::Builtin => TokenStream::from_str("crate::common").unwrap(),
             CommonModule::External(path) => path.clone(),
         }
     }
@@ -139,8 +139,6 @@ pub fn render(ir: &IR, opts: &Options) -> Result<TokenStream> {
         }
         CommonModule::External(_) => {}
     }
-
-    let _x: syn::Path = syn::parse_str("asdf").unwrap();
 
     root.render()
 }

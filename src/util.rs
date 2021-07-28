@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use inflections::Inflect;
 use proc_macro2::{Ident, Literal, Span, TokenStream};
 use quote::{quote, ToTokens};
-use std::borrow::Cow;
+use std::{borrow::Cow, str::FromStr};
 
 pub const BITS_PER_BYTE: u32 = 8;
 
@@ -175,7 +175,7 @@ pub fn hex(n: u64) -> TokenStream {
         (n >> 16) & 0xffff,
         n & 0xffff,
     );
-    syn::parse_str::<syn::Lit>(
+    TokenStream::from_str(
         &(if h4 != 0 {
             format!("0x{:04x}_{:04x}_{:04x}_{:04x}", h4, h3, h2, h1)
         } else if h3 != 0 {
@@ -191,7 +191,6 @@ pub fn hex(n: u64) -> TokenStream {
         }),
     )
     .unwrap()
-    .into_token_stream()
 }
 
 /// Turns `n` into an unsuffixed token
