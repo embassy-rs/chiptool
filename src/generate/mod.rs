@@ -90,7 +90,7 @@ pub fn render(ir: &IR, opts: &Options) -> Result<TokenStream> {
     };
 
     let doc = format!(
-        "Peripheral access API (generated using svd2rust v{}{})",
+        "Peripheral access API (generated using chiptool v{}{})",
         env!("CARGO_PKG_VERSION"),
         commit_info
     );
