@@ -186,13 +186,6 @@ fn is_32(x: &u32) -> bool {
     *x == 32
 }
 
-fn default_0() -> u32 {
-    0
-}
-fn is_0(x: &u32) -> bool {
-    *x == 0
-}
-
 fn default_readwrite() -> Access {
     Access::ReadWrite
 }

@@ -12,13 +12,6 @@ pub(crate) fn make_regex(r: &str) -> Result<regex::Regex, regex::Error> {
     regex::Regex::new(&format!("^{}$", r))
 }
 
-fn dfalse() -> bool {
-    false
-}
-fn dtrue() -> bool {
-    true
-}
-
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone, Copy, Serialize, Deserialize)]
 pub enum CheckLevel {
     NoCheck,
