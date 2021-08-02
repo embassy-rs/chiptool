@@ -73,7 +73,7 @@ fn load_svd(path: &str) -> Result<svd_parser::Device> {
 
 fn load_config(path: &str) -> Result<Config> {
     let config = fs::read(path).context("Cannot read the config file")?;
-    Ok(serde_yaml::from_slice(&config).context("cannot deserialize config")?)
+    serde_yaml::from_slice(&config).context("cannot deserialize config")
 }
 
 fn extract_peripheral(args: ExtractPeripheral) -> Result<()> {
@@ -100,7 +100,7 @@ fn extract_peripheral(args: ExtractPeripheral) -> Result<()> {
             .expect("derivedFrom peripheral not found");
     }
 
-    chiptool::svd2ir::convert_peripheral(&mut ir, &p)?;
+    chiptool::svd2ir::convert_peripheral(&mut ir, p)?;
 
     // Fix weird newline spam in descriptions.
     let re = Regex::new("[ \n]+").unwrap();
