@@ -2,7 +2,7 @@
 
 use anyhow::{Context, Result};
 use chiptool::{generate, svd2ir};
-use clap::Clap;
+use clap::Parser;
 use log::*;
 use regex::Regex;
 use std::fs;
@@ -11,21 +11,21 @@ use std::{fs::File, io::stdout};
 
 use chiptool::ir::IR;
 
-#[derive(Clap)]
+#[derive(Parser)]
 #[clap(version = "1.0", author = "Dirbaio <dirbaio@dirbaio.net>")]
 struct Opts {
     #[clap(subcommand)]
     subcommand: Subcommand,
 }
 
-#[derive(Clap)]
+#[derive(Parser)]
 enum Subcommand {
     Generate(Generate),
     ExtractPeripheral(ExtractPeripheral),
 }
 
 /// Extract peripheral from SVD to YAML
-#[derive(Clap)]
+#[derive(Parser)]
 struct ExtractPeripheral {
     /// SVD file path
     #[clap(long)]
@@ -39,7 +39,7 @@ struct ExtractPeripheral {
 }
 
 /// Generate a PAC directly from a SVD
-#[derive(Clap)]
+#[derive(Parser)]
 struct Generate {
     /// SVD file path
     #[clap(long)]
