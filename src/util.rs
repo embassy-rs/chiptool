@@ -308,6 +308,7 @@ pub fn doc(doc: &Option<String>) -> TokenStream {
     if let Some(doc) = doc {
         let doc = doc.replace("\\n", "\n");
         let doc = respace(&doc);
+        let doc = escape_brackets(&doc);
         quote!(#[doc=#doc])
     } else {
         quote!()
