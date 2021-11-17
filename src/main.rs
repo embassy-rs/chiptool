@@ -1,6 +1,6 @@
 #![recursion_limit = "128"]
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use chiptool::{generate, svd2ir};
 use clap::Parser;
 use log::*;
@@ -22,6 +22,7 @@ struct Opts {
 enum Subcommand {
     Generate(Generate),
     ExtractPeripheral(ExtractPeripheral),
+    Fmt(Fmt),
 }
 
 /// Extract peripheral from SVD to YAML
@@ -49,6 +50,16 @@ struct Generate {
     transform: Option<String>,
 }
 
+/// Generate a PAC directly from a SVD
+#[derive(Parser)]
+struct Fmt {
+    /// Peripheral file path
+    files: Vec<String>,
+    /// Error if incorrectly formatted, instead of fixing.
+    #[clap(long)]
+    check: bool,
+}
+
 fn main() -> Result<()> {
     env_logger::init();
 
@@ -57,6 +68,7 @@ fn main() -> Result<()> {
     match opts.subcommand {
         Subcommand::ExtractPeripheral(x) => extract_peripheral(x),
         Subcommand::Generate(x) => gen(x),
+        Subcommand::Fmt(x) => fmt(x),
     }
 }
 
@@ -142,6 +154,23 @@ fn gen(args: Generate) -> Result<()> {
     let items = generate::render(&ir, &generate_opts).unwrap();
     fs::write("lib.rs", items.to_string())?;
 
+    Ok(())
+}
+
+fn fmt(args: Fmt) -> Result<()> {
+    for file in args.files {
+        let got_data = fs::read(&file)?;
+        let ir: IR = serde_yaml::from_slice(&got_data)?;
+        let want_data = serde_yaml::to_vec(&ir)?;
+
+        if got_data != want_data {
+            if args.check {
+                bail!("File {} is not correctly formatted", &file);
+            } else {
+                fs::write(&file, want_data)?;
+            }
+        }
+    }
     Ok(())
 }
 
