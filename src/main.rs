@@ -22,6 +22,7 @@ struct Opts {
 enum Subcommand {
     Generate(Generate),
     ExtractPeripheral(ExtractPeripheral),
+    Transform(Transform),
     Fmt(Fmt),
 }
 
@@ -37,6 +38,20 @@ struct ExtractPeripheral {
     /// Transforms file path
     #[clap(long)]
     transform: Option<String>,
+}
+
+/// Extract peripheral from SVD to YAML
+#[derive(Parser)]
+struct Transform {
+    /// Input YAML path
+    #[clap(short, long)]
+    input: String,
+    /// Output YAML path
+    #[clap(short, long)]
+    output: String,
+    /// Transforms file path
+    #[clap(short, long)]
+    transform: String,
 }
 
 /// Generate a PAC directly from a SVD
@@ -68,6 +83,7 @@ fn main() -> Result<()> {
     match opts.subcommand {
         Subcommand::ExtractPeripheral(x) => extract_peripheral(x),
         Subcommand::Generate(x) => gen(x),
+        Subcommand::Transform(x) => transform(x),
         Subcommand::Fmt(x) => fmt(x),
     }
 }
@@ -153,6 +169,20 @@ fn gen(args: Generate) -> Result<()> {
     };
     let items = generate::render(&ir, &generate_opts).unwrap();
     fs::write("lib.rs", items.to_string())?;
+
+    Ok(())
+}
+
+fn transform(args: Transform) -> Result<()> {
+    let data = fs::read(&args.input)?;
+    let mut ir: IR = serde_yaml::from_slice(&data)?;
+    let config = load_config(&args.transform)?;
+    for t in &config.transforms {
+        info!("running: {:?}", t);
+        t.run(&mut ir)?;
+    }
+    let data = serde_yaml::to_vec(&ir)?;
+    fs::write(&args.output, data)?;
 
     Ok(())
 }
