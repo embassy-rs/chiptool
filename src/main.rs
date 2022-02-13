@@ -41,7 +41,7 @@ struct ExtractPeripheral {
     transform: Option<String>,
 }
 
-/// Extract peripheral from SVD to YAML
+/// Apply transform to YAML
 #[derive(Parser)]
 struct Transform {
     /// Input YAML path
@@ -66,7 +66,7 @@ struct Generate {
     transform: Option<String>,
 }
 
-/// Generate a PAC directly from a SVD
+/// Reformat a YAML
 #[derive(Parser)]
 struct Fmt {
     /// Peripheral file path
