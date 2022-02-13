@@ -24,6 +24,7 @@ enum Subcommand {
     ExtractPeripheral(ExtractPeripheral),
     Transform(Transform),
     Fmt(Fmt),
+    GenBlock(GenBlock),
 }
 
 /// Extract peripheral from SVD to YAML
@@ -75,6 +76,17 @@ struct Fmt {
     check: bool,
 }
 
+/// Generate Rust code from a YAML register block
+#[derive(Parser)]
+struct GenBlock {
+    /// Input YAML path
+    #[clap(short, long)]
+    input: String,
+    /// Output YAML path
+    #[clap(short, long)]
+    output: String,
+}
+
 fn main() -> Result<()> {
     env_logger::init();
 
@@ -85,6 +97,7 @@ fn main() -> Result<()> {
         Subcommand::Generate(x) => gen(x),
         Subcommand::Transform(x) => transform(x),
         Subcommand::Fmt(x) => fmt(x),
+        Subcommand::GenBlock(x) => gen_block(x),
     }
 }
 
@@ -190,7 +203,11 @@ fn transform(args: Transform) -> Result<()> {
 fn fmt(args: Fmt) -> Result<()> {
     for file in args.files {
         let got_data = fs::read(&file)?;
-        let ir: IR = serde_yaml::from_slice(&got_data)?;
+        let mut ir: IR = serde_yaml::from_slice(&got_data)?;
+
+        // Ensure consistent sort order in the YAML.
+        chiptool::transform::sort::Sort {}.run(&mut ir).unwrap();
+
         let want_data = serde_yaml::to_vec(&ir)?;
 
         if got_data != want_data {
@@ -204,6 +221,23 @@ fn fmt(args: Fmt) -> Result<()> {
     Ok(())
 }
 
+fn gen_block(args: GenBlock) -> Result<()> {
+    let data = fs::read(&args.input)?;
+    let mut ir: IR = serde_yaml::from_slice(&data)?;
+
+    chiptool::transform::Sanitize {}.run(&mut ir).unwrap();
+
+    // Ensure consistent sort order in the YAML.
+    chiptool::transform::sort::Sort {}.run(&mut ir).unwrap();
+
+    let generate_opts = generate::Options {
+        common_module: generate::CommonModule::Builtin,
+    };
+    let items = generate::render(&ir, &generate_opts).unwrap();
+    fs::write(&args.output, items.to_string())?;
+
+    Ok(())
+}
 #[derive(serde::Serialize, serde::Deserialize)]
 struct Config {
     transforms: Vec<chiptool::transform::Transform>,
