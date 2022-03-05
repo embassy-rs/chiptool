@@ -38,6 +38,7 @@ pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<T
                     let (len, offs_expr) = super::process_array(array);
                     items.extend(quote!(
                         #doc
+                        #[inline(always)]
                         pub fn #name(self, n: usize) -> #ty {
                             assert!(n < #len);
                             unsafe { #common_path::Reg::from_ptr(self.0.add(#offset + #offs_expr)) }
@@ -46,6 +47,7 @@ pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<T
                 } else {
                     items.extend(quote!(
                         #doc
+                        #[inline(always)]
                         pub fn #name(self) -> #ty {
                             unsafe { #common_path::Reg::from_ptr(self.0.add(#offset)) }
                         }
@@ -61,6 +63,7 @@ pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<T
 
                     items.extend(quote!(
                         #doc
+                        #[inline(always)]
                         pub fn #name(self, n: usize) -> #ty {
                             assert!(n < #len);
                             unsafe { #ty(self.0.add(#offset + #offs_expr)) }
@@ -69,6 +72,7 @@ pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<T
                 } else {
                     items.extend(quote!(
                         #doc
+                        #[inline(always)]
                         pub fn #name(self) -> #ty {
                             unsafe { #ty(self.0.add(#offset)) }
                         }
