@@ -1,0 +1,4 @@
+status = [
+    "build",
+]
+delete_merged_branches = true
