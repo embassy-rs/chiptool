@@ -64,6 +64,7 @@ pub fn render(_opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Res
             let (len, offs_expr) = super::process_array(array);
             items.extend(quote!(
                 #doc
+                #[inline(always)]
                 pub fn #name(&self, n: usize) -> #field_ty{
                     assert!(n < #len);
                     let offs = #bit_offset + #offs_expr;
@@ -71,6 +72,7 @@ pub fn render(_opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Res
                     #from_bits
                 }
                 #doc
+                #[inline(always)]
                 pub fn #name_set(&mut self, n: usize, val: #field_ty) {
                     assert!(n < #len);
                     let offs = #bit_offset + #offs_expr;
@@ -80,11 +82,13 @@ pub fn render(_opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Res
         } else {
             items.extend(quote!(
                 #doc
+                #[inline(always)]
                 pub const fn #name(&self) -> #field_ty{
                     let val = (self.0 >> #bit_offset) & #mask;
                     #from_bits
                 }
                 #doc
+                #[inline(always)]
                 pub fn #name_set(&mut self, val: #field_ty) {
                     self.0 = (self.0 & !(#mask << #bit_offset)) | (((#to_bits) & #mask) << #bit_offset);
                 }
@@ -107,6 +111,7 @@ pub fn render(_opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Res
         }
 
         impl Default for #name {
+            #[inline(always)]
             fn default() -> #name {
                 #name(0)
             }
