@@ -1,10 +1,6 @@
 use anyhow::bail;
-use array::IntoIter;
 use serde::{Deserialize, Serialize};
-use std::{
-    array,
-    collections::{HashMap, HashSet},
-};
+use std::collections::{HashMap, HashSet};
 
 use crate::ir::*;
 
@@ -196,7 +192,8 @@ pub(crate) fn match_expand(s: &str, regex: &regex::Regex, res: &str) -> Option<S
 pub(crate) fn replace_enum_ids(ir: &mut IR, from: &HashSet<String>, to: String) {
     for (_, fs) in ir.fieldsets.iter_mut() {
         for f in fs.fields.iter_mut() {
-            for id in IntoIter::new([&mut f.enum_read, &mut f.enum_write, &mut f.enum_readwrite])
+            for id in [&mut f.enum_read, &mut f.enum_write, &mut f.enum_readwrite]
+                .into_iter()
                 .flatten()
             {
                 if from.contains(id) {
