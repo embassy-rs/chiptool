@@ -2,7 +2,7 @@
 name = "chiptool"
 license = "MIT OR Apache-2.0"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 clap = { version = "3.1.6", features = ["derive"] }

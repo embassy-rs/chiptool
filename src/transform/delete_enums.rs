@@ -1,6 +1,5 @@
 use log::*;
 use serde::{Deserialize, Serialize};
-use std::array::IntoIter;
 use std::collections::HashSet;
 
 use super::common::*;
@@ -42,7 +41,7 @@ impl DeleteEnums {
 pub(crate) fn remove_enum_ids(ir: &mut IR, from: &HashSet<String>) {
     for (_, fs) in ir.fieldsets.iter_mut() {
         for f in fs.fields.iter_mut() {
-            for e in IntoIter::new([&mut f.enum_read, &mut f.enum_write, &mut f.enum_readwrite]) {
+            for e in [&mut f.enum_read, &mut f.enum_write, &mut f.enum_readwrite].into_iter() {
                 if let Some(id) = e {
                     if from.contains(id) {
                         *e = None
