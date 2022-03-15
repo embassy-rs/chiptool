@@ -139,7 +139,7 @@ pub fn respace(s: &str) -> String {
 pub fn escape_brackets(s: &str) -> String {
     s.split('[')
         .fold("".to_string(), |acc, x| {
-            if acc == "" {
+            if acc.is_empty() {
                 x.to_string()
             } else if acc.ends_with('\\') {
                 acc + "[" + x
@@ -149,7 +149,7 @@ pub fn escape_brackets(s: &str) -> String {
         })
         .split(']')
         .fold("".to_string(), |acc, x| {
-            if acc == "" {
+            if acc.is_empty() {
                 x.to_string()
             } else if acc.ends_with('\\') {
                 acc + "]" + x
@@ -298,7 +298,7 @@ pub fn relative_path(a: &str, b: &str) -> TokenStream {
         res.extend(quote!(#ident::));
     }
 
-    let ident = Ident::new(&a[a.len() - 1], Span::call_site());
+    let ident = Ident::new(a[a.len() - 1], Span::call_site());
     res.extend(quote!(#ident));
 
     res

@@ -34,7 +34,7 @@ impl Module {
 
         self.children
             .entry(path[0].to_owned())
-            .or_insert_with(|| Module::new())
+            .or_insert_with(Module::new)
             .get_by_path(&path[1..])
     }
 

@@ -12,13 +12,6 @@ pub(crate) fn make_regex(r: &str) -> Result<regex::Regex, regex::Error> {
     regex::Regex::new(&format!("^{}$", r))
 }
 
-fn dfalse() -> bool {
-    false
-}
-fn dtrue() -> bool {
-    true
-}
-
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone, Copy, Serialize, Deserialize)]
 pub enum CheckLevel {
     NoCheck,
@@ -176,11 +169,11 @@ pub(crate) fn match_all(set: impl Iterator<Item = String>, re: &regex::Regex) ->
 pub(crate) fn match_groups(
     set: impl Iterator<Item = String>,
     re: &regex::Regex,
-    to: &String,
+    to: &str,
 ) -> HashMap<String, HashSet<String>> {
     let mut groups: HashMap<String, HashSet<String>> = HashMap::new();
     for s in set {
-        if let Some(to) = match_expand(&s, &re, to) {
+        if let Some(to) = match_expand(&s, re, to) {
             if let Some(v) = groups.get_mut(&to) {
                 v.insert(s);
             } else {
@@ -194,7 +187,7 @@ pub(crate) fn match_groups(
 }
 
 pub(crate) fn match_expand(s: &str, regex: &regex::Regex, res: &str) -> Option<String> {
-    let m = regex.captures(&s)?;
+    let m = regex.captures(s)?;
     let mut dst = String::new();
     m.expand(res, &mut dst);
     Some(dst)
@@ -203,11 +196,11 @@ pub(crate) fn match_expand(s: &str, regex: &regex::Regex, res: &str) -> Option<S
 pub(crate) fn replace_enum_ids(ir: &mut IR, from: &HashSet<String>, to: String) {
     for (_, fs) in ir.fieldsets.iter_mut() {
         for f in fs.fields.iter_mut() {
-            for e in IntoIter::new([&mut f.enum_read, &mut f.enum_write, &mut f.enum_readwrite]) {
-                if let Some(id) = e {
-                    if from.contains(id) {
-                        *e = Some(to.clone())
-                    }
+            for id in IntoIter::new([&mut f.enum_read, &mut f.enum_write, &mut f.enum_readwrite])
+                .flatten()
+            {
+                if from.contains(id) {
+                    *id = to.clone()
                 }
             }
         }
@@ -251,7 +244,7 @@ pub(crate) fn replace_block_ids(ir: &mut IR, from: &HashSet<String>, to: String)
 }
 
 pub(crate) fn calc_array(mut offsets: Vec<u32>) -> (u32, Array) {
-    offsets.sort();
+    offsets.sort_unstable();
 
     // Guess stride.
     let start_offset = offsets[0];

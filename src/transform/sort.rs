@@ -7,13 +7,13 @@ pub struct Sort {}
 
 impl Sort {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
-        for (_, z) in &mut ir.blocks {
+        for z in ir.blocks.values_mut() {
             z.items.sort_by_key(|i| (i.byte_offset, i.name.clone()))
         }
-        for (_, z) in &mut ir.fieldsets {
+        for z in ir.fieldsets.values_mut() {
             z.fields.sort_by_key(|i| (i.bit_offset, i.name.clone()))
         }
-        for (_, z) in &mut ir.enums {
+        for z in ir.enums.values_mut() {
             z.variants.sort_by_key(|i| (i.value, i.name.clone()))
         }
 

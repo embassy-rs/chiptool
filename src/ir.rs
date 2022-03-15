@@ -186,13 +186,6 @@ fn is_32(x: &u32) -> bool {
     *x == 32
 }
 
-fn default_0() -> u32 {
-    0
-}
-fn is_0(x: &u32) -> bool {
-    *x == 0
-}
-
 fn default_readwrite() -> Access {
     Access::ReadWrite
 }
@@ -217,13 +210,13 @@ impl Serialize for IR {
         // - Easier diffing between yamls
         // - No spurious changes when roundtripping
         let mut entries = Vec::new();
-        for (name, _) in &self.blocks {
+        for name in self.blocks.keys() {
             entries.push((Kind::Block, name));
         }
-        for (name, _) in &self.fieldsets {
+        for name in self.fieldsets.keys() {
             entries.push((Kind::Fieldset, name));
         }
-        for (name, _) in &self.enums {
+        for name in self.enums.keys() {
             entries.push((Kind::Enum, name));
         }
 

@@ -317,7 +317,7 @@ pub fn convert_svd(svd: &svd::Device) -> anyhow::Result<IR> {
 
         if p.derived_from.is_none() {
             let mut pir = IR::new();
-            convert_peripheral(&mut pir, &p)?;
+            convert_peripheral(&mut pir, p)?;
 
             let path = &p.name;
             transform::map_names(&mut pir, |k, s| match k {
@@ -343,12 +343,12 @@ fn collect_blocks(
     out: &mut Vec<ProtoBlock>,
     block_name: Vec<String>,
     description: Option<String>,
-    registers: &Vec<svd::RegisterCluster>,
+    registers: &[svd::RegisterCluster],
 ) {
     out.push(ProtoBlock {
         name: block_name.clone(),
         description,
-        registers: registers.clone(),
+        registers: registers.to_owned(),
     });
 
     for r in registers {
@@ -377,8 +377,7 @@ fn unique_names(names: Vec<Vec<String>>) -> HashMap<Vec<String>, String> {
     for (i, n) in names.iter().enumerate() {
         let j = (0..n.len())
             .rev()
-            .filter(|&j| !suffix_exists(&n[j..], i))
-            .next()
+            .find(|&j| !suffix_exists(&n[j..], i))
             .unwrap();
         assert!(res.insert(n.clone(), n[j..].join("_")).is_none());
     }

@@ -55,7 +55,7 @@ pub fn map_block_names(ir: &mut IR, f: impl Fn(&mut String)) {
         for i in b.items.iter_mut() {
             match &mut i.inner {
                 BlockItemInner::Block(p) => f(&mut p.block),
-                BlockItemInner::Register(r) => {}
+                BlockItemInner::Register(_r) => {}
             }
         }
     }
@@ -67,7 +67,7 @@ pub fn map_fieldset_names(ir: &mut IR, f: impl Fn(&mut String)) {
     for (_, b) in ir.blocks.iter_mut() {
         for i in b.items.iter_mut() {
             match &mut i.inner {
-                BlockItemInner::Block(p) => {}
+                BlockItemInner::Block(_p) => {}
                 BlockItemInner::Register(r) => rename_opt(&mut r.fieldset, &f),
             }
         }
@@ -171,7 +171,7 @@ pub fn map_descriptions(ir: &mut IR, mut ff: impl FnMut(&str) -> String) -> anyh
     Ok(())
 }
 
-fn remap_names<T>(x: &mut HashMap<String, T>, mut f: impl Fn(&mut String)) {
+fn remap_names<T>(x: &mut HashMap<String, T>, f: impl Fn(&mut String)) {
     let mut res = HashMap::new();
     for (mut name, val) in x.drain() {
         f(&mut name);
