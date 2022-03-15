@@ -24,6 +24,7 @@ enum Subcommand {
     ExtractPeripheral(ExtractPeripheral),
     Transform(Transform),
     Fmt(Fmt),
+    Check(Check),
     GenBlock(GenBlock),
 }
 
@@ -76,6 +77,13 @@ struct Fmt {
     check: bool,
 }
 
+/// Check a YAML for errors.
+#[derive(Parser)]
+struct Check {
+    /// Peripheral file path
+    files: Vec<String>,
+}
+
 /// Generate Rust code from a YAML register block
 #[derive(Parser)]
 struct GenBlock {
@@ -97,6 +105,7 @@ fn main() -> Result<()> {
         Subcommand::Generate(x) => gen(x),
         Subcommand::Transform(x) => transform(x),
         Subcommand::Fmt(x) => fmt(x),
+        Subcommand::Check(x) => check(x),
         Subcommand::GenBlock(x) => gen_block(x),
     }
 }
@@ -221,6 +230,58 @@ fn fmt(args: Fmt) -> Result<()> {
     Ok(())
 }
 
+fn check(args: Check) -> Result<()> {
+    for file in args.files {
+        let got_data = fs::read(&file)?;
+        let ir: IR = serde_yaml::from_slice(&got_data)?;
+
+        let mut printed = false;
+        let mut error = move |s: String| {
+            if !printed {
+                printed = true;
+                println!("{}:", &file);
+            }
+            println!("    {}", s);
+        };
+
+        for (name, b) in &ir.blocks {
+            for (i1, i2) in Pairs::new(b.items.iter()) {
+                if i1.byte_offset == i2.byte_offset {
+                    error(format!(
+                        "block {}: registers overlap: {} {}",
+                        name, i1.name, i2.name
+                    ));
+                }
+            }
+        }
+
+        for (name, e) in &ir.enums {
+            for (i1, i2) in Pairs::new(e.variants.iter()) {
+                if i1.value == i2.value {
+                    error(format!(
+                        "enum {}: variants with same value: {} {}",
+                        name, i1.name, i2.name
+                    ));
+                }
+            }
+        }
+
+        for (name, f) in &ir.fieldsets {
+            for (i1, i2) in Pairs::new(f.fields.iter()) {
+                if i2.bit_offset + i2.bit_size > i1.bit_offset
+                    && i1.bit_offset + i1.bit_size > i2.bit_offset
+                {
+                    error(format!(
+                        "fieldset {}: fields overlap: {} {}",
+                        name, i1.name, i2.name
+                    ));
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
 fn gen_block(args: GenBlock) -> Result<()> {
     let data = fs::read(&args.input)?;
     let mut ir: IR = serde_yaml::from_slice(&data)?;
@@ -246,5 +307,48 @@ struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self { transforms: vec![] }
+    }
+}
+
+// ==============
+
+struct Pairs<U: Iterator + Clone> {
+    head: Option<U::Item>,
+    tail: U,
+    next: U,
+}
+
+impl<U: Iterator + Clone> Pairs<U> {
+    fn new(mut iter: U) -> Self {
+        let head = iter.next();
+        Pairs {
+            head,
+            tail: iter.clone(),
+            next: iter,
+        }
+    }
+}
+
+impl<U: Iterator + Clone> Iterator for Pairs<U>
+where
+    U::Item: Clone,
+{
+    type Item = (U::Item, U::Item);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let a = self.head.as_ref()?.clone();
+
+        if let Some(b) = self.tail.next() {
+            return Some((a, b));
+        }
+
+        match self.next.next() {
+            Some(new_head) => {
+                self.head = Some(new_head);
+                self.tail = self.next.clone();
+                self.next()
+            }
+            None => None,
+        }
     }
 }
