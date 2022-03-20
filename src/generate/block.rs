@@ -1,7 +1,7 @@
 use anyhow::Result;
-use proc_macro2::TokenStream;
-use proc_macro2::{Ident, Span};
+use proc_macro2::{Ident, Literal, Span, TokenStream};
 use quote::quote;
+use std::collections::HashMap;
 
 use crate::ir::*;
 use crate::util;
@@ -83,8 +83,17 @@ pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<T
     }
 
     let (_, name) = super::split_path(path);
+    let unknown = Literal::string(&format!("Unknown {}", name));
     let name = Ident::new(name, span);
     let doc = util::doc(&b.description);
+
+    let addrs = get_addrs(ir, b);
+    let addrs = addrs.iter().map(|(addr, block_name)| {
+        let addr = Literal::u32_suffixed(*addr);
+        let block_name = Literal::string(block_name);
+        quote!(#addr => f.write_str(#block_name),)
+    });
+
     let out = quote! {
         #doc
         #[derive(Copy, Clone, Eq, PartialEq)]
@@ -94,7 +103,22 @@ pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<T
         impl #name {
             #items
         }
+
+        impl core::fmt::Display for #name {
+            fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), core::fmt::Error> {
+                match self.0 {
+                    #(
+                        #addrs
+                    )*
+                    _ => f.write_str(#unknown),
+                }
+            }
+        }
     };
 
     Ok(out)
+}
+
+fn get_addrs(_ir: &IR, _b: &Block) -> HashMap<u32, String> {
+    todo!()
 }
