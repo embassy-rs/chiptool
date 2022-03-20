@@ -214,6 +214,7 @@ pub mod rename;
 pub mod rename_fields;
 pub mod rename_registers;
 pub mod sort;
+pub mod modify_byte_offset;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Transform {
@@ -231,6 +232,7 @@ pub enum Transform {
     MakeRegisterArray(make_register_array::MakeRegisterArray),
     MakeFieldArray(make_field_array::MakeFieldArray),
     MakeBlock(make_block::MakeBlock),
+    ModifyByteOffset(modify_byte_offset::ModifyByteOffset),
     //FindDuplicateEnums(find_duplicate_enums::FindDuplicateEnums),
     //FindDuplicateFieldsets(find_duplicate_fieldsets::FindDuplicateFieldsets),
 }
@@ -252,6 +254,7 @@ impl Transform {
             Self::MakeRegisterArray(t) => t.run(ir),
             Self::MakeFieldArray(t) => t.run(ir),
             Self::MakeBlock(t) => t.run(ir),
+            Self::ModifyByteOffset(t) => t.run(ir),
             //Self::FindDuplicateEnums(t) => t.run(ir),
             //Self::FindDuplicateFieldsets(t) => t.run(ir),
         }
