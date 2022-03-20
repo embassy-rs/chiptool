@@ -1,22 +1,11 @@
 use anyhow::bail;
-use array::IntoIter;
 use serde::{Deserialize, Serialize};
-use std::{
-    array,
-    collections::{HashMap, HashSet},
-};
+use std::collections::{HashMap, HashSet};
 
 use crate::ir::*;
 
 pub(crate) fn make_regex(r: &str) -> Result<regex::Regex, regex::Error> {
     regex::Regex::new(&format!("^{}$", r))
-}
-
-fn dfalse() -> bool {
-    false
-}
-fn dtrue() -> bool {
-    true
 }
 
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone, Copy, Serialize, Deserialize)]
@@ -203,7 +192,7 @@ pub(crate) fn match_expand(s: &str, regex: &regex::Regex, res: &str) -> Option<S
 pub(crate) fn replace_enum_ids(ir: &mut IR, from: &HashSet<String>, to: String) {
     for (_, fs) in ir.fieldsets.iter_mut() {
         for f in fs.fields.iter_mut() {
-            for e in IntoIter::new([&mut f.enum_read, &mut f.enum_write, &mut f.enum_readwrite]) {
+            for e in [&mut f.enum_read, &mut f.enum_write, &mut f.enum_readwrite] {
                 if let Some(id) = e {
                     if from.contains(id) {
                         *e = Some(to.clone())
