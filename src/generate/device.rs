@@ -61,7 +61,7 @@ pub fn render(_opts: &super::Options, ir: &IR, d: &Device, path: &str) -> Result
             addrs
                 .entry((block_name, path))
                 .or_default()
-                .push((address.clone(), name.clone()));
+                .push((p.base_address, p.name.clone()));
 
             let path = util::relative_path(block_name, path);
 
@@ -84,12 +84,12 @@ pub fn render(_opts: &super::Options, ir: &IR, d: &Device, path: &str) -> Result
 
         let addrs = addrs
             .iter()
-            .map(|(addr, block_name)| quote!(#addr => f.write_str(#block_name),));
+            .map(|(addr, name)| quote! { #addr => f.write_str(#name), });
 
         peripherals.extend(quote! {
             impl core::fmt::Display for #path {
-                fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), core::fmt::Error> {
-                    match self.0 {
+                fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
+                    match self.0 as _ {
                         #(
                             #addrs
                         )*
