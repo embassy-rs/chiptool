@@ -24,7 +24,13 @@ pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<T
                     let _f = ir.fieldsets.get(fieldset_path).unwrap();
                     util::relative_path(fieldset_path, path)
                 } else {
-                    quote!(u32) // todo
+                    match r.bit_size {
+                        1..=8 => quote!(u8),
+                        9..=16 => quote!(u16),
+                        17..=32 => quote!(u32),
+                        33..=64 => quote!(u64),
+                        _ => panic!("Invalid bit_size {}", r.bit_size),
+                    }
                 };
 
                 let access = match r.access {
@@ -33,23 +39,23 @@ pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<T
                     Access::ReadWrite => quote!(#common_path::RW),
                 };
 
-                let ty = quote!(#common_path::Reg<#reg_ty, #access>);
+                let ty = quote!(#common_path::Reg<'_, I, #reg_ty, #access>);
                 if let Some(array) = &i.array {
                     let (len, offs_expr) = super::process_array(array);
                     items.extend(quote!(
                         #doc
                         #[inline(always)]
-                        pub fn #name(self, n: usize) -> #ty {
+                        pub fn #name(&mut self, n: usize) -> #ty {
                             assert!(n < #len);
-                            unsafe { #common_path::Reg::from_ptr(self.0.add(#offset + #offs_expr)) }
+                            unsafe { #common_path::Reg::new(self.iface, self.addr + #offset + #offs_expr) }
                         }
                     ));
                 } else {
                     items.extend(quote!(
                         #doc
                         #[inline(always)]
-                        pub fn #name(self) -> #ty {
-                            unsafe { #common_path::Reg::from_ptr(self.0.add(#offset)) }
+                        pub fn #name(&mut self) -> #ty {
+                            unsafe { #common_path::Reg::new(self.iface, self.addr + #offset) }
                         }
                     ));
                 }
@@ -87,11 +93,12 @@ pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<T
     let doc = util::doc(&b.description);
     let out = quote! {
         #doc
-        #[derive(Copy, Clone, Eq, PartialEq)]
-        pub struct #name (pub *mut u8);
-        unsafe impl Send for #name {}
-        unsafe impl Sync for #name {}
-        impl #name {
+        pub struct #name<'a, I> {
+            pub iface: &'a mut I,
+            pub addr: usize,
+        }
+
+        impl<'a, I: Interface> #name<'a, I> {
             #items
         }
     };

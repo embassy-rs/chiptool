@@ -116,6 +116,18 @@ pub fn render(_opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Res
                 #name(0)
             }
         }
+
+        impl From<#ty> for #name {
+            fn from(val: #ty) -> #name {
+                #name(val)
+            }
+        }
+
+        impl From<#name> for #ty {
+            fn from(val: #name) -> #ty {
+                val.0
+            }
+        }
     };
 
     Ok(out)

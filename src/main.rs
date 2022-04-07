@@ -292,7 +292,7 @@ fn gen_block(args: GenBlock) -> Result<()> {
     chiptool::transform::sort::Sort {}.run(&mut ir).unwrap();
 
     let generate_opts = generate::Options {
-        common_module: generate::CommonModule::Builtin,
+        common_module: generate::CommonModule::External(quote::quote!(self)),
     };
     let items = generate::render(&ir, &generate_opts).unwrap();
     fs::write(&args.output, items.to_string())?;

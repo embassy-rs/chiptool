@@ -41,6 +41,18 @@ pub fn render(_opts: &super::Options, _ir: &IR, e: &Enum, path: &str) -> Result<
         impl #name {
             #items
         }
+
+        impl From<#ty> for #name {
+            fn from(val: #ty) -> #name {
+                #name(val)
+            }
+        }
+
+        impl From<#name> for #ty {
+            fn from(val: #name) -> #ty {
+                val.0
+            }
+        }
     };
 
     Ok(out)
