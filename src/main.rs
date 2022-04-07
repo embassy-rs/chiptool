@@ -217,6 +217,35 @@ fn fmt(args: Fmt) -> Result<()> {
         // Ensure consistent sort order in the YAML.
         chiptool::transform::sort::Sort {}.run(&mut ir).unwrap();
 
+        // Trim all descriptions
+
+        let cleanup = |s: &mut Option<String>| {
+            if let Some(s) = s.as_mut() {
+                *s = s.trim().to_string()
+            }
+        };
+
+        for (_, b) in &mut ir.blocks {
+            cleanup(&mut b.description);
+            for i in &mut b.items {
+                cleanup(&mut i.description);
+            }
+        }
+
+        for (_, b) in &mut ir.fieldsets {
+            cleanup(&mut b.description);
+            for i in &mut b.fields {
+                cleanup(&mut i.description);
+            }
+        }
+
+        for (_, b) in &mut ir.enums {
+            cleanup(&mut b.description);
+            for i in &mut b.variants {
+                cleanup(&mut i.description);
+            }
+        }
+
         let want_data = serde_yaml::to_vec(&ir)?;
 
         if got_data != want_data {
