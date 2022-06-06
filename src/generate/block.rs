@@ -24,7 +24,13 @@ pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<T
                     let _f = ir.fieldsets.get(fieldset_path).unwrap();
                     util::relative_path(fieldset_path, path)
                 } else {
-                    quote!(u32) // todo
+                    match r.bit_size {
+                        8 => quote!(u8),
+                        16 => quote!(u16),
+                        32 => quote!(u32),
+                        64 => quote!(u64),
+                        _ => panic!("Invalid register bit size {}", r.bit_size),
+                    }
                 };
 
                 let access = match r.access {
