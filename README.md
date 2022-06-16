@@ -19,17 +19,27 @@ Tested with the RP2040 SVD. Other SVDs might not work quite right yet.
 
 ### No owned structs
 
-Original svd2rust generates an owned struct for each peripheral. However, there are many cases where the HAL wants to "split up" a peripheral into multiple owned parts. Examples:
+Original svd2rust generates an owned struct for each peripheral. This has turned out to have some severe downsides:
 
-- Many pins in a GPIO port peripheral.
-- The RX and TX halfs of a UART peripheral.
-- Different clocks/PLLs in a clock control peripheral.
-- Channels/streams in a DMA controller
-- PWM channels
+1. there are many cases where the HAL wants to "split up" a peripheral into multiple owned parts. Examples:
+   - Many pins in a GPIO port peripheral.
+   - The RX and TX halfs of a UART peripheral.
+   - Different clocks/PLLs in a clock control peripheral.
+   - Channels/streams in a DMA controller
+   - PWM channels
 
-Virtually all existing HALs run into this issue, and have to unsafely bypass the ownership rules. [nrf gpio](https://github.com/nrf-rs/nrf-hal/blob/6fc5061509d5f3efaa2db15d4af7e3bced4a2e83/nrf-hal-common/src/gpio.rs#L135), [nrf i2c](https://github.com/nrf-rs/nrf-hal/blob/1d6e228f11b7df3847d33d66b01ff772501beb3c/nrf-hal-common/src/twi.rs#L28), [nrf ppi](https://github.com/nrf-rs/nrf-hal/blob/8a28455ab93eb47be4e4edb62ebe96939e1a7ebd/nrf-hal-common/src/ppi/mod.rs#L122), [stm32f4 gpio](https://github.com/stm32-rs/stm32f4xx-hal/blob/9b6aad4b3365a48ae652c315730ab47522e57cfb/src/gpio.rs#L302), [stm32f4 dma](https://github.com/stm32-rs/stm32f4xx-hal/blob/9b6aad4b3365a48ae652c315730ab47522e57cfb/src/dma/mod.rs#L359), [stm32f4 pwm](https://github.com/stm32-rs/stm32f4xx-hal/blob/bb214b6017d84a9c8dd2e8c9fd1f915141e167cc/src/pwm.rs#L228), [atsamd gpio](https://github.com/atsamd-rs/atsamd/blob/4816bb13a12a604e51f929d17b286071a0082c82/hal/src/common/gpio/v2/pin.rs#L669) ...
+    Virtually all existing HALs run into this issue, and have to unsafely bypass the ownership rules. [nrf gpio](https://github.com/nrf-rs/nrf-hal/blob/6fc5061509d5f3efaa2db15d4af7e3bced4a2e83/nrf-hal-common/src/gpio.rs#L135), [nrf i2c](https://github.com/nrf-rs/nrf-hal/blob/1d6e228f11b7df3847d33d66b01ff772501beb3c/nrf-hal-common/src/twi.rs#L28), [nrf ppi](https://github.com/nrf-rs/nrf-hal/blob/8a28455ab93eb47be4e4edb62ebe96939e1a7ebd/nrf-hal-common/src/ppi/mod.rs#L122), [stm32f4 gpio](https://github.com/stm32-rs/stm32f4xx-hal/blob/9b6aad4b3365a48ae652c315730ab47522e57cfb/src/gpio.rs#L302), [stm32f4 dma](https://github.com/stm32-rs/stm32f4xx-hal/blob/9b6aad4b3365a48ae652c315730ab47522e57cfb/src/dma/mod.rs#L359), [stm32f4 pwm](https://github.com/stm32-rs/stm32f4xx-hal/blob/bb214b6017d84a9c8dd2e8c9fd1f915141e167cc/src/pwm.rs#L228), [atsamd gpio](https://github.com/atsamd-rs/atsamd/blob/4816bb13a12a604e51f929d17b286071a0082c82/hal/src/common/gpio/v2/pin.rs#L669) ...
 
-Since HALs in practice always bypass the PAC ownership rules and create their own safe abstractions, there's not much advantage in having ownership rules in the PAC in the first place. Not having them makes HAL code cleaner.
+    Since HALs in practice always bypass the PAC ownership rules and create their own safe abstractions, there's not much advantage in having ownership rules in the PAC in the first place. Not having them makes HAL code cleaner.
+
+2. sometimes "ownership" is not so clear-cut:
+    - Multicore. Some peripherals are "core-local", they have an instance per core. Constant address, which instance you access depends on which core you're running on. For example Cortex-M core peripherals, and SIO in RP2040.
+    - Mutually-exclusive peripherals. In nRF you can only use one of (UART0, SPIM0, SPIS0, TWIM0, TWIS0) at the same time, one of (UART1, SPIM1, SPIS1, TWIM1, TWIS1) at the same time... They're the same peripheral in different "modes". Current nRF PACs get this wrong, allowing you to use e.g. SPIM0 and TWIM0 at the same time, which breaks.
+3. Ownership in PACs means upgrading the PAC is ALWAYS a breaking change.
+
+    To guarantee you can't get two singletons for the same peripheral, PACs deliberately sabotage building a binary containing two PAC major versions (with this [no\_mangle thing](https://github.com/nrf-rs/nrf-pacs/blob/8f9da05ca1b496bd743f223ed1122dfe9220956c/pacs/nrf52840-pac/src/lib.rs#L2279-L2280)).
+
+    This means the HAL major-bumping the PAC dep version  is a breaking change, so the HAL would have to be major-bumped as well. And all PAC bumps are breaking, and they're VERY common...
 
 ### All register access is unsafe
 
