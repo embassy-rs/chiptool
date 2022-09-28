@@ -1,8 +1,8 @@
 {
-    "rust-analyzer.cargo.runBuildScripts": true,
     "rust-analyzer.procMacro.enable": true,
-    "rust-analyzer.experimental.procAttrMacros": false,
-    "rust-analyzer.assist.importGranularity": "module",
-    "rust-analyzer.assist.importEnforceGranularity": true,
-    "editor.formatOnSave": true
+    "editor.formatOnSave": true,
+    "rust-analyzer.imports.granularity.enforce": true,
+    "rust-analyzer.imports.granularity.group": "module",
+    "rust-analyzer.cargo.buildScripts.enable": true,
+    "rust-analyzer.procMacro.attributes.enable": false
 }
