@@ -1,16 +1,18 @@
 use log::*;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use svd_parser as svd;
 
 use crate::util;
 use crate::{ir::*, transform};
 
+#[derive(Debug)]
 struct ProtoBlock {
     name: Vec<String>,
     description: Option<String>,
     registers: Vec<svd::RegisterCluster>,
 }
 
+#[derive(Debug)]
 struct ProtoFieldset {
     name: Vec<String>,
     description: Option<String>,
@@ -18,6 +20,7 @@ struct ProtoFieldset {
     fields: Vec<svd::Field>,
 }
 
+#[derive(Debug)]
 struct ProtoEnum {
     name: Vec<String>,
     usage: Option<svd::Usage>,
@@ -387,6 +390,7 @@ fn make_enum_name(
 
 fn unique_names(names: Vec<Vec<String>>) -> HashMap<Vec<String>, String> {
     let mut res = HashMap::new();
+    let mut seen = HashSet::new();
 
     let suffix_exists = |n: &[String], i: usize| {
         names
@@ -399,8 +403,10 @@ fn unique_names(names: Vec<Vec<String>>) -> HashMap<Vec<String>, String> {
         let j = (0..n.len())
             .rev()
             .find(|&j| !suffix_exists(&n[j..], i))
+            .or_else(|| (0..n.len()).rev().find(|&j| !seen.contains(&n[j..])))
             .unwrap();
         assert!(res.insert(n.clone(), n[j..].join("_")).is_none());
+        seen.insert(&n[j..]);
     }
     res
 }
