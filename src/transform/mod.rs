@@ -200,6 +200,7 @@ mod common;
 
 pub mod delete;
 pub mod delete_enums;
+pub mod delete_enums_used_in;
 pub mod delete_fieldsets;
 //pub mod find_duplicate_enums;
 //pub mod find_duplicate_fieldsets;
@@ -210,11 +211,11 @@ pub mod make_register_array;
 pub mod merge_blocks;
 pub mod merge_enums;
 pub mod merge_fieldsets;
+pub mod modify_byte_offset;
 pub mod rename;
 pub mod rename_fields;
 pub mod rename_registers;
 pub mod sort;
-pub mod modify_byte_offset;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Transform {
@@ -222,6 +223,7 @@ pub enum Transform {
     Sort(sort::Sort),
     Delete(delete::Delete),
     DeleteEnums(delete_enums::DeleteEnums),
+    DeleteEnumsUsedIn(delete_enums_used_in::DeleteEnumsUsedIn),
     DeleteFieldsets(delete_fieldsets::DeleteFieldsets),
     MergeBlocks(merge_blocks::MergeBlocks),
     MergeEnums(merge_enums::MergeEnums),
@@ -244,6 +246,7 @@ impl Transform {
             Self::Sort(t) => t.run(ir),
             Self::Delete(t) => t.run(ir),
             Self::DeleteEnums(t) => t.run(ir),
+            Self::DeleteEnumsUsedIn(t) => t.run(ir),
             Self::DeleteFieldsets(t) => t.run(ir),
             Self::MergeBlocks(t) => t.run(ir),
             Self::MergeEnums(t) => t.run(ir),
