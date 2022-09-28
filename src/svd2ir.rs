@@ -67,7 +67,7 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
                             }
 
                             let mut enum_name = fieldset_name.clone();
-                            enum_name.push(e.name.clone().unwrap_or_else(|| field_name.clone()));
+                            enum_name.push(make_enum_name(e, &f.enumerated_values, &field_name));
                             info!("adding enum {:?}", enum_name);
 
                             enums.push(ProtoEnum {
@@ -210,8 +210,7 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
                 enum_name.push(
                     e.derived_from
                         .clone()
-                        .or_else(|| e.name.clone())
-                        .unwrap_or_else(|| f.name.clone()),
+                        .unwrap_or_else(|| make_enum_name(e, &f.enumerated_values, &f.name)),
                 );
                 info!("finding enum {:?}", enum_name);
                 let enumm = enums.iter().find(|e| e.name == enum_name).unwrap();
@@ -362,6 +361,28 @@ fn collect_blocks(
             collect_blocks(out, block_name, c.description.clone(), &c.children);
         }
     }
+}
+
+fn make_enum_name(
+    e: &svd::EnumeratedValues,
+    evs: &[svd::EnumeratedValues],
+    field_name: &str,
+) -> String {
+    if let Some(name) = &e.name {
+        return name.clone();
+    }
+
+    let mut res = field_name.to_string();
+    if evs.len() > 1 {
+        let suffix = match e.usage {
+            None => "",
+            Some(svd::Usage::Read) => "_R",
+            Some(svd::Usage::Write) => "_W",
+            Some(svd::Usage::ReadWrite) => "_RW",
+        };
+        res.push_str(suffix);
+    }
+    res
 }
 
 fn unique_names(names: Vec<Vec<String>>) -> HashMap<Vec<String>, String> {
