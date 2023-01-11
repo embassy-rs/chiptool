@@ -30,7 +30,9 @@ pub fn render(_opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Res
         let from_bits: TokenStream;
 
         if let Some(e_path) = &f.enum_readwrite {
-            let e = ir.enums.get(e_path).unwrap();
+            let Some(e) = ir.enums.get(e_path) else {
+                panic!("missing enum {}", e_path);
+            };
 
             let enum_ty = match e.bit_size {
                 1..=8 => quote!(u8),
