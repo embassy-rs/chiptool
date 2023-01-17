@@ -1,5 +1,7 @@
+use std::collections::HashMap;
+
 use anyhow::Result;
-use proc_macro2::{Ident, Span, TokenStream};
+use proc_macro2::{Ident, Literal, Span, TokenStream};
 use quote::quote;
 
 use crate::ir::*;
@@ -16,6 +18,7 @@ pub fn render(_opts: &super::Options, ir: &IR, d: &Device, path: &str) -> Result
     let mut peripherals = TokenStream::new();
     let mut vectors = TokenStream::new();
     let mut names = vec![];
+    let mut addrs: HashMap<_, Vec<(_, _)>> = HashMap::new();
 
     let mut pos = 0;
     for i in &interrupts_sorted {
@@ -54,6 +57,12 @@ pub fn render(_opts: &super::Options, ir: &IR, d: &Device, path: &str) -> Result
 
         if let Some(block_name) = &p.block {
             let _b = ir.blocks.get(block_name);
+
+            addrs
+                .entry((block_name, path))
+                .or_default()
+                .push((p.base_address, p.name.clone()));
+
             let path = util::relative_path(block_name, path);
 
             peripherals.extend(quote! {
@@ -66,6 +75,29 @@ pub fn render(_opts: &super::Options, ir: &IR, d: &Device, path: &str) -> Result
                 pub const #name: *mut () = #address as u32 as _;
             });
         }
+    }
+
+    for ((block_name, path), addrs) in addrs {
+        let unknown = Literal::string(&format!("Unknown {}", block_name));
+
+        let path = util::relative_path(block_name, path);
+
+        let addrs = addrs
+            .iter()
+            .map(|(addr, name)| quote! { #addr => f.write_str(#name), });
+
+        peripherals.extend(quote! {
+            impl core::fmt::Display for #path {
+                fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
+                    match self.0 as _ {
+                        #(
+                            #addrs
+                        )*
+                        _ => f.write_str(#unknown),
+                    }
+                }
+            }
+        });
     }
 
     let n = util::unsuffixed(pos as u64);
