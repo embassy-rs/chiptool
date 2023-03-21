@@ -75,6 +75,9 @@ pub fn render(_opts: &super::Options, ir: &IR, d: &Device, path: &str) -> Result
             #interrupts
         }
 
+        pub use cortex_m_rt::interrupt;
+        pub use Interrupt as interrupt;
+
         unsafe impl cortex_m::interrupt::InterruptNumber for Interrupt {
             #[inline(always)]
             fn number(self) -> u16 {
