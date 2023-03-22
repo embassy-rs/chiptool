@@ -102,12 +102,14 @@ pub fn render(_opts: &super::Options, ir: &IR, d: &Device, path: &str) -> Result
         #peripherals
     ));
 
-    let bits = util::unsuffixed(u64::from(d.nvic_priority_bits));
-    out.extend(quote! {
-        /// Number available in the NVIC for configuring priority
-        #[cfg(feature = "rt")]
-        pub const NVIC_PRIO_BITS: u8 = #bits;
-    });
+    if let Some(nvic_priority_bits) = d.nvic_priority_bits {
+        let bits = util::unsuffixed(u64::from(nvic_priority_bits));
+        out.extend(quote! {
+            /// Number available in the NVIC for configuring priority
+            #[cfg(feature = "rt")]
+            pub const NVIC_PRIO_BITS: u8 = #bits;
+        });
+    }
 
     out.extend(quote! {
         #[cfg(feature = "rt")]
