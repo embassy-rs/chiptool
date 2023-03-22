@@ -264,6 +264,11 @@ pub fn convert_svd(svd: &svd::Device) -> anyhow::Result<IR> {
     let mut ir = IR::new();
 
     let mut device = Device {
+        nvic_priority_bits: if let Some(cpu) = &svd.cpu {
+            cpu.nvic_priority_bits as u8
+        } else {
+            0
+        },
         peripherals: vec![],
         interrupts: vec![],
     };

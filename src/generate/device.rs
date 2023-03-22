@@ -67,16 +67,12 @@ pub fn render(_opts: &super::Options, ir: &IR, d: &Device, path: &str) -> Result
             });
         }
     }
-
     let n = util::unsuffixed(pos as u64);
     out.extend(quote!(
         #[derive(Copy, Clone, Debug, PartialEq, Eq)]
         pub enum Interrupt {
             #interrupts
         }
-
-        pub use cortex_m_rt::interrupt;
-        pub use Interrupt as interrupt;
 
         unsafe impl cortex_m::interrupt::InterruptNumber for Interrupt {
             #[inline(always)]
@@ -106,16 +102,19 @@ pub fn render(_opts: &super::Options, ir: &IR, d: &Device, path: &str) -> Result
         #peripherals
     ));
 
-    /*
-    if let Some(cpu) = d.cpu.as_ref() {
-        let bits = util::unsuffixed(u64::from(cpu.nvic_priority_bits));
+    let bits = util::unsuffixed(u64::from(d.nvic_priority_bits));
+    out.extend(quote! {
+        /// Number available in the NVIC for configuring priority
+        #[cfg(feature = "rt")]
+        pub const NVIC_PRIO_BITS: u8 = #bits;
+    });
 
-        out.extend(quote! {
-            ///Number available in the NVIC for configuring priority
-            pub const NVIC_PRIO_BITS: u8 = #bits;
-        });
-    }
-     */
+    out.extend(quote! {
+        #[cfg(feature = "rt")]
+        pub use cortex_m_rt::interrupt;
+        #[cfg(feature = "rt")]
+        pub use Interrupt as interrupt;
+    });
 
     Ok(out)
 }
