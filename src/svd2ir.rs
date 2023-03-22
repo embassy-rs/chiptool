@@ -264,6 +264,7 @@ pub fn convert_svd(svd: &svd::Device) -> anyhow::Result<IR> {
     let mut ir = IR::new();
 
     let mut device = Device {
+        nvic_priority_bits: svd.cpu.as_ref().map(|cpu| cpu.nvic_priority_bits as u8),
         peripherals: vec![],
         interrupts: vec![],
     };

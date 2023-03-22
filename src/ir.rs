@@ -31,6 +31,8 @@ impl IR {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Device {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub nvic_priority_bits: Option<u8>,
     pub peripherals: Vec<Peripheral>,
     pub interrupts: Vec<Interrupt>,
 }
