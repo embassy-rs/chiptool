@@ -6,13 +6,15 @@ use quote::quote;
 use crate::ir::*;
 use crate::util;
 
+use super::sorted;
+
 pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<TokenStream> {
     let common_path = opts.common_path();
 
     let span = Span::call_site();
     let mut items = TokenStream::new();
 
-    for i in &b.items {
+    for i in sorted(&b.items, |i| (i.byte_offset, i.name.clone())) {
         let name = Ident::new(&i.name, span);
         let offset = i.byte_offset as usize;
 

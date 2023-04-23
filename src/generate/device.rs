@@ -5,12 +5,11 @@ use quote::quote;
 use crate::ir::*;
 use crate::util::{self, ToSanitizedUpperCase};
 
+use super::sorted;
+
 pub fn render(_opts: &super::Options, ir: &IR, d: &Device, path: &str) -> Result<TokenStream> {
     let mut out = TokenStream::new();
     let span = Span::call_site();
-
-    let mut interrupts_sorted = d.interrupts.clone();
-    interrupts_sorted.sort_by_key(|i| i.value);
 
     let mut interrupts = TokenStream::new();
     let mut peripherals = TokenStream::new();
@@ -18,7 +17,7 @@ pub fn render(_opts: &super::Options, ir: &IR, d: &Device, path: &str) -> Result
     let mut names = vec![];
 
     let mut pos = 0;
-    for i in &interrupts_sorted {
+    for i in sorted(&d.interrupts, |i| i.value) {
         while pos < i.value {
             vectors.extend(quote!(Vector { _reserved: 0 },));
             pos += 1;
@@ -47,7 +46,7 @@ pub fn render(_opts: &super::Options, ir: &IR, d: &Device, path: &str) -> Result
         names.push(name_uc);
     }
 
-    for p in &d.peripherals {
+    for p in sorted(&d.peripherals, |p| p.base_address) {
         let name = Ident::new(&p.name, span);
         let address = util::hex(p.base_address as u64);
         let doc = util::doc(&p.description);

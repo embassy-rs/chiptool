@@ -100,28 +100,28 @@ pub fn render(ir: &IR, opts: &Options) -> Result<TokenStream> {
         #![doc=#doc]
     ));
 
-    for (p, d) in ir.devices.iter() {
+    for (p, d) in sorted_map(&ir.devices, |name, _| name.clone()) {
         let (mods, _) = split_path(p);
         root.get_by_path(&mods)
             .items
             .extend(device::render(opts, ir, d, p)?);
     }
 
-    for (p, b) in ir.blocks.iter() {
+    for (p, b) in sorted_map(&ir.blocks, |name, _| name.clone()) {
         let (mods, _) = split_path(p);
         root.get_by_path(&mods)
             .items
             .extend(block::render(opts, ir, b, p)?);
     }
 
-    for (p, fs) in ir.fieldsets.iter() {
+    for (p, fs) in sorted_map(&ir.fieldsets, |name, _| name.clone()) {
         let (mods, _) = split_path(p);
         root.get_by_path(&mods)
             .items
             .extend(fieldset::render(opts, ir, fs, p)?);
     }
 
-    for (p, e) in ir.enums.iter() {
+    for (p, e) in sorted_map(&ir.enums, |name, _| name.clone()) {
         let (mods, _) = split_path(p);
         root.get_by_path(&mods)
             .items
@@ -168,4 +168,30 @@ fn process_array(array: &Array) -> (usize, TokenStream) {
             (len, offs_expr)
         }
     }
+}
+
+fn sorted<'a, T: 'a, F, Z>(
+    v: impl IntoIterator<Item = &'a T>,
+    by: F,
+) -> impl IntoIterator<Item = &'a T>
+where
+    F: Fn(&T) -> Z,
+    Z: Ord,
+{
+    let mut v = v.into_iter().collect::<Vec<_>>();
+    v.sort_by_key(|v| by(*v));
+    v
+}
+
+fn sorted_map<'a, K: 'a, V: 'a, F, Z>(
+    v: impl IntoIterator<Item = (&'a K, &'a V)>,
+    by: F,
+) -> impl IntoIterator<Item = (&'a K, &'a V)>
+where
+    F: Fn(&K, &V) -> Z,
+    Z: Ord,
+{
+    let mut v = v.into_iter().collect::<Vec<_>>();
+    v.sort_by_key(|&(k, v)| by(k, v));
+    v
 }

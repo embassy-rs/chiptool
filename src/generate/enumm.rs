@@ -6,6 +6,8 @@ use quote::quote;
 use crate::ir::*;
 use crate::util;
 
+use super::sorted;
+
 pub fn render(_opts: &super::Options, _ir: &IR, e: &Enum, path: &str) -> Result<TokenStream> {
     let span = Span::call_site();
     let mut items = TokenStream::new();
@@ -18,7 +20,7 @@ pub fn render(_opts: &super::Options, _ir: &IR, e: &Enum, path: &str) -> Result<
         _ => panic!("Invalid bit_size {}", e.bit_size),
     };
 
-    for f in &e.variants {
+    for f in sorted(&e.variants, |f| (f.value, f.name.clone())) {
         let name = Ident::new(&f.name, span);
         let value = util::hex(f.value);
         let doc = util::doc(&f.description);

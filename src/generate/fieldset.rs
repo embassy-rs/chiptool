@@ -6,6 +6,8 @@ use quote::quote;
 use crate::ir::*;
 use crate::util;
 
+use super::sorted;
+
 pub fn render(_opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Result<TokenStream> {
     let span = Span::call_site();
     let mut items = TokenStream::new();
@@ -18,7 +20,7 @@ pub fn render(_opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Res
         _ => panic!("Invalid bit_size {}", fs.bit_size),
     };
 
-    for f in &fs.fields {
+    for f in sorted(&fs.fields, |f| (f.bit_offset, f.name.clone())) {
         let name = Ident::new(&f.name, span);
         let name_set = Ident::new(&format!("set_{}", f.name), span);
         let bit_offset = f.bit_offset as usize;
