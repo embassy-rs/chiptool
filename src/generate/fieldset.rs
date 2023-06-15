@@ -69,7 +69,7 @@ pub fn render(_opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Res
             items.extend(quote!(
                 #doc
                 #[inline(always)]
-                pub fn #name(&self, n: usize) -> #field_ty{
+                pub const fn #name(&self, n: usize) -> #field_ty{
                     assert!(n < #len);
                     let offs = #bit_offset + #offs_expr;
                     let val = (self.0 >> offs) & #mask;

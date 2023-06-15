@@ -47,7 +47,7 @@ pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<T
                     items.extend(quote!(
                         #doc
                         #[inline(always)]
-                        pub fn #name(self, n: usize) -> #ty {
+                        pub const fn #name(self, n: usize) -> #ty {
                             assert!(n < #len);
                             unsafe { #common_path::Reg::from_ptr(self.ptr.add(#offset + #offs_expr) as _) }
                         }
@@ -56,7 +56,7 @@ pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<T
                     items.extend(quote!(
                         #doc
                         #[inline(always)]
-                        pub fn #name(self) -> #ty {
+                        pub const fn #name(self) -> #ty {
                             unsafe { #common_path::Reg::from_ptr(self.ptr.add(#offset) as _) }
                         }
                     ));
@@ -72,7 +72,7 @@ pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<T
                     items.extend(quote!(
                         #doc
                         #[inline(always)]
-                        pub fn #name(self, n: usize) -> #ty {
+                        pub const fn #name(self, n: usize) -> #ty {
                             assert!(n < #len);
                             unsafe { #ty::from_ptr(self.ptr.add(#offset + #offs_expr) as _) }
                         }
@@ -81,7 +81,7 @@ pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<T
                     items.extend(quote!(
                         #doc
                         #[inline(always)]
-                        pub fn #name(self) -> #ty {
+                        pub const fn #name(self) -> #ty {
                             unsafe { #ty::from_ptr(self.ptr.add(#offset) as _) }
                         }
                     ));

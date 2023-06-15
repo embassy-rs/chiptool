@@ -38,7 +38,7 @@ unsafe impl<T: Copy, A: Access> Sync for Reg<T, A> {}
 
 impl<T: Copy, A: Access> Reg<T, A> {
     #[inline(always)]
-    pub unsafe fn from_ptr(ptr: *mut T) -> Self {
+    pub const unsafe fn from_ptr(ptr: *mut T) -> Self {
         Self {
             ptr: ptr as _,
             phantom: PhantomData,
@@ -46,7 +46,7 @@ impl<T: Copy, A: Access> Reg<T, A> {
     }
 
     #[inline(always)]
-    pub fn as_ptr(&self) -> *mut T {
+    pub const fn as_ptr(&self) -> *mut T {
         self.ptr as _
     }
 }
