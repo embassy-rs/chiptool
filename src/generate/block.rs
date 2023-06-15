@@ -49,7 +49,7 @@ pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<T
                         #[inline(always)]
                         pub fn #name(self, n: usize) -> #ty {
                             assert!(n < #len);
-                            unsafe { #common_path::Reg::from_ptr(self.0.add(#offset + #offs_expr)) }
+                            unsafe { #common_path::Reg::from_ptr(self.ptr.add(#offset + #offs_expr) as _) }
                         }
                     ));
                 } else {
@@ -57,7 +57,7 @@ pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<T
                         #doc
                         #[inline(always)]
                         pub fn #name(self) -> #ty {
-                            unsafe { #common_path::Reg::from_ptr(self.0.add(#offset)) }
+                            unsafe { #common_path::Reg::from_ptr(self.ptr.add(#offset) as _) }
                         }
                     ));
                 }
@@ -74,7 +74,7 @@ pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<T
                         #[inline(always)]
                         pub fn #name(self, n: usize) -> #ty {
                             assert!(n < #len);
-                            unsafe { #ty(self.0.add(#offset + #offs_expr)) }
+                            unsafe { #ty::from_ptr(self.ptr.add(#offset + #offs_expr) as _) }
                         }
                     ));
                 } else {
@@ -82,7 +82,7 @@ pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<T
                         #doc
                         #[inline(always)]
                         pub fn #name(self) -> #ty {
-                            unsafe { #ty(self.0.add(#offset)) }
+                            unsafe { #ty::from_ptr(self.ptr.add(#offset) as _) }
                         }
                     ));
                 }
@@ -96,10 +96,24 @@ pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<T
     let out = quote! {
         #doc
         #[derive(Copy, Clone, Eq, PartialEq)]
-        pub struct #name (pub *mut u8);
+        pub struct #name {
+            ptr: *mut u8
+        }
         unsafe impl Send for #name {}
         unsafe impl Sync for #name {}
         impl #name {
+            #[inline(always)]
+            pub const unsafe fn from_ptr(ptr: *mut ()) -> Self {
+                Self {
+                    ptr: ptr as _,
+                }
+            }
+
+            #[inline(always)]
+            pub const fn as_ptr(&self) -> *mut () {
+                self.ptr as _
+            }
+
             #items
         }
     };

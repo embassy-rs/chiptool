@@ -38,36 +38,36 @@ unsafe impl<T: Copy, A: Access> Sync for Reg<T, A> {}
 
 impl<T: Copy, A: Access> Reg<T, A> {
     #[inline(always)]
-    pub fn from_ptr(ptr: *mut u8) -> Self {
+    pub unsafe fn from_ptr(ptr: *mut T) -> Self {
         Self {
-            ptr,
+            ptr: ptr as _,
             phantom: PhantomData,
         }
     }
 
     #[inline(always)]
-    pub fn ptr(&self) -> *mut T {
+    pub fn as_ptr(&self) -> *mut T {
         self.ptr as _
     }
 }
 
 impl<T: Copy, A: Read> Reg<T, A> {
     #[inline(always)]
-    pub unsafe fn read(&self) -> T {
-        (self.ptr as *mut T).read_volatile()
+    pub fn read(&self) -> T {
+        unsafe { (self.ptr as *mut T).read_volatile() }
     }
 }
 
 impl<T: Copy, A: Write> Reg<T, A> {
     #[inline(always)]
-    pub unsafe fn write_value(&self, val: T) {
-        (self.ptr as *mut T).write_volatile(val)
+    pub fn write_value(&self, val: T) {
+        unsafe { (self.ptr as *mut T).write_volatile(val) }
     }
 }
 
 impl<T: Default + Copy, A: Write> Reg<T, A> {
     #[inline(always)]
-    pub unsafe fn write<R>(&self, f: impl FnOnce(&mut T) -> R) -> R {
+    pub fn write<R>(&self, f: impl FnOnce(&mut T) -> R) -> R {
         let mut val = Default::default();
         let res = f(&mut val);
         self.write_value(val);
@@ -77,7 +77,7 @@ impl<T: Default + Copy, A: Write> Reg<T, A> {
 
 impl<T: Copy, A: Read + Write> Reg<T, A> {
     #[inline(always)]
-    pub unsafe fn modify<R>(&self, f: impl FnOnce(&mut T) -> R) -> R {
+    pub fn modify<R>(&self, f: impl FnOnce(&mut T) -> R) -> R {
         let mut val = self.read();
         let res = f(&mut val);
         self.write_value(val);

@@ -41,14 +41,6 @@ Original svd2rust generates an owned struct for each peripheral. This has turned
 
     This means the HAL major-bumping the PAC dep version  is a breaking change, so the HAL would have to be major-bumped as well. And all PAC bumps are breaking, and they're VERY common...
 
-### All register access is unsafe
-
-Reasons:
-
-- Since there are no owned structs, there can be data races when writing to a register from multiple contexts (eg main thread and interrupt). Ensuring no data races is left to the HALs (HALs are already doing this anyway, see above)
-- DMA registers can be turned into arbitrary pointer dereferencing.
-- Controls for low-level chip features such as RAM power control or clock control can break safety in interesting ways.
-
 ### Structs representing register values (sets of fields)
 
 Current svd2rust provides "read proxy" and "write proxy" structs with methods to access register fields when reading/writing. However:
@@ -190,12 +182,14 @@ example:
 
 ```rust
 // a RegisterBlock
-pub struct Resets(*mut u8);
+pub struct Resets {
+    ptr: *mut u8
+}
 
 impl Resets {
     // A register access function. This is just pointer arithmetic
     pub fn reset_done(self) -> Reg<fields::Peripherals, RW> {
-        unsafe { Reg::new(self.0.add(8usize))) }
+        Reg::new(self.0.add(8usize))
     }
 }
 
