@@ -211,6 +211,7 @@ pub mod merge_enums;
 pub mod merge_fieldsets;
 pub mod modify_byte_offset;
 pub mod rename;
+pub mod rename_enum_variants;
 pub mod rename_fields;
 pub mod rename_registers;
 pub mod sort;
@@ -229,6 +230,7 @@ pub enum Transform {
     Rename(rename::Rename),
     RenameFields(rename_fields::RenameFields),
     RenameRegisters(rename_registers::RenameRegisters),
+    RenameEnumVariants(rename_enum_variants::RenameEnumVariants),
     MakeRegisterArray(make_register_array::MakeRegisterArray),
     MakeFieldArray(make_field_array::MakeFieldArray),
     MakeBlock(make_block::MakeBlock),
@@ -252,6 +254,7 @@ impl Transform {
             Self::Rename(t) => t.run(ir),
             Self::RenameFields(t) => t.run(ir),
             Self::RenameRegisters(t) => t.run(ir),
+            Self::RenameEnumVariants(t) => t.run(ir),
             Self::MakeRegisterArray(t) => t.run(ir),
             Self::MakeFieldArray(t) => t.run(ir),
             Self::MakeBlock(t) => t.run(ir),
