@@ -45,8 +45,8 @@ pub fn render(_opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Res
             };
 
             field_ty = util::relative_path(e_path, path);
-            to_bits = quote!(val.0 as #ty);
-            from_bits = quote!(#field_ty(val as #enum_ty));
+            to_bits = quote!(val.to_bits() as #ty);
+            from_bits = quote!(#field_ty::from_bits(val as #enum_ty));
         } else {
             field_ty = match f.bit_size {
                 1 => quote!(bool),
