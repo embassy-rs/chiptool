@@ -94,10 +94,12 @@ pub fn render(_opts: &super::Options, _ir: &IR, e: &Enum, path: &str) -> Result<
             }
 
             impl #name {
+                #[inline(always)]
                 pub const fn from_bits(val: #ty) -> #name {
                     unsafe { core::mem::transmute(val & #mask) }
                 }
 
+                #[inline(always)]
                 pub const fn to_bits(self) -> #ty {
                     unsafe { core::mem::transmute(self) }
                 }
@@ -107,12 +109,14 @@ pub fn render(_opts: &super::Options, _ir: &IR, e: &Enum, path: &str) -> Result<
 
     out.extend(quote! {
         impl From<#ty> for #name {
+            #[inline(always)]
             fn from(val: #ty) -> #name {
                 #name::from_bits(val)
             }
         }
 
         impl From<#name> for #ty {
+            #[inline(always)]
             fn from(val: #name) -> #ty {
                 #name::to_bits(val)
             }
