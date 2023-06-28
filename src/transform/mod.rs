@@ -79,9 +79,7 @@ pub fn map_enum_names(ir: &mut IR, f: impl Fn(&mut String)) {
 
     for (_, fs) in ir.fieldsets.iter_mut() {
         for ff in fs.fields.iter_mut() {
-            rename_opt(&mut ff.enum_read, &f);
-            rename_opt(&mut ff.enum_write, &f);
-            rename_opt(&mut ff.enum_readwrite, &f);
+            rename_opt(&mut ff.enumm, &f);
         }
     }
 }

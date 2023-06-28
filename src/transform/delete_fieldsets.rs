@@ -41,13 +41,7 @@ impl DeleteFieldsets {
 fn is_useless(fs: &FieldSet) -> bool {
     match &fs.fields[..] {
         [] => true,
-        [f] => {
-            fs.bit_size == f.bit_size
-                && f.bit_offset == 0
-                && f.enum_read.is_none()
-                && f.enum_write.is_none()
-                && f.enum_readwrite.is_none()
-        }
+        [f] => fs.bit_size == f.bit_size && f.bit_offset == 0 && f.enumm.is_none(),
         _ => false,
     }
 }

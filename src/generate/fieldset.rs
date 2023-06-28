@@ -31,7 +31,7 @@ pub fn render(_opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Res
         let to_bits: TokenStream;
         let from_bits: TokenStream;
 
-        if let Some(e_path) = &f.enum_readwrite {
+        if let Some(e_path) = &f.enumm {
             let Some(e) = ir.enums.get(e_path) else {
                 panic!("missing enum {}", e_path);
             };

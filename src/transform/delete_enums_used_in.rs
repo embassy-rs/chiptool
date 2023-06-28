@@ -22,15 +22,7 @@ impl DeleteEnumsUsedIn {
             if re.is_match(id) {
                 info!("matched fieldset {}", id);
                 for f in &fs.fields {
-                    if let Some(id) = &f.enum_read {
-                        info!("deleting enum {}", id);
-                        ids.insert(id.clone());
-                    }
-                    if let Some(id) = &f.enum_write {
-                        info!("deleting enum {}", id);
-                        ids.insert(id.clone());
-                    }
-                    if let Some(id) = &f.enum_readwrite {
+                    if let Some(id) = &f.enumm {
                         info!("deleting enum {}", id);
                         ids.insert(id.clone());
                     }

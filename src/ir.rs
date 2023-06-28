@@ -157,12 +157,8 @@ pub struct Field {
     pub bit_size: u32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub array: Option<Array>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub enum_read: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub enum_write: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "enum")]
-    pub enum_readwrite: Option<String>,
+    pub enumm: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

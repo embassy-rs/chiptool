@@ -23,7 +23,6 @@ struct ProtoFieldset {
 #[derive(Debug)]
 struct ProtoEnum {
     name: Vec<String>,
-    usage: Option<svd::Usage>,
     bit_size: u32,
     variants: Vec<svd::EnumeratedValue>,
 }
@@ -62,22 +61,89 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
                             continue;
                         }
 
-                        let field_name = f.name.clone();
+                        let mut enum_read = None;
+                        let mut enum_write = None;
+                        let mut enum_readwrite = None;
 
                         for e in &f.enumerated_values {
                             if e.derived_from.is_some() {
+                                // TODO
+                                warn!("ignoring enum with derivedFrom");
                                 continue;
                             }
 
-                            let mut enum_name = fieldset_name.clone();
-                            enum_name.push(make_enum_name(e, &f.enumerated_values, &field_name));
-                            info!("adding enum {:?}", enum_name);
+                            let usage = e.usage.unwrap_or(svd::Usage::ReadWrite);
+                            let target = match usage {
+                                svd::Usage::Read => &mut enum_read,
+                                svd::Usage::Write => &mut enum_write,
+                                svd::Usage::ReadWrite => &mut enum_readwrite,
+                            };
 
+                            if target.is_some() {
+                                warn!("ignoring enum with dup usage {:?}", usage);
+                                continue;
+                            }
+
+                            *target = Some(e)
+                        }
+
+                        enum EnumSet<'a> {
+                            Single(&'a svd::EnumeratedValues),
+                            ReadWrite(&'a svd::EnumeratedValues, &'a svd::EnumeratedValues),
+                        }
+
+                        let set = match (enum_read, enum_write, enum_readwrite) {
+                            (None, None, None) => None,
+                            (Some(e), None, None) => Some(EnumSet::Single(e)),
+                            (None, Some(e), None) => Some(EnumSet::Single(e)),
+                            (None, None, Some(e)) => Some(EnumSet::Single(e)),
+                            (Some(r), Some(w), None) => Some(EnumSet::ReadWrite(r, w)),
+                            (Some(r), None, Some(w)) => Some(EnumSet::ReadWrite(r, w)),
+                            (None, Some(w), Some(r)) => Some(EnumSet::ReadWrite(r, w)),
+                            (Some(_), Some(_), Some(_)) => panic!(
+                                "cannot have enumeratedvalues for read, write and readwrite!"
+                            ),
+                        };
+
+                        if let Some(set) = set {
+                            let variants = match set {
+                                EnumSet::Single(e) => e.values.clone(),
+                                EnumSet::ReadWrite(r, w) => {
+                                    let r_values = r.values.iter().map(|v| v.value.unwrap());
+                                    let w_values = w.values.iter().map(|v| v.value.unwrap());
+                                    let values: HashSet<_> = r_values.chain(w_values).collect();
+                                    let mut values: Vec<_> = values.iter().collect();
+                                    values.sort();
+
+                                    let r_values: HashMap<_, _> =
+                                        r.values.iter().map(|v| (v.value.unwrap(), v)).collect();
+                                    let w_values: HashMap<_, _> =
+                                        w.values.iter().map(|v| (v.value.unwrap(), v)).collect();
+
+                                    values
+                                        .into_iter()
+                                        .map(|&v| match (r_values.get(&v), w_values.get(&v)) {
+                                            (None, None) => unreachable!(),
+                                            (Some(&r), None) => r.clone(),
+                                            (None, Some(&w)) => w.clone(),
+                                            (Some(&r), Some(&w)) => {
+                                                let mut m = r.clone();
+                                                if r.name != w.name {
+                                                    m.name = format!("R_{}_W_{}", r.name, w.name);
+                                                }
+                                                m
+                                            }
+                                        })
+                                        .collect()
+                                }
+                            };
+
+                            let mut name = fieldset_name.clone();
+                            name.push(f.name.clone());
                             enums.push(ProtoEnum {
-                                name: enum_name,
-                                usage: e.usage,
+                                name,
                                 bit_size: f.bit_range.width,
-                                variants: e.values.clone(),
+                                variants,
                             });
                         }
                     }
@@ -203,30 +269,17 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
                 bit_offset: f.bit_range.offset,
                 bit_size: f.bit_range.width,
                 array: None,
-                enum_read: None,
-                enum_write: None,
-                enum_readwrite: None,
+                enumm: None,
             };
 
-            for e in &f.enumerated_values {
+            if !f.enumerated_values.is_empty() {
                 let mut enum_name = proto.name.clone();
-                enum_name.push(
-                    e.derived_from
-                        .clone()
-                        .unwrap_or_else(|| make_enum_name(e, &f.enumerated_values, &f.name)),
-                );
-                info!("finding enum {:?}", enum_name);
-                let enumm = enums.iter().find(|e| e.name == enum_name).unwrap();
+                enum_name.push(f.name.clone());
+
+                trace!("finding enum {:?}", enum_name);
                 let enum_name = enum_names.get(&enum_name).unwrap().clone();
-                info!("found {:?}", enum_name);
-
-                let usage = enumm.usage.unwrap_or(svd::Usage::ReadWrite);
-
-                match usage {
-                    svd::Usage::Read => field.enum_read = Some(enum_name.clone()),
-                    svd::Usage::Write => field.enum_write = Some(enum_name.clone()),
-                    svd::Usage::ReadWrite => field.enum_readwrite = Some(enum_name.clone()),
-                }
+                trace!("found {:?}", enum_name);
+                field.enumm = Some(enum_name.clone())
             }
 
             fieldset.fields.push(field)
@@ -365,28 +418,6 @@ fn collect_blocks(
             collect_blocks(out, block_name, c.description.clone(), &c.children);
         }
     }
-}
-
-fn make_enum_name(
-    e: &svd::EnumeratedValues,
-    evs: &[svd::EnumeratedValues],
-    field_name: &str,
-) -> String {
-    if let Some(name) = &e.name {
-        return name.clone();
-    }
-
-    let mut res = field_name.to_string();
-    if evs.len() > 1 {
-        let suffix = match e.usage {
-            None => "",
-            Some(svd::Usage::Read) => "_R",
-            Some(svd::Usage::Write) => "_W",
-            Some(svd::Usage::ReadWrite) => "_RW",
-        };
-        res.push_str(suffix);
-    }
-    res
 }
 
 fn unique_names(names: Vec<Vec<String>>) -> HashMap<Vec<String>, String> {

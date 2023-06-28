@@ -103,9 +103,7 @@ pub(crate) fn mergeable_fields(a: &Field, b: &Field, level: CheckLevel) -> bool 
     if level >= CheckLevel::Layout {
         res &= a.bit_size == b.bit_size
             && a.bit_offset == b.bit_offset
-            && a.enum_read == b.enum_read
-            && a.enum_write == b.enum_write
-            && a.enum_readwrite == b.enum_readwrite
+            && a.enumm == b.enumm
             && a.array == b.array;
     }
     if level >= CheckLevel::Names {
@@ -192,10 +190,7 @@ pub(crate) fn match_expand(s: &str, regex: &regex::Regex, res: &str) -> Option<S
 pub(crate) fn replace_enum_ids(ir: &mut IR, from: &HashSet<String>, to: String) {
     for (_, fs) in ir.fieldsets.iter_mut() {
         for f in fs.fields.iter_mut() {
-            for id in [&mut f.enum_read, &mut f.enum_write, &mut f.enum_readwrite]
-                .into_iter()
-                .flatten()
-            {
+            if let Some(id) = &mut f.enumm {
                 if from.contains(id) {
                     *id = to.clone()
                 }
