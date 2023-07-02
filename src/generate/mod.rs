@@ -38,13 +38,13 @@ impl Module {
             .get_by_path(&path[1..])
     }
 
-    fn render(self) -> Result<TokenStream> {
+    fn render(&self) -> Result<TokenStream> {
         let span = Span::call_site();
 
         let mut res = TokenStream::new();
-        res.extend(self.items);
+        res.extend(self.items.clone());
 
-        for (name, module) in self.children.into_iter() {
+        for (name, module) in sorted_map(&self.children, |name, _| name.clone()) {
             let name = Ident::new(&name, span);
             let contents = module.render()?;
             res.extend(quote! {
