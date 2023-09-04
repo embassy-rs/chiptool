@@ -36,6 +36,7 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
         p.registers.as_ref().unwrap(),
     );
 
+    let enum_from_name = enum_map(&blocks);
     let mut fieldsets: Vec<ProtoFieldset> = Vec::new();
     let mut enums: Vec<ProtoEnum> = Vec::new();
 
@@ -66,11 +67,15 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
                         let mut enum_readwrite = None;
 
                         for e in &f.enumerated_values {
-                            if e.derived_from.is_some() {
-                                // TODO
-                                warn!("ignoring enum with derivedFrom");
-                                continue;
-                            }
+                            let e = if let Some(derived_from) = &e.derived_from {
+                                let Some(e) = enum_from_name.get(derived_from.as_str()) else {
+                                    warn!("unknown enum to derive from ({} -> {})", f.name, derived_from);
+                                    continue
+                                };
+                                e
+                            } else {
+                                e
+                            };
 
                             let usage = e.usage.unwrap_or(svd::Usage::ReadWrite);
                             let target = match usage {
@@ -393,6 +398,33 @@ pub fn convert_svd(svd: &svd::Device) -> anyhow::Result<IR> {
     transform::Sanitize {}.run(&mut ir).unwrap();
 
     Ok(ir)
+}
+
+/// Create a map of all enums by name.
+/// Ignores potential duplicates of names.
+fn enum_map(blocks: &[ProtoBlock]) -> HashMap<&'_ str, &'_ svd::EnumeratedValues> {
+    let mut map = HashMap::new();
+    for block in blocks {
+        for r in &block.registers {
+            let svd::RegisterCluster::Register(r) = r else {
+                continue
+            };
+            if r.derived_from.is_some() {
+                continue;
+            }
+            let Some(fields) = &r.fields else {
+                continue
+            };
+            for f in fields {
+                for e in &f.enumerated_values {
+                    if let Some(name) = &e.name {
+                        map.insert(name.as_str(), e);
+                    }
+                }
+            }
+        }
+    }
+    map
 }
 
 fn collect_blocks(
