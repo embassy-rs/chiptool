@@ -207,8 +207,8 @@ fn transform(args: Transform) -> Result<()> {
         info!("running: {:?}", t);
         t.run(&mut ir)?;
     }
-    let data = serde_yaml::to_vec(&ir)?;
-    fs::write(&args.output, data)?;
+    let data = serde_yaml::to_string(&ir)?;
+    fs::write(&args.output, data.as_bytes())?;
 
     Ok(())
 }
@@ -263,9 +263,9 @@ fn fmt(args: Fmt) -> Result<()> {
             }
         }
 
-        let want_data = serde_yaml::to_vec(&ir)?;
+        let want_data = serde_yaml::to_string(&ir)?;
 
-        if got_data != want_data {
+        if got_data != want_data.as_bytes() {
             if args.check {
                 bail!("File {} is not correctly formatted", &file);
             } else {
