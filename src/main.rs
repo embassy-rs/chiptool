@@ -5,6 +5,7 @@ use chiptool::{generate, svd2ir};
 use clap::Parser;
 use log::*;
 use regex::Regex;
+use std::collections::HashSet;
 use std::fs;
 use std::io::Read;
 use std::{fs::File, io::stdout};
@@ -75,6 +76,9 @@ struct Fmt {
     /// Error if incorrectly formatted, instead of fixing.
     #[clap(long)]
     check: bool,
+    /// Remove unused enums
+    #[clap(long)]
+    remove_unused: bool,
 }
 
 /// Check a YAML for errors.
@@ -213,6 +217,19 @@ fn fmt(args: Fmt) -> Result<()> {
     for file in args.files {
         let got_data = fs::read(&file)?;
         let mut ir: IR = serde_yaml::from_slice(&got_data)?;
+
+        if args.remove_unused {
+            let mut used_enums = HashSet::new();
+            for (_, fs) in &mut ir.fieldsets {
+                for f in &mut fs.fields {
+                    if let Some(enumm) = &f.enumm {
+                        used_enums.insert(enumm.clone());
+                    }
+                }
+            }
+
+            ir.enums.retain(|name, _| used_enums.contains(name));
+        }
 
         // Ensure consistent sort order in the YAML.
         chiptool::transform::sort::Sort {}.run(&mut ir).unwrap();
