@@ -8,6 +8,7 @@ use regex::Regex;
 use std::collections::HashSet;
 use std::fs;
 use std::io::Read;
+use std::path::PathBuf;
 use std::{fs::File, io::stdout};
 
 use chiptool::ir::IR;
@@ -22,6 +23,7 @@ struct Opts {
 #[derive(Parser)]
 enum Subcommand {
     Generate(Generate),
+    ExtractAll(ExtractAll),
     ExtractPeripheral(ExtractPeripheral),
     Transform(Transform),
     Fmt(Fmt),
@@ -41,6 +43,17 @@ struct ExtractPeripheral {
     /// Transforms file path
     #[clap(long)]
     transform: Option<String>,
+}
+
+/// Extract all peripherals from SVD to YAML
+#[derive(Parser)]
+struct ExtractAll {
+    /// SVD file path
+    #[clap(long)]
+    svd: String,
+    /// Output directory. Each peripheral will be created as a YAML file here.
+    #[clap(short, long)]
+    output: String,
 }
 
 /// Apply transform to YAML
@@ -106,6 +119,7 @@ fn main() -> Result<()> {
 
     match opts.subcommand {
         Subcommand::ExtractPeripheral(x) => extract_peripheral(x),
+        Subcommand::ExtractAll(x) => extract_all(x),
         Subcommand::Generate(x) => gen(x),
         Subcommand::Transform(x) => transform(x),
         Subcommand::Fmt(x) => fmt(x),
@@ -169,6 +183,33 @@ fn extract_peripheral(args: ExtractPeripheral) -> Result<()> {
     chiptool::transform::sort::Sort {}.run(&mut ir).unwrap();
 
     serde_yaml::to_writer(stdout(), &ir).unwrap();
+    Ok(())
+}
+
+fn extract_all(args: ExtractAll) -> Result<()> {
+    std::fs::create_dir_all(&args.output)?;
+
+    let svd = load_svd(&args.svd)?;
+
+    for p in &svd.peripherals {
+        if p.derived_from.is_some() {
+            continue;
+        }
+
+        let mut ir = IR::new();
+        chiptool::svd2ir::convert_peripheral(&mut ir, p)?;
+
+        // Fix weird newline spam in descriptions.
+        let re = Regex::new("[ \n]+").unwrap();
+        chiptool::transform::map_descriptions(&mut ir, |d| re.replace_all(d, " ").into_owned())?;
+
+        // Ensure consistent sort order in the YAML.
+        chiptool::transform::sort::Sort {}.run(&mut ir).unwrap();
+
+        let f = File::create(PathBuf::from(&args.output).join(format!("{}.yaml", p.name)))?;
+        serde_yaml::to_writer(f, &ir).unwrap();
+    }
+
     Ok(())
 }
 
