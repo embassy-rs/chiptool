@@ -170,9 +170,31 @@ fn extract_peripheral(args: ExtractPeripheral) -> Result<()> {
 
     chiptool::svd2ir::convert_peripheral(&mut ir, p)?;
 
-    // Fix weird newline spam in descriptions.
-    let re = Regex::new("[ \n]+").unwrap();
-    chiptool::transform::map_descriptions(&mut ir, |d| re.replace_all(d, " ").into_owned())?;
+    // Descriptions in SVD's contain a lot of noise and weird formatting. Clean them up.
+    let description_cleanups = [
+        // Fix weird newline spam in descriptions.
+        (Regex::new("[ \n]+").unwrap(), " "),
+        // Fix weird tab and cr spam in descriptions.
+        (Regex::new("[\r\t]+").unwrap(), " "),
+        // Replace double-space (end of sentence) with period.
+        (
+            Regex::new(r"(?<first_sentence>.*?)[\s]{2}(?<next_sentence>.*)").unwrap(),
+            "$first_sentence. $next_sentence",
+        ),
+        // Make sure every description ends with a period.
+        (
+            Regex::new(r"(?<full_description>.*)(?<last_character>[\s'[^\.\s']])$").unwrap(),
+            "$full_description$last_character.",
+        ),
+        // Eliminate space characters between end of description and the closing period.
+        (
+            Regex::new(r"(?<full_description>.*)\s\.$").unwrap(),
+            "$full_description.",
+        ),
+    ];
+    for (re, rep) in description_cleanups.iter() {
+        chiptool::transform::map_descriptions(&mut ir, |d| re.replace_all(d, *rep).into_owned())?;
+    }
 
     for t in &config.transforms {
         info!("running: {:?}", t);
