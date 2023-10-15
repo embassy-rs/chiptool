@@ -1,6 +1,13 @@
 use crate::ir::{BlockItemInner, IR};
 
-pub fn validate(ir: &IR) -> Vec<String> {
+#[derive(Debug, Clone)]
+pub struct Options {
+    pub allow_register_overlap: bool,
+    pub allow_field_overlap: bool,
+    pub allow_enum_dup_value: bool,
+}
+
+pub fn validate(ir: &IR, options: Options) -> Vec<String> {
     let mut errs = Vec::new();
 
     for (bname, b) in &ir.blocks {
@@ -36,12 +43,14 @@ pub fn validate(ir: &IR) -> Vec<String> {
             }
         }
 
-        for (i1, i2) in Pairs::new(b.items.iter()) {
-            if i1.byte_offset == i2.byte_offset {
-                errs.push(format!(
-                    "block {}: registers overlap: {} {}",
-                    bname, i1.name, i2.name
-                ));
+        if !options.allow_register_overlap {
+            for (i1, i2) in Pairs::new(b.items.iter()) {
+                if i1.byte_offset == i2.byte_offset {
+                    errs.push(format!(
+                        "block {}: registers overlap: {} {}",
+                        bname, i1.name, i2.name
+                    ));
+                }
             }
         }
     }
@@ -65,14 +74,16 @@ pub fn validate(ir: &IR) -> Vec<String> {
             }
         }
 
-        for (i1, i2) in Pairs::new(fs.fields.iter()) {
-            if i2.bit_offset + i2.bit_size > i1.bit_offset
-                && i1.bit_offset + i1.bit_size > i2.bit_offset
-            {
-                errs.push(format!(
-                    "fieldset {}: fields overlap: {} {}",
-                    fsname, i1.name, i2.name
-                ));
+        if !options.allow_field_overlap {
+            for (i1, i2) in Pairs::new(fs.fields.iter()) {
+                if i2.bit_offset + i2.bit_size > i1.bit_offset
+                    && i1.bit_offset + i1.bit_size > i2.bit_offset
+                {
+                    errs.push(format!(
+                        "fieldset {}: fields overlap: {} {}",
+                        fsname, i1.name, i2.name
+                    ));
+                }
             }
         }
     }
@@ -88,12 +99,14 @@ pub fn validate(ir: &IR) -> Vec<String> {
             }
         }
 
-        for (i1, i2) in Pairs::new(e.variants.iter()) {
-            if i1.value == i2.value {
-                errs.push(format!(
-                    "enum {}: variants with same value: {} {}",
-                    ename, i1.name, i2.name
-                ));
+        if !options.allow_enum_dup_value {
+            for (i1, i2) in Pairs::new(e.variants.iter()) {
+                if i1.value == i2.value {
+                    errs.push(format!(
+                        "enum {}: variants with same value: {} {}",
+                        ename, i1.name, i2.name
+                    ));
+                }
             }
         }
     }

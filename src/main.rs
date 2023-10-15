@@ -99,6 +99,13 @@ struct Fmt {
 struct Check {
     /// Peripheral file path
     files: Vec<String>,
+
+    #[clap(long)]
+    allow_register_overlap: bool,
+    #[clap(long)]
+    allow_field_overlap: bool,
+    #[clap(long)]
+    allow_enum_dup_value: bool,
 }
 
 /// Generate Rust code from a YAML register block
@@ -340,12 +347,18 @@ fn fmt(args: Fmt) -> Result<()> {
 }
 
 fn check(args: Check) -> Result<()> {
+    let opts = chiptool::validate::Options {
+        allow_enum_dup_value: args.allow_enum_dup_value,
+        allow_field_overlap: args.allow_field_overlap,
+        allow_register_overlap: args.allow_register_overlap,
+    };
+
     let mut fails = 0;
 
     for file in args.files {
         let got_data = fs::read(&file)?;
         let ir: IR = serde_yaml::from_slice(&got_data)?;
-        let errs = chiptool::validate::validate(&ir);
+        let errs = chiptool::validate::validate(&ir, opts.clone());
         fails += errs.len();
         for e in errs {
             println!("{}: {}", &file, e);
