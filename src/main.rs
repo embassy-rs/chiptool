@@ -106,6 +106,10 @@ struct Check {
     allow_field_overlap: bool,
     #[clap(long)]
     allow_enum_dup_value: bool,
+    #[clap(long)]
+    allow_unused_enums: bool,
+    #[clap(long)]
+    allow_unused_fieldsets: bool,
 }
 
 /// Generate Rust code from a YAML register block
@@ -351,6 +355,8 @@ fn check(args: Check) -> Result<()> {
         allow_enum_dup_value: args.allow_enum_dup_value,
         allow_field_overlap: args.allow_field_overlap,
         allow_register_overlap: args.allow_register_overlap,
+        allow_unused_enums: args.allow_unused_enums,
+        allow_unused_fieldsets: args.allow_unused_fieldsets,
     };
 
     let mut fails = 0;

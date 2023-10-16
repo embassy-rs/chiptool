@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::ir::{BlockItemInner, IR};
 
 #[derive(Debug, Clone)]
@@ -5,10 +7,15 @@ pub struct Options {
     pub allow_register_overlap: bool,
     pub allow_field_overlap: bool,
     pub allow_enum_dup_value: bool,
+    pub allow_unused_enums: bool,
+    pub allow_unused_fieldsets: bool,
 }
 
 pub fn validate(ir: &IR, options: Options) -> Vec<String> {
     let mut errs = Vec::new();
+
+    let mut used_fieldsets = HashSet::new();
+    let mut used_enums = HashSet::new();
 
     for (bname, b) in &ir.blocks {
         if let Some(n) = &b.extends {
@@ -32,6 +39,7 @@ pub fn validate(ir: &IR, options: Options) -> Vec<String> {
                 }
                 BlockItemInner::Register(i) => {
                     if let Some(fs) = &i.fieldset {
+                        used_fieldsets.insert(fs.clone());
                         if !ir.fieldsets.contains_key(fs) {
                             errs.push(format!(
                                 "block {} item {}: fieldset {} does not exist",
@@ -56,8 +64,14 @@ pub fn validate(ir: &IR, options: Options) -> Vec<String> {
     }
 
     for (fsname, fs) in &ir.fieldsets {
+        if !options.allow_unused_fieldsets && !used_fieldsets.contains(fsname) {
+            errs.push(format!("fieldset {} is unused", fsname));
+        }
+
         for f in &fs.fields {
             if let Some(ename) = &f.enumm {
+                used_enums.insert(ename.clone());
+
                 let Some(e) = ir.enums.get(ename) else {
                     errs.push(format!(
                         "fieldset {} field {}: enum {} does not exist",
@@ -89,6 +103,10 @@ pub fn validate(ir: &IR, options: Options) -> Vec<String> {
     }
 
     for (ename, e) in &ir.enums {
+        if !options.allow_unused_enums && !used_enums.contains(ename) {
+            errs.push(format!("enum {} is unused", ename));
+        }
+
         let maxval = 1 << e.bit_size;
         for v in &e.variants {
             if v.value >= maxval {
