@@ -53,7 +53,7 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
                     fieldsets.push(ProtoFieldset {
                         name: fieldset_name.clone(),
                         description: r.description.clone(),
-                        bit_size: 32, // todo
+                        bit_size: r.properties.size.unwrap_or(32),
                         fields: fields.clone(),
                     });
 

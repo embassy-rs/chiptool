@@ -15,4 +15,4 @@ anyhow = "1.0.75"
 regex = "1.9.5"
 serde = { version = "1.0.188", features = [ "derive" ]}
 serde_yaml = "0.9.25"
-svd-parser = { version = "0.14.2", features = ["derive-from"] }
+svd-parser = { version = "0.14.2", features = ["derive-from", "expand"] }
