@@ -1,6 +1,6 @@
 use log::*;
 use std::collections::{HashMap, HashSet};
-use svd_parser as svd;
+use svd_parser::svd;
 
 use crate::util;
 use crate::{ir::*, transform};
@@ -195,7 +195,7 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
                         None
                     };
 
-                    let access = match r.access {
+                    let access = match r.properties.access {
                         None => Access::ReadWrite,
                         Some(svd::Access::ReadOnly) => Access::Read,
                         Some(svd::Access::WriteOnly) => Access::Write,
@@ -211,7 +211,7 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
                         byte_offset: r.address_offset,
                         inner: BlockItemInner::Register(Register {
                             access, // todo
-                            bit_size: r.size.unwrap_or(32),
+                            bit_size: r.properties.size.unwrap_or(32),
                             fieldset: fieldset_name.clone(),
                         }),
                     };
