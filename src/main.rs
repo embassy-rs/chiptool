@@ -42,7 +42,7 @@ struct ExtractPeripheral {
     peripheral: String,
     /// Transforms file path
     #[clap(long)]
-    transform: Option<String>,
+    transform: Vec<String>,
 }
 
 /// Extract all peripherals from SVD to YAML
@@ -78,7 +78,7 @@ struct Generate {
     svd: String,
     /// Transforms file path
     #[clap(long)]
-    transform: Option<String>,
+    transform: Vec<String>,
 }
 
 /// Reformat a YAML
@@ -156,9 +156,13 @@ fn load_config(path: &str) -> Result<Config> {
 }
 
 fn extract_peripheral(args: ExtractPeripheral) -> Result<()> {
-    let config = match args.transform {
-        Some(s) => load_config(&s)?,
-        None => Config::default(),
+    let config = if args.transform.is_empty() {
+        Config::default()
+    } else {
+        args.transform
+            .into_iter()
+            .map(|s| load_config(&s))
+            .collect::<Result<Config>>()?
     };
 
     let svd = load_svd(&args.svd)?;
@@ -247,9 +251,13 @@ fn extract_all(args: ExtractAll) -> Result<()> {
 }
 
 fn gen(args: Generate) -> Result<()> {
-    let config = match args.transform {
-        Some(s) => load_config(&s)?,
-        None => Config::default(),
+    let config = if args.transform.is_empty() {
+        Config::default()
+    } else {
+        args.transform
+            .into_iter()
+            .map(|s| load_config(&s))
+            .collect::<Result<Config>>()?
     };
 
     let svd = load_svd(&args.svd)?;
@@ -398,6 +406,13 @@ fn gen_block(args: GenBlock) -> Result<()> {
 #[derive(serde::Serialize, serde::Deserialize)]
 struct Config {
     transforms: Vec<chiptool::transform::Transform>,
+}
+
+impl FromIterator<Config> for Config {
+    fn from_iter<I: IntoIterator<Item = Config>>(iter: I) -> Self {
+        let transforms: Vec<_> = iter.into_iter().flat_map(|c| c.transforms).collect();
+        Self { transforms }
+    }
 }
 
 impl Default for Config {
