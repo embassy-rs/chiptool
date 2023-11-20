@@ -139,14 +139,15 @@ fn main() -> Result<()> {
     }
 }
 
-fn load_svd(path: &str) -> Result<svd_parser::Device> {
+fn load_svd(path: &str) -> Result<svd_parser::svd::Device> {
     let xml = &mut String::new();
     File::open(path)
         .context("Cannot open the SVD file")?
         .read_to_string(xml)
         .context("Cannot read the SVD file")?;
 
-    let device = svd_parser::parse(xml)?;
+    let device =
+        svd_parser::parse_with_config(xml, &svd_parser::Config::default().expand_properties(true))?;
     Ok(device)
 }
 
