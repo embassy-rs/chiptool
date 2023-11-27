@@ -5,10 +5,9 @@ use quote::quote;
 
 use crate::ir::*;
 use crate::util;
+use crate::generate::{Options, sorted, split_path, process_array};
 
-use super::sorted;
-
-pub fn render(_opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Result<TokenStream> {
+pub fn render(_opts: &Options, ir: &IR, fs: &FieldSet, path: &str) -> Result<TokenStream> {
     let span = Span::call_site();
     let mut items = TokenStream::new();
 
@@ -65,7 +64,7 @@ pub fn render(_opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Res
         }
 
         if let Some(array) = &f.array {
-            let (len, offs_expr) = super::process_array(array);
+            let (len, offs_expr) = process_array(array);
             items.extend(quote!(
                 #doc
                 #[inline(always)]
@@ -100,7 +99,7 @@ pub fn render(_opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Res
         }
     }
 
-    let (_, name) = super::split_path(path);
+    let (_, name) = split_path(path);
     let name = Ident::new(name, span);
     let doc = util::doc(&fs.description);
 
@@ -118,6 +117,18 @@ pub fn render(_opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Res
             #[inline(always)]
             fn default() -> #name {
                 #name(0)
+            }
+        }
+
+        impl From<#ty> for #name {
+            fn from(val: #ty) -> #name {
+                #name(val)
+            }
+        }
+
+        impl From<#name> for #ty {
+            fn from(val: #name) -> #ty {
+                val.0
             }
         }
     };

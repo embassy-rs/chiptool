@@ -5,10 +5,9 @@ use quote::quote;
 
 use crate::ir::*;
 use crate::util;
+use crate::generate::{Options, sorted, split_path, process_array};
 
-use super::sorted;
-
-pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<TokenStream> {
+pub fn render(opts: &Options, ir: &IR, b: &Block, path: &str) -> Result<TokenStream> {
     let common_path = opts.common_path();
 
     let span = Span::call_site();
@@ -43,7 +42,7 @@ pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<T
 
                 let ty = quote!(#common_path::Reg<#reg_ty, #access>);
                 if let Some(array) = &i.array {
-                    let (len, offs_expr) = super::process_array(array);
+                    let (len, offs_expr) = process_array(array);
                     items.extend(quote!(
                         #doc
                         #[inline(always)]
@@ -67,7 +66,7 @@ pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<T
                 let _b2 = ir.blocks.get(block_path).unwrap();
                 let ty = util::relative_path(block_path, path);
                 if let Some(array) = &i.array {
-                    let (len, offs_expr) = super::process_array(array);
+                    let (len, offs_expr) = process_array(array);
 
                     items.extend(quote!(
                         #doc
@@ -90,7 +89,7 @@ pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<T
         }
     }
 
-    let (_, name) = super::split_path(path);
+    let (_, name) = split_path(path);
     let name = Ident::new(name, span);
     let doc = util::doc(&b.description);
     let out = quote! {
