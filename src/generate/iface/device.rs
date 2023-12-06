@@ -4,8 +4,7 @@ use quote::quote;
 
 use crate::ir::*;
 use crate::util::{self, ToSanitizedUpperCase};
-
-use super::sorted;
+use crate::generate::sorted;
 
 pub fn render(_opts: &super::Options, ir: &IR, d: &Device, path: &str) -> Result<TokenStream> {
     let mut out = TokenStream::new();

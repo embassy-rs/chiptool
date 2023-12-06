@@ -73,6 +73,7 @@ pub struct Block {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
     pub items: Vec<BlockItem>,
+    pub address_size: Option<u32>
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -122,7 +123,10 @@ pub struct Register {
     pub bit_size: u32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fieldset: Option<String>,
+    #[serde(default, skip_serializing_if = "is_0")]
+    pub reset: u32,
 }
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct BlockItemBlock {
     pub block: String,
@@ -183,7 +187,9 @@ fn default_32() -> u32 {
 fn is_32(x: &u32) -> bool {
     *x == 32
 }
-
+fn is_0(x: &u32) -> bool {
+    *x == 0
+}
 fn default_readwrite() -> Access {
     Access::ReadWrite
 }

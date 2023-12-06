@@ -7,8 +7,7 @@ use quote::quote;
 
 use crate::ir::*;
 use crate::util;
-
-use super::sorted;
+use crate::generate::sorted;
 
 pub fn render(_opts: &super::Options, _ir: &IR, e: &Enum, path: &str) -> Result<TokenStream> {
     let span = Span::call_site();
@@ -122,6 +121,7 @@ pub fn render(_opts: &super::Options, _ir: &IR, e: &Enum, path: &str) -> Result<
             }
         }
     });
+
 
     Ok(out)
 }

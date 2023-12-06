@@ -165,6 +165,7 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
     // Convert blocks
     for proto in &blocks {
         let mut block = Block {
+            address_size: None,
             extends: None,
             description: proto.description.clone(),
             items: Vec::new(),
@@ -213,6 +214,7 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
                             access, // todo
                             bit_size: r.properties.size.unwrap_or(32),
                             fieldset: fieldset_name.clone(),
+                            reset: 0,
                         }),
                     };
 

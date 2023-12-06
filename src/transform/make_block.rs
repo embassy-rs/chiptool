@@ -42,6 +42,7 @@ impl MakeBlock {
                 let byte_offset = items[0].byte_offset;
 
                 let b2 = Block {
+                    address_size: None,
                     extends: None,
                     description: None,
                     items: items
