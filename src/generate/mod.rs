@@ -45,7 +45,7 @@ impl Module {
         res.extend(self.items.clone());
 
         for (name, module) in sorted_map(&self.children, |name, _| name.clone()) {
-            let name = Ident::new(&name, span);
+            let name = Ident::new(name, span);
             let contents = module.render()?;
             res.extend(quote! {
                 pub mod #name {
