@@ -37,7 +37,7 @@ fn commit_info() -> String {
 fn commit_hash() -> Result<String, IgnoredError> {
     Ok(String::from_utf8(
         Command::new("git")
-            .args(&["rev-parse", "--short", "HEAD"])
+            .args(["rev-parse", "--short", "HEAD"])
             .output()?
             .stdout,
     )?)
@@ -46,7 +46,7 @@ fn commit_hash() -> Result<String, IgnoredError> {
 fn commit_date() -> Result<String, IgnoredError> {
     Ok(String::from_utf8(
         Command::new("git")
-            .args(&["log", "-1", "--date=short", "--pretty=format:%cd"])
+            .args(["log", "-1", "--date=short", "--pretty=format:%cd"])
             .output()?
             .stdout,
     )?)

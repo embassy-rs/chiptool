@@ -3,7 +3,7 @@ use serde::{de, de::Visitor, ser::SerializeMap, Deserialize, Deserializer, Seria
 use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Default, Clone, Debug, PartialEq)]
 pub struct IR {
     pub devices: HashMap<String, Device>,
     pub blocks: HashMap<String, Block>,
@@ -13,12 +13,7 @@ pub struct IR {
 
 impl IR {
     pub fn new() -> Self {
-        Self {
-            devices: HashMap::new(),
-            blocks: HashMap::new(),
-            fieldsets: HashMap::new(),
-            enums: HashMap::new(),
-        }
+        Self::default()
     }
 
     pub fn merge(&mut self, other: IR) {
@@ -263,7 +258,7 @@ impl<'de> Visitor<'de> for IRVisitor {
         // into our map.
         while let Some(key) = access.next_key()? {
             let key: String = key;
-            let (kind, name) = key.split_once("/").ok_or(de::Error::custom("item names must be in form `kind/name`, where kind is `block`, `fieldset` or `enum`"))?;
+            let (kind, name) = key.split_once('/').ok_or(de::Error::custom("item names must be in form `kind/name`, where kind is `block`, `fieldset` or `enum`"))?;
             match kind {
                 "block" => {
                     let val: Block = access.next_value()?;

@@ -303,11 +303,9 @@ fn fmt(args: Fmt) -> Result<()> {
 
         if args.remove_unused {
             let mut used_enums = HashSet::new();
-            for (_, fs) in &mut ir.fieldsets {
-                for f in &mut fs.fields {
-                    if let Some(enumm) = &f.enumm {
-                        used_enums.insert(enumm.clone());
-                    }
+            for fs in ir.fieldsets.values_mut() {
+                for f in fs.fields.iter_mut().filter(|f| f.enumm.is_some()) {
+                    used_enums.insert(f.enumm.as_ref().unwrap().clone());
                 }
             }
 
@@ -325,23 +323,23 @@ fn fmt(args: Fmt) -> Result<()> {
             }
         };
 
-        for (_, b) in &mut ir.blocks {
+        for b in ir.blocks.values_mut() {
             cleanup(&mut b.description);
-            for i in &mut b.items {
+            for i in b.items.iter_mut() {
                 cleanup(&mut i.description);
             }
         }
 
-        for (_, b) in &mut ir.fieldsets {
+        for b in ir.fieldsets.values_mut() {
             cleanup(&mut b.description);
-            for i in &mut b.fields {
+            for i in b.fields.iter_mut() {
                 cleanup(&mut i.description);
             }
         }
 
-        for (_, b) in &mut ir.enums {
+        for b in ir.enums.values_mut() {
             cleanup(&mut b.description);
-            for i in &mut b.variants {
+            for i in b.variants.iter_mut() {
                 cleanup(&mut i.description);
             }
         }
@@ -404,7 +402,7 @@ fn gen_block(args: GenBlock) -> Result<()> {
 
     Ok(())
 }
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Default, serde::Serialize, serde::Deserialize)]
 struct Config {
     transforms: Vec<chiptool::transform::Transform>,
 }
@@ -413,11 +411,5 @@ impl FromIterator<Config> for Config {
     fn from_iter<I: IntoIterator<Item = Config>>(iter: I) -> Self {
         let transforms: Vec<_> = iter.into_iter().flat_map(|c| c.transforms).collect();
         Self { transforms }
-    }
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self { transforms: vec![] }
     }
 }
