@@ -13,10 +13,16 @@ pub struct MergeEnums {
     pub check: CheckLevel,
     #[serde(default)]
     pub skip_unmergeable: bool,
+    pub keep_desc: Option<bool>,
 }
 
 impl MergeEnums {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
+        if self.keep_desc.unwrap_or(false) {
+            let variant_desc = extract_variant_desc(ir, &self.from, None)?;
+            append_variant_desc_to_field(ir, &variant_desc, None);
+        }
+
         let re = make_regex(&self.from)?;
         let groups = match_groups(ir.enums.keys().cloned(), &re, &self.to);
 

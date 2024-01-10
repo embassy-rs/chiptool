@@ -11,10 +11,16 @@ pub struct DeleteEnums {
     pub bit_size: Option<u32>,
     #[serde(default)]
     pub soft: bool,
+    pub keep_desc: Option<bool>,
 }
 
 impl DeleteEnums {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
+        if self.keep_desc.unwrap_or(false) {
+            let variant_desc = extract_variant_desc(ir, &self.from, self.bit_size)?;
+            append_variant_desc_to_field(ir, &variant_desc, self.bit_size);
+        }
+
         let re = make_regex(&self.from)?;
 
         let mut ids: HashSet<String> = HashSet::new();

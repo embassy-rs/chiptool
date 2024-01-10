@@ -272,3 +272,60 @@ pub(crate) fn calc_array(mut offsets: Vec<u32>) -> (u32, Array) {
         (start_offset, Array::Cursed(CursedArray { offsets }))
     }
 }
+
+// filter enum by enum name, then copy variant description
+pub(crate) fn extract_variant_desc(
+    ir: &IR,
+    enum_names: &str,
+    bit_size: Option<u32>,
+) -> anyhow::Result<HashMap<String, String>> {
+    let re = make_regex(enum_names)?;
+
+    let mut enum_desc_pair: HashMap<String, String> = HashMap::new();
+    for (e_name, e_struct) in ir.enums.iter().filter(|(e_name, e_struct)| {
+        bit_size.map_or(true, |s| s == e_struct.bit_size) && re.is_match(e_name)
+    }) {
+        let variant_desc_str = e_struct.variants.iter().fold(String::new(), |mut acc, v| {
+            acc.push_str(
+                format!(
+                    "{}: {}\n",
+                    v.value,
+                    v.description.clone().unwrap_or(String::new())
+                )
+                .as_str(),
+            );
+            acc
+        });
+
+        enum_desc_pair.insert(e_name.clone(), variant_desc_str);
+    }
+
+    Ok(enum_desc_pair)
+}
+
+// filter field by enum name, then append corresponding variant description
+pub(crate) fn append_variant_desc_to_field(
+    ir: &mut IR,
+    enum_desc_pair: &HashMap<String, String>,
+    bit_size: Option<u32>,
+) {
+    for fs in ir.fieldsets.values_mut() {
+        for f in fs
+            .fields
+            .iter_mut()
+            .filter(|f| bit_size.map_or(true, |s| s == f.bit_size) && f.enumm.is_some())
+        {
+            for (_, desc_string) in enum_desc_pair
+                .iter()
+                .filter(|(e_name, _)| **e_name == f.enumm.clone().unwrap())
+            {
+                match &f.description {
+                    Some(desc) => {
+                        f.description = Some(format!("{}\n{}", desc.clone(), desc_string.clone()))
+                    }
+                    None => f.description = Some(desc_string.clone()),
+                }
+            }
+        }
+    }
+}
