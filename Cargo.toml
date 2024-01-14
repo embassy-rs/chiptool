@@ -15,4 +15,4 @@ anyhow = "1.0.75"
 regex = "1.9.5"
 serde = { version = "1.0.188", features = [ "derive" ]}
 serde_yaml = "0.9.25"
-svd-parser = { version = "0.14.2", features = ["derive-from", "expand"] }
+svd-parser = { git = "https://github.com/Dirbaio/svd.git", rev = "43f95cec2f7ec987c6e7e2c3613bcbb8d4f9efdf", features = ["derive-from", "expand"] }
