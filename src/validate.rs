@@ -68,6 +68,15 @@ pub fn validate(ir: &IR, options: Options) -> Vec<String> {
             errs.push(format!("fieldset {} is unused", fsname));
         }
 
+        if let Some(n) = &fs.extends {
+            if !ir.fieldsets.contains_key(n) {
+                errs.push(format!(
+                    "fieldset {}: extends fieldset {} does not exist",
+                    fsname, n
+                ))
+            }
+        }
+
         for f in &fs.fields {
             if let Some(ename) = &f.enumm {
                 used_enums.insert(ename.clone());
