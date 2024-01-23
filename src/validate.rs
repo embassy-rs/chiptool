@@ -64,17 +64,20 @@ pub fn validate(ir: &IR, options: Options) -> Vec<String> {
     }
 
     for (fsname, fs) in &ir.fieldsets {
-        if !options.allow_unused_fieldsets && !used_fieldsets.contains(fsname) {
-            errs.push(format!("fieldset {} is unused", fsname));
-        }
-
         if let Some(n) = &fs.extends {
+            used_fieldsets.insert(n.clone());
             if !ir.fieldsets.contains_key(n) {
                 errs.push(format!(
                     "fieldset {}: extends fieldset {} does not exist",
                     fsname, n
                 ))
             }
+        }
+    }
+
+    for (fsname, fs) in &ir.fieldsets {
+        if !options.allow_unused_fieldsets && !used_fieldsets.contains(fsname) {
+            errs.push(format!("fieldset {} is unused", fsname));
         }
 
         for f in &fs.fields {
