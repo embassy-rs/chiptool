@@ -5,14 +5,15 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-clap = { version = "4.4.3", features = ["derive"] }
-env_logger = "0.10.0"
+clap = { version = "4.5.0", features = ["derive"] }
+env_logger = "0.11.1"
 inflections = "1.1"
 log = { version = "~0.4", features = ["std"] }
 quote = "1.0"
 proc-macro2 = "1.0"
-anyhow = "1.0.75"
-regex = "1.9.5"
-serde = { version = "1.0.188", features = [ "derive" ]}
-serde_yaml = "0.9.25"
-svd-parser = { git = "https://github.com/Dirbaio/svd.git", rev = "43f95cec2f7ec987c6e7e2c3613bcbb8d4f9efdf", features = ["derive-from", "expand"] }
+anyhow = "1.0.79"
+regex = "1.10.3"
+serde = { version = "1.0.196", features = [ "derive" ]}
+serde_yaml = "0.9.31"
+svd-parser = { git = "https://github.com/Dirbaio/svd.git", rev = "1bbf7d870a42bf1d17cc84e840d5f5d1cd0a0fa7", features = ["derive-from", "expand"] }
+#svd-parser = { path = "./svd/svd-parser", features = ["derive-from", "expand"] }
