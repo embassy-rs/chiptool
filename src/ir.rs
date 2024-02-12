@@ -2,6 +2,7 @@ use de::MapAccess;
 use serde::{de, de::Visitor, ser::SerializeMap, Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::{BTreeMap, HashMap};
 use std::fmt;
+use std::ops::RangeInclusive;
 
 #[derive(Default, Clone, Debug, PartialEq)]
 pub struct IR {
@@ -143,12 +144,17 @@ pub struct FieldSet {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum BitOffset {
+    Regular(u32),
+    Cursed(Vec<RangeInclusive<u32>>),
+}
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Field {
     pub name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
-
-    pub bit_offset: u32,
+    pub bit_offset: BitOffset,
     pub bit_size: u32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub array: Option<Array>,
