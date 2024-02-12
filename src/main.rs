@@ -10,6 +10,7 @@ use std::fs;
 use std::io::Read;
 use std::path::PathBuf;
 use std::{fs::File, io::stdout};
+use svd_parser::ValidateLevel;
 
 use chiptool::ir::IR;
 
@@ -146,8 +147,10 @@ fn load_svd(path: &str) -> Result<svd_parser::svd::Device> {
         .read_to_string(xml)
         .context("Cannot read the SVD file")?;
 
-    let device =
-        svd_parser::parse_with_config(xml, &svd_parser::Config::default().expand_properties(true))?;
+    let config = svd_parser::Config::default()
+        .expand_properties(true)
+        .validate_level(ValidateLevel::Disabled);
+    let device = svd_parser::parse_with_config(xml, &config)?;
     Ok(device)
 }
 
