@@ -149,6 +149,40 @@ pub enum BitOffset {
     Regular(u32),
     Cursed(Vec<RangeInclusive<u32>>),
 }
+
+impl BitOffset {
+    fn min_offset(&self) -> u32 {
+        match self {
+            BitOffset::Regular(offset) => *offset,
+            BitOffset::Cursed(range_list) => *range_list[0].start(),
+        }
+    }
+
+    fn max_offset(&self) -> u32 {
+        match self {
+            BitOffset::Regular(offset) => *offset,
+            BitOffset::Cursed(range_list) => *range_list[range_list.len()].end(),
+        }
+    }
+}
+
+// custom bit offset ordering:
+// 1. compare min offset: less is less, greater is greater
+// 2. when min offset is equal, compare max offset: less is less, greater is greater, equal is equal
+impl PartialOrd for BitOffset {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        use std::cmp::Ordering;
+
+        let min_order = self.min_offset().cmp(&other.min_offset());
+        let result = match min_order {
+            Ordering::Equal => self.max_offset().cmp(&other.max_offset()),
+            min_order => min_order,
+        };
+
+        Some(result)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Field {
     pub name: String,
