@@ -164,6 +164,13 @@ impl BitOffset {
             BitOffset::Cursed(range_list) => *range_list[range_list.len()].end(),
         }
     }
+
+    pub(crate) fn into_ranges(&self, bit_size: u32) -> Vec<RangeInclusive<u32>> {
+        match self {
+            BitOffset::Regular(offset) => vec![(*offset)..=(*offset) + bit_size - 1],
+            BitOffset::Cursed(ranges) => *ranges,
+        }
+    }
 }
 
 // custom bit offset ordering:
