@@ -20,10 +20,10 @@ pub fn render(_opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Res
         _ => panic!("Invalid bit_size {}", fs.bit_size),
     };
 
-    for f in sorted(&fs.fields, |f| (f.bit_offset, f.name.clone())) {
+    for f in sorted(&fs.fields, |f| (f.bit_offset.clone(), f.name.clone())) {
         let name = Ident::new(&f.name, span);
         let name_set = Ident::new(&format!("set_{}", f.name), span);
-        let bit_offset = f.bit_offset as usize;
+        let bit_offset = f.bit_offset.clone();
         let _bit_size = f.bit_size as usize;
         let mask = util::hex(1u64.wrapping_shl(f.bit_size).wrapping_sub(1));
         let doc = util::doc(&f.description);
@@ -65,38 +65,71 @@ pub fn render(_opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Res
         }
 
         if let Some(array) = &f.array {
-            let (len, offs_expr) = super::process_array(array);
-            items.extend(quote!(
-                #doc
-                #[inline(always)]
-                pub const fn #name(&self, n: usize) -> #field_ty{
-                    assert!(n < #len);
-                    let offs = #bit_offset + #offs_expr;
-                    let val = (self.0 >> offs) & #mask;
-                    #from_bits
-                }
-                #doc
-                #[inline(always)]
-                pub fn #name_set(&mut self, n: usize, val: #field_ty) {
-                    assert!(n < #len);
-                    let offs = #bit_offset + #offs_expr;
-                    self.0 = (self.0 & !(#mask << offs)) | (((#to_bits) & #mask) << offs);
-                }
-            ));
+            if let BitOffset::Regular(bit_offset) = bit_offset {
+                let (len, offs_expr) = super::process_array(array);
+                items.extend(quote!(
+                    #doc
+                    #[inline(always)]
+                    pub const fn #name(&self, n: usize) -> #field_ty{
+                        assert!(n < #len);
+                        let offs = #bit_offset + #offs_expr;
+                        let val = (self.0 >> offs) & #mask;
+                        #from_bits
+                    }
+                    #doc
+                    #[inline(always)]
+                    pub fn #name_set(&mut self, n: usize, val: #field_ty) {
+                        assert!(n < #len);
+                        let offs = #bit_offset + #offs_expr;
+                        self.0 = (self.0 & !(#mask << offs)) | (((#to_bits) & #mask) << offs);
+                    }
+                ));
+            } else {
+                unimplemented!()
+            }
         } else {
-            items.extend(quote!(
-                #doc
-                #[inline(always)]
-                pub const fn #name(&self) -> #field_ty{
-                    let val = (self.0 >> #bit_offset) & #mask;
-                    #from_bits
+            match bit_offset {
+                BitOffset::Regular(bit_offset) => {
+                    items.extend(quote!(
+                    #doc
+                    #[inline(always)]
+                    pub const fn #name(&self) -> #field_ty{
+                        let val = (self.0 >> #bit_offset) & #mask;
+                        #from_bits
+                    }
+                    #doc
+                    #[inline(always)]
+                    pub fn #name_set(&mut self, val: #field_ty) {
+                        self.0 = (self.0 & !(#mask << #bit_offset)) | (((#to_bits) & #mask) << #bit_offset);
+                    }
+                ));
                 }
-                #doc
-                #[inline(always)]
-                pub fn #name_set(&mut self, val: #field_ty) {
-                    self.0 = (self.0 & !(#mask << #bit_offset)) | (((#to_bits) & #mask) << #bit_offset);
+                BitOffset::Cursed(ranges) => {
+                    let mut offset: Vec<usize> = Vec::new();
+                    let mut mask: Vec<TokenStream> = Vec::new();
+                    for range in ranges.iter() {
+                        offset.push(*range.start() as usize);
+                        mask.push(util::hex(
+                            1u64.wrapping_shl(range.end() - range.start() + 1)
+                                .wrapping_sub(1),
+                        ));
+                    }
+
+                    items.extend(quote!(
+                        #doc
+                        #[inline(always)]
+                        pub const fn #name(&self) -> #field_ty{
+                            let val = 0usize #( + (self.0 >> #offset) & #mask)*;
+                            #from_bits
+                        }
+                        #doc
+                        #[inline(always)]
+                        pub fn #name_set(&mut self, val: #field_ty) {
+                           #(self.0 = (self.0 & !(#mask << #offset)) | (((#to_bits) & #mask) << #offset))*;
+                        }
+                    ))
                 }
-            ));
+            }
         }
     }
 

@@ -26,6 +26,10 @@ impl MakeFieldArray {
                 // Grab all items into a vec
                 let mut items = Vec::new();
                 for i in b.fields.iter().filter(|i| group.contains(&i.name)) {
+                    if let BitOffset::Cursed(_) = i.bit_offset {
+                        unimplemented!("MakeFieldArray on range-specified bit_offset field hasn't been implemented")
+                    }
+
                     items.push(i);
                 }
 
@@ -33,12 +37,23 @@ impl MakeFieldArray {
                 // todo check they're not arrays (arrays of arrays not supported)
 
                 // Sort by offs
-                items.sort_by_key(|i| i.bit_offset);
+                items.sort_by_key(|i| &i.bit_offset);
                 for i in &items {
                     info!("    {}", i.name);
                 }
 
-                let (offset, array) = calc_array(items.iter().map(|x| x.bit_offset).collect());
+                let (offset, array) = calc_array(
+                    items
+                        .iter()
+                        .map(|x| {
+                            if let BitOffset::Regular(v) = x.bit_offset {
+                                v
+                            } else {
+                                unreachable!()
+                            }
+                        })
+                        .collect(),
+                );
                 if let Array::Cursed(_) = &array {
                     if !self.allow_cursed {
                         panic!("arrayize: items are not evenly spaced. Set `allow_cursed: true` to allow this.")
@@ -53,7 +68,7 @@ impl MakeFieldArray {
                 // Create the new array item
                 item.name = to;
                 item.array = Some(array);
-                item.bit_offset = offset;
+                item.bit_offset = BitOffset::Regular(offset);
                 b.fields.push(item);
             }
         }

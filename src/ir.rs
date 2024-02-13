@@ -143,32 +143,34 @@ pub struct FieldSet {
     pub fields: Vec<Field>,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Eq)]
 #[serde(untagged)]
 pub enum BitOffset {
     Regular(u32),
+    // This vector assume all RangeInclusive is non-overlapped and sorted.
+    // It should be checked when parse source files.
     Cursed(Vec<RangeInclusive<u32>>),
 }
 
 impl BitOffset {
-    fn min_offset(&self) -> u32 {
+    pub(crate) fn min_offset(&self) -> u32 {
         match self {
             BitOffset::Regular(offset) => *offset,
             BitOffset::Cursed(range_list) => *range_list[0].start(),
         }
     }
 
-    fn max_offset(&self) -> u32 {
+    pub(crate) fn max_offset(&self) -> u32 {
         match self {
             BitOffset::Regular(offset) => *offset,
             BitOffset::Cursed(range_list) => *range_list[range_list.len()].end(),
         }
     }
 
-    pub(crate) fn into_ranges(&self, bit_size: u32) -> Vec<RangeInclusive<u32>> {
+    pub(crate) fn into_ranges(self, bit_size: u32) -> Vec<RangeInclusive<u32>> {
         match self {
-            BitOffset::Regular(offset) => vec![(*offset)..=(*offset) + bit_size - 1],
-            BitOffset::Cursed(ranges) => *ranges,
+            BitOffset::Regular(offset) => vec![offset..=offset + bit_size - 1],
+            BitOffset::Cursed(ranges) => ranges,
         }
     }
 }
@@ -187,6 +189,12 @@ impl PartialOrd for BitOffset {
         };
 
         Some(result)
+    }
+}
+
+impl Ord for BitOffset {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.partial_cmp(other).unwrap()
     }
 }
 

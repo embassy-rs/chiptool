@@ -38,10 +38,13 @@ impl DeleteFieldsets {
     }
 }
 
+// Fieldset is useless when
+// 1. it has no Fields, or
+// 2. it has one Fields, which occupied entire Fieldset, and without a enum
 fn is_useless(fs: &FieldSet) -> bool {
     match &fs.fields[..] {
         [] => true,
-        [f] => fs.bit_size == f.bit_size && f.bit_offset == 0 && f.enumm.is_none(),
+        [f] => fs.bit_size == f.bit_size && f.bit_offset.min_offset() == 0 && f.enumm.is_none(),
         _ => false,
     }
 }

@@ -93,7 +93,7 @@ pub fn validate(ir: &IR, options: Options) -> Vec<String> {
                 };
 
                 // do extra check when bit_offset is in "range mode"
-                if let BitOffset::Cursed(ranges) = f.bit_offset {
+                if let BitOffset::Cursed(ranges) = &f.bit_offset {
                     let mut last_max_index = 0;
                     let mut ranges_size = 0;
                     for (index, range) in ranges.iter().enumerate() {
@@ -152,8 +152,8 @@ pub fn validate(ir: &IR, options: Options) -> Vec<String> {
             for (i1, i2) in Pairs::new(fs.fields.iter()) {
                 // expand every BitOffset to a Vec<RangeInclusive>,
                 // and compare at that level
-                'COMPARE: for i1_range in i1.bit_offset.into_ranges(i1.bit_size) {
-                    for i2_range in i2.bit_offset.into_ranges(i2.bit_size) {
+                'COMPARE: for i1_range in i1.bit_offset.clone().into_ranges(i1.bit_size) {
+                    for i2_range in i2.bit_offset.clone().into_ranges(i2.bit_size) {
                         if i2_range.end() > i1_range.start() && i1_range.end() > i2_range.start() {
                             errs.push(format!(
                                 "fieldset {}: fields overlap: {} {}",

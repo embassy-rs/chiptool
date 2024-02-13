@@ -271,7 +271,7 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
             let mut field = Field {
                 name: f.name.clone(),
                 description: f.description.clone(),
-                bit_offset: f.bit_range.offset,
+                bit_offset: BitOffset::Regular(f.bit_range.offset),
                 bit_size: f.bit_range.width,
                 array: None,
                 enumm: None,
