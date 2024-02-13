@@ -46,8 +46,8 @@ impl MakeFieldArray {
                     items
                         .iter()
                         .map(|x| {
-                            if let BitOffset::Regular(v) = x.bit_offset {
-                                v
+                            if let BitOffset::Regular(offset) = x.bit_offset {
+                                offset
                             } else {
                                 unreachable!()
                             }

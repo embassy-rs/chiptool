@@ -66,6 +66,7 @@ pub fn render(_opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Res
 
         if let Some(array) = &f.array {
             if let BitOffset::Regular(bit_offset) = bit_offset {
+                let bit_offset = bit_offset as usize;
                 let (len, offs_expr) = super::process_array(array);
                 items.extend(quote!(
                     #doc
@@ -90,6 +91,8 @@ pub fn render(_opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Res
         } else {
             match bit_offset {
                 BitOffset::Regular(bit_offset) => {
+                    let bit_offset = bit_offset as usize;
+
                     items.extend(quote!(
                     #doc
                     #[inline(always)]
@@ -105,27 +108,40 @@ pub fn render(_opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Res
                 ));
                 }
                 BitOffset::Cursed(ranges) => {
+                    // offset of "range"s inside register
                     let mut offset: Vec<usize> = Vec::new();
                     let mut mask: Vec<TokenStream> = Vec::new();
-                    for range in ranges.iter() {
+                    // offset to shift "range" value to final value
+                    // preload first offset as 0,
+                    // since we order "range" from less to larger, first offset-in-value should always be 0.
+                    let mut offset_in_value: Vec<usize> = vec![0];
+                    for (index, range) in ranges.iter().enumerate() {
                         offset.push(*range.start() as usize);
                         mask.push(util::hex(
                             1u64.wrapping_shl(range.end() - range.start() + 1)
                                 .wrapping_sub(1),
                         ));
+
+                        // prepare next "range" offset-in-value value
+                        if index < ranges.len() - 1 {
+                            offset_in_value.push(
+                                offset_in_value[index]
+                                    + ((range.end() - range.start()) as usize + 1),
+                            )
+                        }
                     }
 
                     items.extend(quote!(
                         #doc
                         #[inline(always)]
                         pub const fn #name(&self) -> #field_ty{
-                            let val = 0usize #( + (self.0 >> #offset) & #mask)*;
+                            let val = 0 #( + (((self.0 >> #offset) & #mask) << #offset_in_value) )*;
                             #from_bits
                         }
                         #doc
                         #[inline(always)]
                         pub fn #name_set(&mut self, val: #field_ty) {
-                           #(self.0 = (self.0 & !(#mask << #offset)) | (((#to_bits) & #mask) << #offset))*;
+                           #(self.0 = (self.0 & !(#mask << #offset)) | (((#to_bits >> #offset_in_value) & #mask) << #offset);)*;
                         }
                     ))
                 }

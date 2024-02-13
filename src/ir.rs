@@ -156,14 +156,14 @@ impl BitOffset {
     pub(crate) fn min_offset(&self) -> u32 {
         match self {
             BitOffset::Regular(offset) => *offset,
-            BitOffset::Cursed(range_list) => *range_list[0].start(),
+            BitOffset::Cursed(ranges) => *ranges[0].start(),
         }
     }
 
     pub(crate) fn max_offset(&self) -> u32 {
         match self {
             BitOffset::Regular(offset) => *offset,
-            BitOffset::Cursed(range_list) => *range_list[range_list.len()].end(),
+            BitOffset::Cursed(ranges) => *ranges[ranges.len()].end(),
         }
     }
 
@@ -175,26 +175,24 @@ impl BitOffset {
     }
 }
 
-// custom bit offset ordering:
-// 1. compare min offset: less is less, greater is greater
-// 2. when min offset is equal, compare max offset: less is less, greater is greater, equal is equal
-impl PartialOrd for BitOffset {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+// Custom bit offset ordering:
+// 1. Compare min offset: less is less, greater is greater. If min offset is equal,
+// 2. Compare max offset: less is less, greater is greater, equal is equal
+impl Ord for BitOffset {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         use std::cmp::Ordering;
 
         let min_order = self.min_offset().cmp(&other.min_offset());
-        let result = match min_order {
+        match min_order {
             Ordering::Equal => self.max_offset().cmp(&other.max_offset()),
             min_order => min_order,
-        };
-
-        Some(result)
+        }
     }
 }
 
-impl Ord for BitOffset {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.partial_cmp(other).unwrap()
+impl PartialOrd for BitOffset {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
     }
 }
 
