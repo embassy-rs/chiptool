@@ -89,11 +89,20 @@ pub fn validate(ir: &IR, options: Options) -> Vec<String> {
                         "fieldset {} field {}: enum {} does not exist",
                         fsname, f.name, ename
                     ));
-                    continue
+                    continue;
                 };
 
                 // do extra check when bit_offset is in "range mode"
                 if let BitOffset::Cursed(ranges) = &f.bit_offset {
+                    // "range mode" doesn't support array
+                    if f.array.is_some() {
+                        errs.push(format!(
+                            "fieldset {} field {}: \"range mode\" of bit_offset doesn't support array",
+                            fsname, f.name
+                        ));
+                        continue;
+                    };
+
                     let mut last_max_index = 0;
                     let mut ranges_size = 0;
                     for (index, range) in ranges.iter().enumerate() {
