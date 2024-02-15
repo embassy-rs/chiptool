@@ -26,14 +26,26 @@ impl MakeFieldArray {
                 // Grab all items into a vec
                 let mut items = Vec::new();
                 for i in b.fields.iter().filter(|i| group.contains(&i.name)) {
-                    if let BitOffset::Cursed(_) = i.bit_offset {
-                        unimplemented!("MakeFieldArray on range-specified bit_offset field hasn't been implemented")
-                    }
-
                     items.push(i);
                 }
 
                 // todo check they're mergeable
+
+                // one array shouldn't contain both regular and cursed bit_offset type
+                {
+                    let has_regular_bit_offset = items
+                        .iter()
+                        .any(|i| matches!(i.bit_offset, BitOffset::Regular(_)));
+
+                    let has_cursed_bit_offset = items
+                        .iter()
+                        .any(|i| matches!(i.bit_offset, BitOffset::Cursed(_)));
+
+                    if has_regular_bit_offset && has_cursed_bit_offset {
+                        panic!("arrayize: items cannot mix bit_offset type")
+                    }
+                }
+
                 // todo check they're not arrays (arrays of arrays not supported)
 
                 // Sort by offs
@@ -42,18 +54,8 @@ impl MakeFieldArray {
                     info!("    {}", i.name);
                 }
 
-                let (offset, array) = calc_array(
-                    items
-                        .iter()
-                        .map(|x| {
-                            if let BitOffset::Regular(offset) = x.bit_offset {
-                                offset
-                            } else {
-                                unreachable!()
-                            }
-                        })
-                        .collect(),
-                );
+                let (offset, array) =
+                    calc_array(items.iter().map(|x| x.bit_offset.min_offset()).collect());
                 if let Array::Cursed(_) = &array {
                     if !self.allow_cursed {
                         panic!("arrayize: items are not evenly spaced. Set `allow_cursed: true` to allow this.")

@@ -163,7 +163,7 @@ impl BitOffset {
     pub(crate) fn max_offset(&self) -> u32 {
         match self {
             BitOffset::Regular(offset) => *offset,
-            BitOffset::Cursed(ranges) => *ranges[ranges.len()].end(),
+            BitOffset::Cursed(ranges) => *ranges[ranges.len() - 1].end(),
         }
     }
 
