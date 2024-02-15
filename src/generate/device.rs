@@ -57,12 +57,12 @@ pub fn render(_opts: &super::Options, ir: &IR, d: &Device, path: &str) -> Result
 
             peripherals.extend(quote! {
                 #doc
-                pub const #name: #path = unsafe { #path::from_ptr(#address as usize as _) };
+                pub const #name: #path = unsafe { #path::from_ptr(#address as _) };
             });
         } else {
             peripherals.extend(quote! {
                 #doc
-                pub const #name: *mut () = #address as usize as _;
+                pub const #name: *mut () = #address as _;
             });
         }
     }
