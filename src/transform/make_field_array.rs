@@ -30,15 +30,32 @@ impl MakeFieldArray {
                 }
 
                 // todo check they're mergeable
+
+                // one array shouldn't contain both regular and cursed bit_offset type
+                {
+                    let has_regular_bit_offset = items
+                        .iter()
+                        .any(|i| matches!(i.bit_offset, BitOffset::Regular(_)));
+
+                    let has_cursed_bit_offset = items
+                        .iter()
+                        .any(|i| matches!(i.bit_offset, BitOffset::Cursed(_)));
+
+                    if has_regular_bit_offset && has_cursed_bit_offset {
+                        panic!("arrayize: items cannot mix bit_offset type")
+                    }
+                }
+
                 // todo check they're not arrays (arrays of arrays not supported)
 
                 // Sort by offs
-                items.sort_by_key(|i| i.bit_offset);
+                items.sort_by_key(|i| &i.bit_offset);
                 for i in &items {
                     info!("    {}", i.name);
                 }
 
-                let (offset, array) = calc_array(items.iter().map(|x| x.bit_offset).collect());
+                let (offset, array) =
+                    calc_array(items.iter().map(|x| x.bit_offset.min_offset()).collect());
                 if let Array::Cursed(_) = &array {
                     if !self.allow_cursed {
                         panic!("arrayize: items are not evenly spaced. Set `allow_cursed: true` to allow this.")
@@ -53,7 +70,7 @@ impl MakeFieldArray {
                 // Create the new array item
                 item.name = to;
                 item.array = Some(array);
-                item.bit_offset = offset;
+                item.bit_offset = BitOffset::Regular(offset);
                 b.fields.push(item);
             }
         }

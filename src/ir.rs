@@ -2,6 +2,7 @@ use de::MapAccess;
 use serde::{de, de::Visitor, ser::SerializeMap, Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::{BTreeMap, HashMap};
 use std::fmt;
+use std::ops::RangeInclusive;
 
 #[derive(Default, Clone, Debug, PartialEq)]
 pub struct IR {
@@ -142,13 +143,65 @@ pub struct FieldSet {
     pub fields: Vec<Field>,
 }
 
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Eq)]
+#[serde(untagged)]
+pub enum BitOffset {
+    Regular(u32),
+    // This vector assume all RangeInclusive is non-overlapped and sorted.
+    // It should be checked when parse source files.
+    Cursed(Vec<RangeInclusive<u32>>),
+}
+
+impl BitOffset {
+    pub(crate) fn min_offset(&self) -> u32 {
+        match self {
+            BitOffset::Regular(offset) => *offset,
+            BitOffset::Cursed(ranges) => *ranges[0].start(),
+        }
+    }
+
+    pub(crate) fn max_offset(&self) -> u32 {
+        match self {
+            BitOffset::Regular(offset) => *offset,
+            BitOffset::Cursed(ranges) => *ranges[ranges.len() - 1].end(),
+        }
+    }
+
+    pub(crate) fn into_ranges(self, bit_size: u32) -> Vec<RangeInclusive<u32>> {
+        match self {
+            BitOffset::Regular(offset) => vec![offset..=offset + bit_size - 1],
+            BitOffset::Cursed(ranges) => ranges,
+        }
+    }
+}
+
+// Custom bit offset ordering:
+// 1. Compare min offset: less is less, greater is greater. If min offset is equal,
+// 2. Compare max offset: less is less, greater is greater, equal is equal
+impl Ord for BitOffset {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        use std::cmp::Ordering;
+
+        let min_order = self.min_offset().cmp(&other.min_offset());
+        match min_order {
+            Ordering::Equal => self.max_offset().cmp(&other.max_offset()),
+            min_order => min_order,
+        }
+    }
+}
+
+impl PartialOrd for BitOffset {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Field {
     pub name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
-
-    pub bit_offset: u32,
+    pub bit_offset: BitOffset,
     pub bit_size: u32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub array: Option<Array>,

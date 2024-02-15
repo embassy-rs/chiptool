@@ -20,10 +20,10 @@ pub fn render(_opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Res
         _ => panic!("Invalid bit_size {}", fs.bit_size),
     };
 
-    for f in sorted(&fs.fields, |f| (f.bit_offset, f.name.clone())) {
+    for f in sorted(&fs.fields, |f| (f.bit_offset.clone(), f.name.clone())) {
         let name = Ident::new(&f.name, span);
         let name_set = Ident::new(&format!("set_{}", f.name), span);
-        let bit_offset = f.bit_offset as usize;
+        let off_in_reg = f.bit_offset.clone();
         let _bit_size = f.bit_size as usize;
         let mask = util::hex(1u64.wrapping_shl(f.bit_size).wrapping_sub(1));
         let doc = util::doc(&f.description);
@@ -64,40 +64,104 @@ pub fn render(_opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Res
             }
         }
 
-        if let Some(array) = &f.array {
-            let (len, offs_expr) = super::process_array(array);
-            items.extend(quote!(
-                #doc
-                #[inline(always)]
-                pub const fn #name(&self, n: usize) -> #field_ty{
-                    assert!(n < #len);
-                    let offs = #bit_offset + #offs_expr;
-                    let val = (self.0 >> offs) & #mask;
-                    #from_bits
+        match off_in_reg {
+            BitOffset::Regular(off_in_reg) => {
+                let off_in_reg = off_in_reg as usize;
+                if let Some(array) = &f.array {
+                    let (len, offs_expr) = super::process_array(array);
+                    items.extend(quote!(
+                        #doc
+                        #[inline(always)]
+                        pub const fn #name(&self, n: usize) -> #field_ty{
+                            assert!(n < #len);
+                            let offs = #off_in_reg + #offs_expr;
+                            let val = (self.0 >> offs) & #mask;
+                            #from_bits
+                        }
+                        #doc
+                        #[inline(always)]
+                        pub fn #name_set(&mut self, n: usize, val: #field_ty) {
+                            assert!(n < #len);
+                            let offs = #off_in_reg + #offs_expr;
+                            self.0 = (self.0 & !(#mask << offs)) | (((#to_bits) & #mask) << offs);
+                        }
+                    ));
+                } else {
+                    items.extend(quote!(
+                        #doc
+                        #[inline(always)]
+                        pub const fn #name(&self) -> #field_ty{
+                            let val = (self.0 >> #off_in_reg) & #mask;
+                            #from_bits
+                        }
+                        #doc
+                        #[inline(always)]
+                        pub fn #name_set(&mut self, val: #field_ty) {
+                            self.0 = (self.0 & !(#mask << #off_in_reg)) | (((#to_bits) & #mask) << #off_in_reg);
+                        }
+                    ));
                 }
-                #doc
-                #[inline(always)]
-                pub fn #name_set(&mut self, n: usize, val: #field_ty) {
-                    assert!(n < #len);
-                    let offs = #bit_offset + #offs_expr;
-                    self.0 = (self.0 & !(#mask << offs)) | (((#to_bits) & #mask) << offs);
+            }
+            BitOffset::Cursed(ranges) => {
+                // offset of "range"s inside register
+                let mut off_in_reg: Vec<usize> = Vec::new();
+                let mut mask: Vec<TokenStream> = Vec::new();
+                // offset to shift "range" value to final value
+                // preload first offset as 0,
+                // since we order "range" from less to larger, first offset-in-value should always be 0.
+                let mut off_in_val: Vec<usize> = vec![0];
+                for (index, range) in ranges.iter().enumerate() {
+                    off_in_reg.push(*range.start() as usize);
+                    mask.push(util::hex(
+                        1u64.wrapping_shl(range.end() - range.start() + 1)
+                            .wrapping_sub(1),
+                    ));
+
+                    // prepare next "range" offset-in-value value
+                    if index < ranges.len() - 1 {
+                        off_in_val
+                            .push(off_in_val[index] + ((range.end() - range.start()) as usize + 1))
+                    }
                 }
-            ));
-        } else {
-            items.extend(quote!(
-                #doc
-                #[inline(always)]
-                pub const fn #name(&self) -> #field_ty{
-                    let val = (self.0 >> #bit_offset) & #mask;
-                    #from_bits
+
+                if let Some(array) = &f.array {
+                    let (len, offs_expr) = super::process_array(array);
+                    items.extend(quote!(
+                        #doc
+                        #[inline(always)]
+                        pub const fn #name(&self, n: usize) -> #field_ty{
+                            assert!(n < #len);
+                            let mut val = 0;
+                            #(  let offs = #off_in_reg + #offs_expr;
+                                val += (((self.0 >> offs) & #mask) << #off_in_val); )*;
+                            #from_bits
+                        }
+                        #doc
+                        #[inline(always)]
+                        pub fn #name_set(&mut self, n: usize, val: #field_ty) {
+                            assert!(n < #len);
+                            #( let offs = #off_in_reg + #offs_expr;
+                               self.0 = (self.0 & !(#mask << offs)) | (((#to_bits >> #off_in_val) & #mask) << offs); )*;
+                        }
+                    ));
+                } else {
+                    items.extend(quote!(
+                        #doc
+                        #[inline(always)]
+                        pub const fn #name(&self) -> #field_ty{
+                            let mut val = 0;
+                            #( val += (((self.0 >> #off_in_reg) & #mask) << #off_in_val); )*;
+                            #from_bits
+                        }
+                        #doc
+                        #[inline(always)]
+                        pub fn #name_set(&mut self, val: #field_ty) {
+                           #( self.0 = (self.0 & !(#mask << #off_in_reg)) | (((#to_bits >> #off_in_val) & #mask) << #off_in_reg); )*;
+                        }
+                    ))
                 }
-                #doc
-                #[inline(always)]
-                pub fn #name_set(&mut self, val: #field_ty) {
-                    self.0 = (self.0 & !(#mask << #bit_offset)) | (((#to_bits) & #mask) << #bit_offset);
-                }
-            ));
-        }
+            }
+        };
     }
 
     let (_, name) = super::split_path(path);

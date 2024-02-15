@@ -1,6 +1,6 @@
-use std::collections::HashSet;
+use std::{cmp::Ordering, collections::HashSet};
 
-use crate::ir::{BlockItemInner, IR};
+use crate::ir::{BitOffset, BlockItemInner, IR};
 
 #[derive(Debug, Clone)]
 pub struct Options {
@@ -80,7 +80,7 @@ pub fn validate(ir: &IR, options: Options) -> Vec<String> {
             errs.push(format!("fieldset {} is unused", fsname));
         }
 
-        for f in &fs.fields {
+        'FIELD: for f in &fs.fields {
             if let Some(ename) = &f.enumm {
                 used_enums.insert(ename.clone());
 
@@ -89,8 +89,56 @@ pub fn validate(ir: &IR, options: Options) -> Vec<String> {
                         "fieldset {} field {}: enum {} does not exist",
                         fsname, f.name, ename
                     ));
-                    continue
+                    continue;
                 };
+
+                // do extra check when bit_offset is in "range mode"
+                if let BitOffset::Cursed(ranges) = &f.bit_offset {
+                    let mut last_max_index = 0;
+                    let mut ranges_size = 0;
+                    for (index, range) in ranges.iter().enumerate() {
+                        // every "range" shouldn't be empty (aka start > end)
+                        if range.is_empty() {
+                            errs.push(format!(
+                                "fieldset {} field {}: end value of bit_offset is bigger than start value",
+                                fsname, f.name,
+                            ));
+                            continue 'FIELD;
+                        }
+
+                        // "range"s of same field shouldn't overlap
+                        if index > 0 {
+                            match range.start().cmp(&last_max_index) {
+                                Ordering::Less => {
+                                    errs.push(format!(
+                                    "fieldset {} field {}: bit_offset is overlapped with itself",
+                                    fsname, f.name,
+                                ));
+                                    continue 'FIELD;
+                                }
+                                Ordering::Equal => {
+                                    errs.push(format!(
+                                        "fieldset {} field {}: bit_offset has continuous part, should be merged",
+                                        fsname, f.name,
+                                    ));
+                                    continue 'FIELD;
+                                }
+                                Ordering::Greater => last_max_index = *range.end(),
+                            }
+                        }
+                        ranges_size += range.end() - range.start() + 1;
+                    }
+
+                    // bit size from "ranges" should be the same as field bit_size
+                    if ranges_size != f.bit_size {
+                        errs.push(format!(
+                            "fieldset {} field {}: size of bit_offset ranges is mismatch with field bit_size",
+                            fsname, f.name,
+                        ));
+                        continue;
+                    }
+                }
+
                 if f.bit_size != e.bit_size {
                     errs.push(format!(
                         "fieldset {} field {}: bit_size {} does not match enum {} bit_size {}",
@@ -102,13 +150,18 @@ pub fn validate(ir: &IR, options: Options) -> Vec<String> {
 
         if !options.allow_field_overlap {
             for (i1, i2) in Pairs::new(fs.fields.iter()) {
-                if i2.bit_offset + i2.bit_size > i1.bit_offset
-                    && i1.bit_offset + i1.bit_size > i2.bit_offset
-                {
-                    errs.push(format!(
-                        "fieldset {}: fields overlap: {} {}",
-                        fsname, i1.name, i2.name
-                    ));
+                // expand every BitOffset to a Vec<RangeInclusive>,
+                // and compare at that level
+                'COMPARE: for i1_range in i1.bit_offset.clone().into_ranges(i1.bit_size) {
+                    for i2_range in i2.bit_offset.clone().into_ranges(i2.bit_size) {
+                        if i2_range.end() > i1_range.start() && i1_range.end() > i2_range.start() {
+                            errs.push(format!(
+                                "fieldset {}: fields overlap: {} {}",
+                                fsname, i1.name, i2.name
+                            ));
+                            break 'COMPARE;
+                        }
+                    }
                 }
             }
         }
