@@ -167,30 +167,36 @@ pub fn replace_suffix(name: &str, suffix: &str) -> String {
     }
 }
 
-/// Turns `n` into an unsuffixed separated hex token
-pub fn hex(n: u64) -> TokenStream {
+pub fn hex_str(n: u64) -> String {
     let (h4, h3, h2, h1) = (
         (n >> 48) & 0xffff,
         (n >> 32) & 0xffff,
         (n >> 16) & 0xffff,
         n & 0xffff,
     );
-    TokenStream::from_str(
-        &(if h4 != 0 {
-            format!("0x{:04x}_{:04x}_{:04x}_{:04x}", h4, h3, h2, h1)
-        } else if h3 != 0 {
-            format!("0x{:04x}_{:04x}_{:04x}", h3, h2, h1)
-        } else if h2 != 0 {
-            format!("0x{:04x}_{:04x}", h2, h1)
-        } else if h1 & 0xff00 != 0 {
-            format!("0x{:04x}", h1)
-        } else if h1 != 0 {
-            format!("0x{:02x}", h1 & 0xff)
-        } else {
-            "0".to_string()
-        }),
-    )
-    .unwrap()
+    if h4 != 0 {
+        format!("0x{:04x}_{:04x}_{:04x}_{:04x}", h4, h3, h2, h1)
+    } else if h3 != 0 {
+        format!("0x{:04x}_{:04x}_{:04x}", h3, h2, h1)
+    } else if h2 != 0 {
+        format!("0x{:04x}_{:04x}", h2, h1)
+    } else if h1 & 0xff00 != 0 {
+        format!("0x{:04x}", h1)
+    } else if h1 != 0 {
+        format!("0x{:02x}", h1 & 0xff)
+    } else {
+        "0".to_string()
+    }
+}
+
+/// Turns `n` into an unsuffixed separated hex token
+pub fn hex(n: u64) -> TokenStream {
+    TokenStream::from_str(&hex_str(n)).unwrap()
+}
+
+/// Turns `n` into an unsuffixed separated hex token
+pub fn hex_usize(n: u64) -> TokenStream {
+    TokenStream::from_str(&format!("{}usize", hex_str(n))).unwrap()
 }
 
 /// Turns `n` into an unsuffixed token

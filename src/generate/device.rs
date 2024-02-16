@@ -48,7 +48,7 @@ pub fn render(_opts: &super::Options, ir: &IR, d: &Device, path: &str) -> Result
 
     for p in sorted(&d.peripherals, |p| p.base_address) {
         let name = Ident::new(&p.name, span);
-        let address = util::hex(p.base_address);
+        let address = util::hex_usize(p.base_address);
         let doc = util::doc(&p.description);
 
         if let Some(block_name) = &p.block {
