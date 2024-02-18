@@ -1,0 +1,26 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "preLaunchTask": "cargo build",
+            "request": "launch",
+            "name": "Debug",
+            "program": "${workspaceFolder}/target/debug/chiptool",
+            // Assume stm32-data and chiptool is cloned side-by-side
+            /*
+            "cwd": "${workspaceFolder}/..",
+            // Add chiptool commandline arguments here to act a debug run.
+            "args": [
+                "transform",
+                "--transform",
+                "stm32-data/transforms/SAI.yaml",
+                "--input",
+                "stm32-data/data/registers/sai_h5.yaml",
+                "--output",
+                "stm32-data/data/registers/sai_h5.yaml"
+            ]
+            */
+        }
+    ]
+}
