@@ -43,7 +43,10 @@ fn rename_opt(s: &mut Option<String>, f: impl Fn(&mut String)) {
 }
 
 pub fn map_block_names(ir: &mut IR, f: impl Fn(&mut String)) {
-    remap_names(&mut ir.blocks, &f);
+    match remap_names(&mut ir.blocks, &f) {
+        Ok(()) => (),
+        Err((old, new)) => panic!("Err: on rename block {old}, new name {new} already exist"),
+    }
 
     for (_, d) in ir.devices.iter_mut() {
         for p in &mut d.peripherals {
@@ -62,7 +65,10 @@ pub fn map_block_names(ir: &mut IR, f: impl Fn(&mut String)) {
 }
 
 pub fn map_fieldset_names(ir: &mut IR, f: impl Fn(&mut String)) {
-    remap_names(&mut ir.fieldsets, &f);
+    match remap_names(&mut ir.fieldsets, &f) {
+        Ok(()) => (),
+        Err((old, new)) => panic!("Err: on rename fieldset {old}, new name {new} already exist"),
+    }
 
     for (_, b) in ir.blocks.iter_mut() {
         for i in b.items.iter_mut() {
@@ -75,7 +81,10 @@ pub fn map_fieldset_names(ir: &mut IR, f: impl Fn(&mut String)) {
 }
 
 pub fn map_enum_names(ir: &mut IR, f: impl Fn(&mut String)) {
-    remap_names(&mut ir.enums, &f);
+    match remap_names(&mut ir.enums, &f) {
+        Ok(()) => (),
+        Err((old, new)) => panic!("Err: on rename enum {old}, new name {new} already exist"),
+    }
 
     for (_, fs) in ir.fieldsets.iter_mut() {
         for ff in fs.fields.iter_mut() {
@@ -85,7 +94,10 @@ pub fn map_enum_names(ir: &mut IR, f: impl Fn(&mut String)) {
 }
 
 pub fn map_device_names(ir: &mut IR, f: impl Fn(&mut String)) {
-    remap_names(&mut ir.devices, &f);
+    match remap_names(&mut ir.devices, &f) {
+        Ok(()) => (),
+        Err((old, new)) => panic!("Err: on rename device {old}, new name {new} already exist"),
+    }
 }
 
 pub fn map_device_interrupt_names(ir: &mut IR, f: impl Fn(&mut String)) {
@@ -169,13 +181,21 @@ pub fn map_descriptions(ir: &mut IR, mut ff: impl FnMut(&str) -> String) -> anyh
     Ok(())
 }
 
-fn remap_names<T>(x: &mut HashMap<String, T>, f: impl Fn(&mut String)) {
+fn remap_names<T>(
+    x: &mut HashMap<String, T>,
+    f: impl Fn(&mut String),
+) -> Result<(), (String, String)> {
     let mut res = HashMap::new();
     for (mut name, val) in x.drain() {
+        let orginal_name = name.clone();
         f(&mut name);
-        assert!(res.insert(name, val).is_none())
+        if res.insert(name.clone(), val).is_some() {
+            // failed on new name already exist
+            return Err((orginal_name, name));
+        }
     }
-    *x = res
+    *x = res;
+    Ok(())
 }
 
 fn sanitize_path(p: &str) -> String {
