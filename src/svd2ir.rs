@@ -69,8 +69,11 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
                         for e in &f.enumerated_values {
                             let e = if let Some(derived_from) = &e.derived_from {
                                 let Some(e) = enum_from_name.get(derived_from.as_str()) else {
-                                    warn!("unknown enum to derive from ({} -> {})", f.name, derived_from);
-                                    continue
+                                    warn!(
+                                        "unknown enum to derive from ({} -> {})",
+                                        f.name, derived_from
+                                    );
+                                    continue;
                                 };
                                 e
                             } else {
@@ -349,7 +352,7 @@ pub fn convert_svd(svd: &svd::Device) -> anyhow::Result<IR> {
         }
         irqs.sort_by_key(|i| &i.name);
 
-        for (_n, &i) in irqs.iter().enumerate() {
+        for &i in irqs.iter() {
             let iname = i.name.to_ascii_uppercase();
 
             if !device.interrupts.iter().any(|j| j.name == iname) {
@@ -407,14 +410,12 @@ fn enum_map(blocks: &[ProtoBlock]) -> HashMap<&'_ str, &'_ svd::EnumeratedValues
     for block in blocks {
         for r in &block.registers {
             let svd::RegisterCluster::Register(r) = r else {
-                continue
+                continue;
             };
             if r.derived_from.is_some() {
                 continue;
             }
-            let Some(fields) = &r.fields else {
-                continue
-            };
+            let Some(fields) = &r.fields else { continue };
             for f in fields {
                 for e in &f.enumerated_values {
                     if let Some(name) = &e.name {

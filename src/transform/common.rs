@@ -290,7 +290,7 @@ pub(crate) fn extract_variant_desc(
                 format!(
                     "{}: {}\n",
                     v.value,
-                    v.description.clone().unwrap_or(String::new())
+                    v.description.clone().unwrap_or_default()
                 )
                 .as_str(),
             );

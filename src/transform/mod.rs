@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::ir::*;
 use crate::util::{ToSanitizedPascalCase, ToSanitizedSnakeCase, ToSanitizedUpperCase};
@@ -24,6 +24,7 @@ impl Sanitize {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum NameKind {
     Device,
     DevicePeripheral,
@@ -36,6 +37,44 @@ pub enum NameKind {
     EnumVariant,
 }
 
+#[derive(PartialEq, Eq, Hash)]
+struct NameCollisionError {
+    kind: NameKind,
+    old: String,
+    new: String,
+}
+
+impl NameCollisionError {
+    fn new(kind: NameKind, old: String, new: String) -> Self {
+        Self { kind, old, new }
+    }
+}
+
+impl std::fmt::Debug for NameCollisionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Err: on rename {:?} \"{}\", new name \"{}\" already exist",
+            self.kind, self.old, self.new
+        )
+    }
+}
+
+struct NameCollisionErrors(HashSet<NameCollisionError>);
+
+impl std::fmt::Debug for NameCollisionErrors {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if !self.0.is_empty() {
+            writeln!(f)?
+        }
+
+        for err in self.0.iter() {
+            writeln!(f, "{:?}", err)?
+        }
+        Ok(())
+    }
+}
+
 fn rename_opt(s: &mut Option<String>, f: impl Fn(&mut String)) {
     if let Some(s) = s {
         f(s)
@@ -43,7 +82,7 @@ fn rename_opt(s: &mut Option<String>, f: impl Fn(&mut String)) {
 }
 
 pub fn map_block_names(ir: &mut IR, f: impl Fn(&mut String)) {
-    remap_names(&mut ir.blocks, &f);
+    remap_names(NameKind::Block, &mut ir.blocks, &f).unwrap();
 
     for (_, d) in ir.devices.iter_mut() {
         for p in &mut d.peripherals {
@@ -62,7 +101,7 @@ pub fn map_block_names(ir: &mut IR, f: impl Fn(&mut String)) {
 }
 
 pub fn map_fieldset_names(ir: &mut IR, f: impl Fn(&mut String)) {
-    remap_names(&mut ir.fieldsets, &f);
+    remap_names(NameKind::Fieldset, &mut ir.fieldsets, &f).unwrap();
 
     for (_, b) in ir.blocks.iter_mut() {
         for i in b.items.iter_mut() {
@@ -75,7 +114,7 @@ pub fn map_fieldset_names(ir: &mut IR, f: impl Fn(&mut String)) {
 }
 
 pub fn map_enum_names(ir: &mut IR, f: impl Fn(&mut String)) {
-    remap_names(&mut ir.enums, &f);
+    remap_names(NameKind::Enum, &mut ir.enums, &f).unwrap();
 
     for (_, fs) in ir.fieldsets.iter_mut() {
         for ff in fs.fields.iter_mut() {
@@ -85,7 +124,7 @@ pub fn map_enum_names(ir: &mut IR, f: impl Fn(&mut String)) {
 }
 
 pub fn map_device_names(ir: &mut IR, f: impl Fn(&mut String)) {
-    remap_names(&mut ir.devices, &f);
+    remap_names(NameKind::Device, &mut ir.devices, &f).unwrap();
 }
 
 pub fn map_device_interrupt_names(ir: &mut IR, f: impl Fn(&mut String)) {
@@ -169,13 +208,28 @@ pub fn map_descriptions(ir: &mut IR, mut ff: impl FnMut(&str) -> String) -> anyh
     Ok(())
 }
 
-fn remap_names<T>(x: &mut HashMap<String, T>, f: impl Fn(&mut String)) {
+fn remap_names<T>(
+    kind: NameKind,
+    x: &mut HashMap<String, T>,
+    f: impl Fn(&mut String),
+) -> Result<(), NameCollisionErrors> {
     let mut res = HashMap::new();
+    let mut errs = HashSet::new();
+
     for (mut name, val) in x.drain() {
+        let orginal_name = name.clone();
         f(&mut name);
-        assert!(res.insert(name, val).is_none())
+        if res.insert(name.clone(), val).is_some() {
+            errs.insert(NameCollisionError::new(kind, orginal_name, name));
+        }
     }
-    *x = res
+
+    if !errs.is_empty() {
+        return Err(NameCollisionErrors(errs));
+    }
+
+    *x = res;
+    Ok(())
 }
 
 fn sanitize_path(p: &str) -> String {
