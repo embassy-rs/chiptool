@@ -8,6 +8,7 @@ pub struct ModifyByteOffset {
     pub blocks: String,
     pub exclude_items: Option<String>,
     pub add_offset: i32,
+    pub strict: Option<bool>, // if this value is false, bypass overflowed/underflowed modification
 }
 
 impl ModifyByteOffset {
@@ -18,6 +19,8 @@ impl ModifyByteOffset {
         } else {
             make_regex("")?
         };
+
+        let strict = self.strict.unwrap_or_default();
 
         let mut err_names = Vec::new();
 
@@ -30,7 +33,8 @@ impl ModifyByteOffset {
 
                 match i.byte_offset.checked_add_signed(self.add_offset) {
                     Some(new_offset) => i.byte_offset = new_offset,
-                    None => err_names.push((id.clone(), i.name.clone())),
+                    None if strict => err_names.push((id.clone(), i.name.clone())),
+                    None => (),
                 };
             }
         }
