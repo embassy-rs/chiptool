@@ -185,7 +185,7 @@ pub fn hex_str(n: u64) -> String {
     } else if h1 != 0 {
         format!("0x{:02x}", h1 & 0xff)
     } else {
-        "0".to_string()
+        "0x0".to_string()
     }
 }
 
