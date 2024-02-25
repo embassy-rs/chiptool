@@ -1,3 +1,4 @@
+use anyhow::bail;
 use log::*;
 use serde::{Deserialize, Serialize};
 
@@ -42,7 +43,7 @@ impl MakeFieldArray {
                         .any(|i| matches!(i.bit_offset, BitOffset::Cursed(_)));
 
                     if has_regular_bit_offset && has_cursed_bit_offset {
-                        panic!("arrayize: items cannot mix bit_offset type")
+                        bail!("arrayize: items {} cannot mix bit_offset type", to)
                     }
                 }
 
@@ -58,7 +59,7 @@ impl MakeFieldArray {
                     calc_array(items.iter().map(|x| x.bit_offset.min_offset()).collect());
                 if let Array::Cursed(_) = &array {
                     if !self.allow_cursed {
-                        panic!("arrayize: items are not evenly spaced. Set `allow_cursed: true` to allow this.")
+                        bail!("arrayize: items {} are not evenly spaced. Set `allow_cursed: true` to allow this.", to)
                     }
                 }
 

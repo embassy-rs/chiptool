@@ -1,3 +1,4 @@
+use anyhow::bail;
 use log::*;
 use serde::{Deserialize, Serialize};
 
@@ -41,7 +42,7 @@ impl MakeRegisterArray {
                 let (offset, array) = calc_array(items.iter().map(|x| x.byte_offset).collect());
                 if let Array::Cursed(_) = &array {
                     if !self.allow_cursed {
-                        panic!("arrayize: items are not evenly spaced. Set `allow_cursed: true` to allow this.")
+                        bail!("arrayize: items {} are not evenly spaced. Set `allow_cursed: true` to allow this.", to);
                     }
                 }
 
