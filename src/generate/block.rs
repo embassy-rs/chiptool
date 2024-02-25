@@ -16,7 +16,7 @@ pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<T
 
     for i in sorted(&b.items, |i| (i.byte_offset, i.name.clone())) {
         let name = Ident::new(&i.name, span);
-        let offset = i.byte_offset as usize;
+        let offset = util::hex_usize(i.byte_offset as u64);
 
         let doc = util::doc(&i.description);
 
