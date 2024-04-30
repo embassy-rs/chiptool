@@ -310,12 +310,28 @@ pub fn relative_path(a: &str, b: &str) -> TokenStream {
     res
 }
 
+// If a document contains newline(either hardcode newline or escape sequence),
+// convert each newline into a valid markdown linebreak (but not the last line end).
 pub fn doc(doc: &Option<String>) -> TokenStream {
     if let Some(doc) = doc {
-        let doc = doc.replace("\\n", "\n");
-        let doc = respace(&doc);
-        let doc = escape_brackets(&doc);
-        quote!(#[doc=#doc])
+        let mut doc = doc.replace("\\r", "\n");
+        doc = doc.replace("\\n", "\n");
+
+        let doc_lines: Vec<_> = doc.split('\n').skip_while(|v| v.is_empty()).collect();
+
+        let mut markdown_doc = String::new();
+
+        for (index, line) in doc_lines.iter().enumerate() {
+            let mut line = respace(line);
+            line = escape_brackets(&line);
+            // save a lot of whitespace for one-line doc
+            if index != doc_lines.len() - 1 {
+                line.push_str("  \n");
+            }
+            markdown_doc.push_str(&line);
+        }
+
+        quote!(#[doc=#markdown_doc])
     } else {
         quote!()
     }
