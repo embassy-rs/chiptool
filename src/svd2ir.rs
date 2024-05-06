@@ -33,7 +33,7 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
         &mut blocks,
         vec![p.name.clone()],
         p.description.clone(),
-        p.registers.as_ref().unwrap(),
+        p.registers.as_deref().unwrap_or(&[]),
     );
 
     let enum_from_name = enum_map(&blocks);
