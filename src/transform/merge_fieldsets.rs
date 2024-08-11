@@ -51,7 +51,7 @@ impl MergeFieldsets {
 
         for id in &ids {
             let fs2 = ir.fieldsets.get(id).unwrap();
-            check_mergeable_fieldsets(&fs, fs2, self.check)?;
+            check_mergeable_fieldsets(&main_id, &fs, id, fs2, self.check)?;
         }
 
         for id in &ids {

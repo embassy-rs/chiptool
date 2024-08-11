@@ -83,14 +83,18 @@ impl Default for CheckLevel {
 }
 
 pub(crate) fn check_mergeable_fieldsets(
+    a_name: &str,
     a: &FieldSet,
+    b_name: &str,
     b: &FieldSet,
     level: CheckLevel,
 ) -> anyhow::Result<()> {
     if let Err(e) = check_mergeable_fieldsets_inner(a, b, level) {
         bail!(
-            "Cannot merge fieldsets.\nfirst: {:#?}\nsecond: {:#?}\ncause: {:?}",
+            "Cannot merge fieldsets.\nfirst: {} {:#?}\nsecond: {} {:#?}\ncause: {:?}",
+            a_name,
             a,
+            b_name,
             b,
             e
         )
