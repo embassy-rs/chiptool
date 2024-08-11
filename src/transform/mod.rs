@@ -256,7 +256,9 @@ pub mod delete_enums_used_in;
 pub mod delete_fieldsets;
 //pub mod find_duplicate_enums;
 //pub mod find_duplicate_fieldsets;
+pub mod delete_registers;
 pub mod expand_extends;
+pub mod fix_register_bit_sizes;
 pub mod make_block;
 pub mod make_field_array;
 pub mod make_register_array;
@@ -278,6 +280,7 @@ pub enum Transform {
     DeleteEnums(delete_enums::DeleteEnums),
     DeleteEnumsUsedIn(delete_enums_used_in::DeleteEnumsUsedIn),
     DeleteFieldsets(delete_fieldsets::DeleteFieldsets),
+    DeleteRegisters(delete_registers::DeleteRegisters),
     MergeBlocks(merge_blocks::MergeBlocks),
     MergeEnums(merge_enums::MergeEnums),
     MergeFieldsets(merge_fieldsets::MergeFieldsets),
@@ -289,6 +292,7 @@ pub enum Transform {
     MakeFieldArray(make_field_array::MakeFieldArray),
     MakeBlock(make_block::MakeBlock),
     ModifyByteOffset(modify_byte_offset::ModifyByteOffset),
+    FixRegisterBitSizes(fix_register_bit_sizes::FixRegisterBitSizes),
     //FindDuplicateEnums(find_duplicate_enums::FindDuplicateEnums),
     //FindDuplicateFieldsets(find_duplicate_fieldsets::FindDuplicateFieldsets),
 }
@@ -302,6 +306,7 @@ impl Transform {
             Self::DeleteEnums(t) => t.run(ir),
             Self::DeleteEnumsUsedIn(t) => t.run(ir),
             Self::DeleteFieldsets(t) => t.run(ir),
+            Self::DeleteRegisters(t) => t.run(ir),
             Self::MergeBlocks(t) => t.run(ir),
             Self::MergeEnums(t) => t.run(ir),
             Self::MergeFieldsets(t) => t.run(ir),
@@ -313,6 +318,7 @@ impl Transform {
             Self::MakeFieldArray(t) => t.run(ir),
             Self::MakeBlock(t) => t.run(ir),
             Self::ModifyByteOffset(t) => t.run(ir),
+            Self::FixRegisterBitSizes(t) => t.run(ir),
             //Self::FindDuplicateEnums(t) => t.run(ir),
             //Self::FindDuplicateFieldsets(t) => t.run(ir),
         }
