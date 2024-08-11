@@ -41,8 +41,8 @@ pub(crate) fn check_mergeable_enums_inner(
             bail!("Different variant count")
         }
 
-        let mut aok = [false; 128];
-        let mut bok = [false; 128];
+        let mut aok = [false; 1024];
+        let mut bok = [false; 1024];
 
         for (ia, fa) in a.variants.iter().enumerate() {
             if let Some((ib, _fb)) = b
