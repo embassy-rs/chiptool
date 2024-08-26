@@ -34,6 +34,7 @@ impl FixRegisterBitSizes {
                                             bit_offset: BitOffset::Regular(0),
                                             bit_size: orig_bit_size,
                                             description: None,
+                                            access: Access::ReadWrite,
                                             enumm: None,
                                             array: None,
                                         }],

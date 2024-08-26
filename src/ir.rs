@@ -203,6 +203,8 @@ pub struct Field {
     pub description: Option<String>,
     pub bit_offset: BitOffset,
     pub bit_size: u32,
+    #[serde(default = "default_readwrite", skip_serializing_if = "is_readwrite")]
+    pub access: Access,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub array: Option<Array>,
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "enum")]

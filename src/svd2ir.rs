@@ -271,11 +271,21 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
                 warn!("unsupported derived_from in fieldset");
             }
 
+            let access = match f.access {
+                None => Access::ReadWrite,
+                Some(svd::Access::ReadOnly) => Access::Read,
+                Some(svd::Access::WriteOnly) => Access::Write,
+                Some(svd::Access::WriteOnce) => Access::Write,
+                Some(svd::Access::ReadWrite) => Access::ReadWrite,
+                Some(svd::Access::ReadWriteOnce) => Access::ReadWrite,
+            };
+
             let mut field = Field {
                 name: f.name.clone(),
                 description: f.description.clone(),
                 bit_offset: BitOffset::Regular(f.bit_range.offset),
                 bit_size: f.bit_range.width,
+                access: access,
                 array: None,
                 enumm: None,
             };
