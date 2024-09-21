@@ -15,6 +15,12 @@ Tested with the RP2040 SVD. Other SVDs might not work quite right yet.
 - repo: https://github.com/Dirbaio/rp2040-pac/settings
 - docs: https://dirbaio.github.io/rp2040-pac/rp2040_pac/index.html
 
+## Installation
+
+```bash
+cargo install --git https://github.com/embassy-rs/chiptool --locked
+```
+
 ## Changes from svd2rust main
 
 ### No owned structs
