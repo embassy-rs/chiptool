@@ -6,14 +6,13 @@
 - Integrating "transforms" in the generation process
 - New workflow for storing register definitions in standalone YAML files.
 
-## Example
+## PACs using chiptool
 
 Tested with the RP2040 SVD. Other SVDs might not work quite right yet.
 
-- svd: https://github.com/Dirbaio/svd2rust/blob/master/svd/rp2040.svd
-- yaml: https://github.com/Dirbaio/svd2rust/blob/master/svd/rp2040.yaml
-- repo: https://github.com/Dirbaio/rp2040-pac/settings
-- docs: https://dirbaio.github.io/rp2040-pac/rp2040_pac/index.html
+- https://github.com/embassy-rs/rp-pac
+- https://github.com/embassy-rs/nrf-pac
+- https://github.com/embassy-rs/stm32-data
 
 ## Installation
 
@@ -223,11 +222,6 @@ This generates the same assembly code as original svd2rust when optimizations ar
     (cd out; cargo build && cargo doc)
 
 ## To-Do
-
-Missing features:
-
-- Clusters in input SVD file
-- registers with bit width other than 32
 
 Nice to have features:
 
