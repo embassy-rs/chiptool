@@ -239,7 +239,15 @@ pub(crate) fn replace_block_ids(ir: &mut IR, from: &HashSet<String>, to: String)
     }
 }
 
-pub(crate) fn calc_array(mut offsets: Vec<u32>) -> (u32, Array) {
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, Eq, PartialEq, Default)]
+pub enum ArrayMode {
+    #[default]
+    Standard,
+    Cursed,
+    Holey,
+}
+
+pub(crate) fn calc_array(mut offsets: Vec<u32>, mode: ArrayMode) -> anyhow::Result<(u32, Array)> {
     offsets.sort_unstable();
 
     // Guess stride.
@@ -261,19 +269,30 @@ pub(crate) fn calc_array(mut offsets: Vec<u32>) -> (u32, Array) {
         .all(|(n, &i)| i == start_offset + (n as u32) * stride)
     {
         // Array is regular,
-        (
+        return Ok((
             start_offset,
             Array::Regular(RegularArray {
                 len: offsets.len() as _,
                 stride,
             }),
-        )
-    } else {
-        // Array is irregular,
-        for o in &mut offsets {
-            *o -= start_offset
+        ));
+    }
+
+    // Array is irregular, If we wanted a regular array, fail.
+    match mode {
+        ArrayMode::Standard => {
+            bail!("arrayize: items are not evenly spaced. Set `mode: Cursed` to allow index->offset relation to be non-linear, or `mode: Holey` to keep it linear but fill the holes with indexes that won't be valid.")
         }
-        (start_offset, Array::Cursed(CursedArray { offsets }))
+        ArrayMode::Cursed => {
+            for o in &mut offsets {
+                *o -= start_offset
+            }
+            Ok((start_offset, Array::Cursed(CursedArray { offsets })))
+        }
+        ArrayMode::Holey => {
+            let len = (offsets.last().unwrap() - offsets.first().unwrap()) / stride + 1;
+            Ok((start_offset, Array::Regular(RegularArray { len, stride })))
+        }
     }
 }
 

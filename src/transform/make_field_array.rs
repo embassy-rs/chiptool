@@ -11,7 +11,7 @@ pub struct MakeFieldArray {
     pub from: String,
     pub to: String,
     #[serde(default)]
-    pub allow_cursed: bool,
+    pub mode: ArrayMode,
 }
 
 impl MakeFieldArray {
@@ -55,13 +55,10 @@ impl MakeFieldArray {
                     info!("    {}", i.name);
                 }
 
-                let (offset, array) =
-                    calc_array(items.iter().map(|x| x.bit_offset.min_offset()).collect());
-                if let Array::Cursed(_) = &array {
-                    if !self.allow_cursed {
-                        bail!("arrayize: items {} are not evenly spaced. Set `allow_cursed: true` to allow this.", to)
-                    }
-                }
+                let (offset, array) = calc_array(
+                    items.iter().map(|x| x.bit_offset.min_offset()).collect(),
+                    self.mode,
+                )?;
 
                 let mut item = items[0].clone();
 
