@@ -11,14 +11,14 @@ impl Sanitize {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
         map_names(ir, |k, p| match k {
             NameKind::Device => *p = sanitize_path(p),
-            NameKind::DevicePeripheral => *p = p.to_sanitized_upper_case().to_string(),
-            NameKind::DeviceInterrupt => *p = p.to_sanitized_upper_case().to_string(),
+            NameKind::DevicePeripheral => *p = p.to_sanitized_constant_case().to_string(),
+            NameKind::DeviceInterrupt => *p = p.to_sanitized_constant_case().to_string(),
             NameKind::Block => *p = sanitize_path(p),
             NameKind::Fieldset => *p = sanitize_path(p),
             NameKind::Enum => *p = sanitize_path(p),
             NameKind::BlockItem => *p = p.to_sanitized_snake_case().to_string(),
             NameKind::Field => *p = p.to_sanitized_snake_case().to_string(),
-            NameKind::EnumVariant => *p = p.to_sanitized_upper_case().to_string(),
+            NameKind::EnumVariant => *p = p.to_sanitized_constant_case().to_string(),
         });
         Ok(())
     }

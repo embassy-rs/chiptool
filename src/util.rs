@@ -34,6 +34,7 @@ fn sanitize_ident(s: String) -> String {
 pub trait StringExt {
     fn to_sanitized_pascal_case(&self) -> String;
     fn to_sanitized_upper_case(&self) -> String;
+    fn to_sanitized_constant_case(&self) -> String;
     fn to_sanitized_snake_case(&self) -> String;
 }
 
@@ -44,6 +45,10 @@ impl StringExt for str {
 
     fn to_sanitized_upper_case(&self) -> String {
         sanitize_ident(self.to_upper_case())
+    }
+
+    fn to_sanitized_constant_case(&self) -> String {
+        sanitize_ident(self.to_constant_case())
     }
 
     fn to_sanitized_pascal_case(&self) -> String {
