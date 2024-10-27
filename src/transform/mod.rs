@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
 use crate::ir::*;
-use crate::util::{ToSanitizedPascalCase, ToSanitizedSnakeCase, ToSanitizedUpperCase};
+use crate::util::StringExt;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Sanitize {}

@@ -3,7 +3,7 @@ use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 
 use crate::ir::*;
-use crate::util::{self, ToSanitizedUpperCase};
+use crate::util::{self, StringExt};
 
 use super::sorted;
 

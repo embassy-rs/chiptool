@@ -454,23 +454,51 @@ fn collect_blocks(
 }
 
 fn unique_names(names: Vec<Vec<String>>) -> HashMap<Vec<String>, String> {
+    let names2 = names
+        .iter()
+        .map(|n| {
+            // asfd
+            let mut res = Vec::new();
+            let mut prefix = String::new();
+            for s in n.iter() {
+                if s == "PSEL" {
+                    if !prefix.is_empty() {
+                        prefix.push('_');
+                    }
+                    prefix.push_str(s);
+                } else {
+                    if prefix.is_empty() {
+                        res.push(s.clone());
+                    } else {
+                        res.push(format!("{prefix}_{s}"));
+                        prefix = String::new()
+                    }
+                }
+            }
+            if !prefix.is_empty() {
+                res.push(prefix);
+            }
+            res
+        })
+        .collect::<Vec<_>>();
+
     let mut res = HashMap::new();
     let mut seen = HashSet::new();
 
     let suffix_exists = |n: &[String], i: usize| {
-        names
+        names2
             .iter()
             .enumerate()
             .filter(|(j, _)| *j != i)
             .any(|(_, n2)| n2.ends_with(n))
     };
-    for (i, n) in names.iter().enumerate() {
+    for (i, n) in names2.iter().enumerate() {
         let j = (0..n.len())
             .rev()
             .find(|&j| !suffix_exists(&n[j..], i))
             .or_else(|| (0..n.len()).rev().find(|&j| !seen.contains(&n[j..])))
             .unwrap();
-        assert!(res.insert(n.clone(), n[j..].join("_")).is_none());
+        assert!(res.insert(names[i].clone(), n[j..].join("_")).is_none());
         seen.insert(&n[j..]);
     }
     res
