@@ -254,6 +254,7 @@ pub mod delete;
 pub mod delete_enums;
 pub mod delete_enums_used_in;
 pub mod delete_fieldsets;
+pub mod delete_useless_enums;
 //pub mod find_duplicate_enums;
 //pub mod find_duplicate_fieldsets;
 pub mod delete_registers;
@@ -279,6 +280,7 @@ pub enum Transform {
     Delete(delete::Delete),
     DeleteEnums(delete_enums::DeleteEnums),
     DeleteEnumsUsedIn(delete_enums_used_in::DeleteEnumsUsedIn),
+    DeleteUselessEnums(delete_useless_enums::DeleteUselessEnums),
     DeleteFieldsets(delete_fieldsets::DeleteFieldsets),
     DeleteRegisters(delete_registers::DeleteRegisters),
     MergeBlocks(merge_blocks::MergeBlocks),
@@ -305,6 +307,7 @@ impl Transform {
             Self::Delete(t) => t.run(ir),
             Self::DeleteEnums(t) => t.run(ir),
             Self::DeleteEnumsUsedIn(t) => t.run(ir),
+            Self::DeleteUselessEnums(t) => t.run(ir),
             Self::DeleteFieldsets(t) => t.run(ir),
             Self::DeleteRegisters(t) => t.run(ir),
             Self::MergeBlocks(t) => t.run(ir),
