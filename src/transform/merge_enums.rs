@@ -9,6 +9,7 @@ use crate::ir::*;
 pub struct MergeEnums {
     pub from: String,
     pub to: String,
+    pub main: Option<String>,
     #[serde(default)]
     pub check: CheckLevel,
     #[serde(default)]
@@ -31,14 +32,30 @@ impl MergeEnums {
             for id in &group {
                 info!("   {}", id);
             }
-            self.merge_enums(ir, group, to)?;
+            self.merge_enums(ir, group, to, self.main.as_ref())?;
         }
 
         Ok(())
     }
 
-    fn merge_enums(&self, ir: &mut IR, ids: HashSet<String>, to: String) -> anyhow::Result<()> {
-        let e = ir.enums.get(ids.iter().next().unwrap()).unwrap().clone();
+    fn merge_enums(
+        &self,
+        ir: &mut IR,
+        ids: HashSet<String>,
+        to: String,
+        main: Option<&String>,
+    ) -> anyhow::Result<()> {
+        let mut main_id = ids.iter().next().unwrap().clone();
+        if let Some(main) = main {
+            let re = make_regex(main)?;
+            for id in ids.iter() {
+                if re.is_match(id) {
+                    main_id = id.clone();
+                    break;
+                }
+            }
+        }
+        let e = ir.enums.get(&main_id).unwrap().clone();
 
         for id in &ids {
             let e2 = ir.enums.get(id).unwrap();
