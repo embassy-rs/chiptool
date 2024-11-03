@@ -253,11 +253,10 @@ mod common;
 pub mod delete;
 pub mod delete_enums;
 pub mod delete_enums_used_in;
+pub mod delete_enums_with_variants;
 pub mod delete_fieldsets;
-pub mod delete_useless_enums;
-//pub mod find_duplicate_enums;
-//pub mod find_duplicate_fieldsets;
 pub mod delete_registers;
+pub mod delete_useless_enums;
 pub mod expand_extends;
 pub mod fix_register_bit_sizes;
 pub mod make_block;
@@ -279,6 +278,7 @@ pub enum Transform {
     Sort(sort::Sort),
     Delete(delete::Delete),
     DeleteEnums(delete_enums::DeleteEnums),
+    DeleteEnumsWithVariants(delete_enums_with_variants::DeleteEnumsWithVariants),
     DeleteEnumsUsedIn(delete_enums_used_in::DeleteEnumsUsedIn),
     DeleteUselessEnums(delete_useless_enums::DeleteUselessEnums),
     DeleteFieldsets(delete_fieldsets::DeleteFieldsets),
@@ -307,6 +307,7 @@ impl Transform {
             Self::Delete(t) => t.run(ir),
             Self::DeleteEnums(t) => t.run(ir),
             Self::DeleteEnumsUsedIn(t) => t.run(ir),
+            Self::DeleteEnumsWithVariants(t) => t.run(ir),
             Self::DeleteUselessEnums(t) => t.run(ir),
             Self::DeleteFieldsets(t) => t.run(ir),
             Self::DeleteRegisters(t) => t.run(ir),

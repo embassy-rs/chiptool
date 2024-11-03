@@ -46,6 +46,8 @@ const USELESS_ZERO_NAMES: &[&str] = &[
     "discon",
     "disconnect",
     "disconnected",
+    "not_detected",
+    "invalid",
 ];
 const USELESS_ONE_NAMES: &[&str] = &[
     "en",
@@ -58,9 +60,11 @@ const USELESS_ONE_NAMES: &[&str] = &[
     "available",
     "connect",
     "connected",
+    "detected",
+    "valid",
 ];
 
-const NOT_NAMES: &[&str] = &["not", "no"];
+const NOT_NAMES: &[&str] = &["not", "no", "un", "de", "in"];
 
 fn is_useless(e: &Enum) -> bool {
     match e.bit_size {
@@ -76,9 +80,10 @@ fn is_useless(e: &Enum) -> bool {
 
                 let obvious = USELESS_ZERO_NAMES.iter().any(|s| s == &zero_name)
                     && USELESS_ONE_NAMES.iter().any(|s| s == &one_name);
-                let not = NOT_NAMES
-                    .iter()
-                    .any(|not| zero_name == format!("{not}{one_name}"));
+                let not = NOT_NAMES.iter().any(|not| {
+                    zero_name == format!("{not}{one_name}")
+                        || zero_name == format!("{not}_{one_name}")
+                });
 
                 obvious || not
             }
