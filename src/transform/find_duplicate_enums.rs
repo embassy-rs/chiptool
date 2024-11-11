@@ -1,6 +1,6 @@
 use log::*;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet};
 
 use super::common::*;
 use crate::ir::*;
@@ -9,7 +9,7 @@ use crate::ir::*;
 pub struct FindDuplicateEnums {}
 impl FindDuplicateEnums {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
-        let mut suggested = HashSet::new();
+        let mut suggested = BTreeSet::new();
 
         for (id1, e1) in ir.enums.iter() {
             if suggested.contains(&id1) {

@@ -6,7 +6,7 @@ mod fieldset;
 use anyhow::Result;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::str::FromStr;
 
 use crate::ir::*;
@@ -15,7 +15,7 @@ pub const COMMON_MODULE: &[u8] = include_bytes!("common.rs");
 
 struct Module {
     items: TokenStream,
-    children: HashMap<String, Module>,
+    children: BTreeMap<String, Module>,
 }
 
 impl Module {
@@ -23,7 +23,7 @@ impl Module {
         Self {
             // Default mod contents
             items: quote!(),
-            children: HashMap::new(),
+            children: BTreeMap::new(),
         }
     }
 

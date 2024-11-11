@@ -1,6 +1,6 @@
 use anyhow::bail;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::ir::*;
 
@@ -154,8 +154,8 @@ pub(crate) fn check_mergeable_fieldsets_inner(
     Ok(())
 }
 
-pub(crate) fn match_all(set: impl Iterator<Item = String>, re: &regex::Regex) -> HashSet<String> {
-    let mut ids: HashSet<String> = HashSet::new();
+pub(crate) fn match_all(set: impl Iterator<Item = String>, re: &regex::Regex) -> BTreeSet<String> {
+    let mut ids: BTreeSet<String> = BTreeSet::new();
     for id in set {
         if re.is_match(&id) {
             ids.insert(id);
@@ -168,14 +168,14 @@ pub(crate) fn match_groups(
     set: impl Iterator<Item = String>,
     re: &regex::Regex,
     to: &str,
-) -> HashMap<String, HashSet<String>> {
-    let mut groups: HashMap<String, HashSet<String>> = HashMap::new();
+) -> BTreeMap<String, BTreeSet<String>> {
+    let mut groups: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
     for s in set {
         if let Some(to) = match_expand(&s, re, to) {
             if let Some(v) = groups.get_mut(&to) {
                 v.insert(s);
             } else {
-                let mut v = HashSet::new();
+                let mut v = BTreeSet::new();
                 v.insert(s);
                 groups.insert(to, v);
             }
@@ -191,7 +191,7 @@ pub(crate) fn match_expand(s: &str, regex: &regex::Regex, res: &str) -> Option<S
     Some(dst)
 }
 
-pub(crate) fn replace_enum_ids(ir: &mut IR, from: &HashSet<String>, to: String) {
+pub(crate) fn replace_enum_ids(ir: &mut IR, from: &BTreeSet<String>, to: String) {
     for (_, fs) in ir.fieldsets.iter_mut() {
         for f in fs.fields.iter_mut() {
             if let Some(id) = &mut f.enumm {
@@ -203,7 +203,7 @@ pub(crate) fn replace_enum_ids(ir: &mut IR, from: &HashSet<String>, to: String) 
     }
 }
 
-pub(crate) fn replace_fieldset_ids(ir: &mut IR, from: &HashSet<String>, to: String) {
+pub(crate) fn replace_fieldset_ids(ir: &mut IR, from: &BTreeSet<String>, to: String) {
     for (_, b) in ir.blocks.iter_mut() {
         for i in b.items.iter_mut() {
             if let BlockItemInner::Register(r) = &mut i.inner {
@@ -217,7 +217,7 @@ pub(crate) fn replace_fieldset_ids(ir: &mut IR, from: &HashSet<String>, to: Stri
     }
 }
 
-pub(crate) fn replace_block_ids(ir: &mut IR, from: &HashSet<String>, to: String) {
+pub(crate) fn replace_block_ids(ir: &mut IR, from: &BTreeSet<String>, to: String) {
     for (_, d) in ir.devices.iter_mut() {
         for p in d.peripherals.iter_mut() {
             if let Some(block) = &mut p.block {
@@ -301,10 +301,10 @@ pub(crate) fn extract_variant_desc(
     ir: &IR,
     enum_names: &str,
     bit_size: Option<u32>,
-) -> anyhow::Result<HashMap<String, String>> {
+) -> anyhow::Result<BTreeMap<String, String>> {
     let re = make_regex(enum_names)?;
 
-    let mut enum_desc_pair: HashMap<String, String> = HashMap::new();
+    let mut enum_desc_pair: BTreeMap<String, String> = BTreeMap::new();
     for (e_name, e_struct) in ir.enums.iter().filter(|(e_name, e_struct)| {
         bit_size.map_or(true, |s| s == e_struct.bit_size) && re.is_match(e_name)
     }) {
@@ -329,7 +329,7 @@ pub(crate) fn extract_variant_desc(
 // filter field by enum name, then append corresponding variant description
 pub(crate) fn append_variant_desc_to_field(
     ir: &mut IR,
-    enum_desc_pair: &HashMap<String, String>,
+    enum_desc_pair: &BTreeMap<String, String>,
     bit_size: Option<u32>,
 ) {
     for fs in ir.fieldsets.values_mut() {

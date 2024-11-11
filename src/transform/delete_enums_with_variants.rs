@@ -1,20 +1,20 @@
 use log::*;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet};
 
 use super::delete_enums::remove_enum_ids;
 use crate::ir::*;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DeleteEnumsWithVariants {
-    variants: HashMap<u64, String>,
+    variants: BTreeMap<u64, String>,
     #[serde(default)]
     pub soft: bool,
 }
 
 impl DeleteEnumsWithVariants {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
-        let mut ids: HashSet<String> = HashSet::new();
+        let mut ids: BTreeSet<String> = BTreeSet::new();
 
         'e: for (id, e) in &ir.enums {
             if e.variants.len() != self.variants.len() {

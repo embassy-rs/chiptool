@@ -1,6 +1,6 @@
 use log::*;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 
 use super::common::*;
 use crate::ir::*;
@@ -33,7 +33,7 @@ impl MergeFieldsets {
     fn merge_fieldsets(
         &self,
         ir: &mut IR,
-        ids: HashSet<String>,
+        ids: BTreeSet<String>,
         to: String,
         main: Option<&String>,
     ) -> anyhow::Result<()> {

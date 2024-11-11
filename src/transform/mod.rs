@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
+use std::mem::take;
 
 use crate::ir::*;
 use crate::util::StringExt;
@@ -210,13 +211,13 @@ pub fn map_descriptions(ir: &mut IR, mut ff: impl FnMut(&str) -> String) -> anyh
 
 fn remap_names<T>(
     kind: NameKind,
-    x: &mut HashMap<String, T>,
+    x: &mut BTreeMap<String, T>,
     f: impl Fn(&mut String),
 ) -> Result<(), NameCollisionErrors> {
-    let mut res = HashMap::new();
+    let mut res = BTreeMap::new();
     let mut errs = HashSet::new();
 
-    for (mut name, val) in x.drain() {
+    for (mut name, val) in take(x) {
         let orginal_name = name.clone();
         f(&mut name);
         if res.insert(name.clone(), val).is_some() {

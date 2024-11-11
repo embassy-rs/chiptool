@@ -1,6 +1,6 @@
 use log::*;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 
 use super::common::*;
 use crate::ir::*;
@@ -14,7 +14,7 @@ impl Delete {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
         let re = make_regex(&self.from)?;
 
-        let mut ids: HashSet<String> = HashSet::new();
+        let mut ids: BTreeSet<String> = BTreeSet::new();
         for (id, _fs) in ir.fieldsets.iter() {
             if re.is_match(id) {
                 info!("deleting fieldset {}", id);
@@ -28,7 +28,7 @@ impl Delete {
             ir.fieldsets.remove(&id);
         }
 
-        let mut ids: HashSet<String> = HashSet::new();
+        let mut ids: BTreeSet<String> = BTreeSet::new();
         for (id, _e) in ir.enums.iter() {
             if re.is_match(id) {
                 info!("deleting enum {}", id);
@@ -42,7 +42,7 @@ impl Delete {
             ir.enums.remove(&id);
         }
 
-        let mut ids: HashSet<String> = HashSet::new();
+        let mut ids: BTreeSet<String> = BTreeSet::new();
         for (id, _b) in ir.blocks.iter() {
             if re.is_match(id) {
                 info!("deleting block {}", id);
@@ -60,7 +60,7 @@ impl Delete {
     }
 }
 
-pub(crate) fn remove_block_ids(ir: &mut IR, from: &HashSet<String>) {
+pub(crate) fn remove_block_ids(ir: &mut IR, from: &BTreeSet<String>) {
     for (_, b) in ir.blocks.iter_mut() {
         b.items.retain(|i| {
             if let BlockItemInner::Block(bi) = &i.inner {

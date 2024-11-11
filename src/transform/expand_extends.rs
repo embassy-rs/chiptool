@@ -1,6 +1,6 @@
 use log::*;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::ir::*;
 
@@ -56,12 +56,12 @@ impl ExpandExtends {
     }
 }
 
-fn topological_sort(vals: HashMap<String, Option<String>>) -> Vec<String> {
+fn topological_sort(vals: BTreeMap<String, Option<String>>) -> Vec<String> {
     for (name, dep) in &vals {
         info!("{:?} => {:?}", name, dep);
     }
 
-    let mut done = HashSet::new();
+    let mut done = BTreeSet::new();
     let mut res = Vec::new();
     while done.len() != vals.len() {
         for (name, dep) in &vals {

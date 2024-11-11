@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use anyhow::Result;
 use proc_macro2::TokenStream;
@@ -65,7 +65,7 @@ pub fn render(_opts: &super::Options, _ir: &IR, e: &Enum, path: &str) -> Result<
             }
         });
     } else {
-        let variants: HashMap<_, _> = e.variants.iter().map(|v| (v.value, v)).collect();
+        let variants: BTreeMap<_, _> = e.variants.iter().map(|v| (v.value, v)).collect();
         let mut items = TokenStream::new();
         for val in 0..(1 << e.bit_size) {
             if let Some(f) = variants.get(&val) {

@@ -1,5 +1,5 @@
 use log::*;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet};
 use svd_parser::svd;
 
 use crate::util;
@@ -119,13 +119,13 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
                                 EnumSet::ReadWrite(r, w) => {
                                     let r_values = r.values.iter().map(|v| v.value.unwrap());
                                     let w_values = w.values.iter().map(|v| v.value.unwrap());
-                                    let values: HashSet<_> = r_values.chain(w_values).collect();
+                                    let values: BTreeSet<_> = r_values.chain(w_values).collect();
                                     let mut values: Vec<_> = values.iter().collect();
                                     values.sort();
 
-                                    let r_values: HashMap<_, _> =
+                                    let r_values: BTreeMap<_, _> =
                                         r.values.iter().map(|v| (v.value.unwrap(), v)).collect();
-                                    let w_values: HashMap<_, _> =
+                                    let w_values: BTreeMap<_, _> =
                                         w.values.iter().map(|v| (v.value.unwrap(), v)).collect();
 
                                     values
@@ -341,7 +341,7 @@ pub fn convert_svd(svd: &svd::Device) -> anyhow::Result<IR> {
             base_address: p.base_address,
             block: Some(block_name),
             array: None,
-            interrupts: HashMap::new(),
+            interrupts: BTreeMap::new(),
         };
 
         let mut irqs: Vec<&svd::Interrupt> = vec![];
@@ -405,8 +405,8 @@ pub fn convert_svd(svd: &svd::Device) -> anyhow::Result<IR> {
 
 /// Create a map of all enums by name.
 /// Ignores potential duplicates of names.
-fn enum_map(blocks: &[ProtoBlock]) -> HashMap<&'_ str, &'_ svd::EnumeratedValues> {
-    let mut map = HashMap::new();
+fn enum_map(blocks: &[ProtoBlock]) -> BTreeMap<&'_ str, &'_ svd::EnumeratedValues> {
+    let mut map = BTreeMap::new();
     for block in blocks {
         for r in &block.registers {
             let svd::RegisterCluster::Register(r) = r else {
@@ -453,7 +453,7 @@ fn collect_blocks(
     }
 }
 
-fn unique_names(names: Vec<Vec<String>>) -> HashMap<Vec<String>, String> {
+fn unique_names(names: Vec<Vec<String>>) -> BTreeMap<Vec<String>, String> {
     let names2 = names
         .iter()
         .map(|n| {
@@ -482,8 +482,8 @@ fn unique_names(names: Vec<Vec<String>>) -> HashMap<Vec<String>, String> {
         })
         .collect::<Vec<_>>();
 
-    let mut res = HashMap::new();
-    let mut seen = HashSet::new();
+    let mut res = BTreeMap::new();
+    let mut seen = BTreeSet::new();
 
     let suffix_exists = |n: &[String], i: usize| {
         names2

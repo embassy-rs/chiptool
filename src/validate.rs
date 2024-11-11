@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, collections::HashSet};
+use std::{cmp::Ordering, collections::BTreeSet};
 
 use crate::ir::{BitOffset, BlockItemInner, IR};
 
@@ -14,8 +14,8 @@ pub struct Options {
 pub fn validate(ir: &IR, options: Options) -> Vec<String> {
     let mut errs = Vec::new();
 
-    let mut used_fieldsets = HashSet::new();
-    let mut used_enums = HashSet::new();
+    let mut used_fieldsets = BTreeSet::new();
+    let mut used_enums = BTreeSet::new();
 
     for (bname, b) in &ir.blocks {
         if let Some(n) = &b.extends {

@@ -1,6 +1,6 @@
 use log::*;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 
 use super::common::*;
 use super::delete_enums::remove_enum_ids;
@@ -16,7 +16,7 @@ pub struct DeleteEnumsUsedIn {
 impl DeleteEnumsUsedIn {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
         let re = make_regex(&self.fieldsets)?;
-        let mut ids: HashSet<String> = HashSet::new();
+        let mut ids: BTreeSet<String> = BTreeSet::new();
 
         for (id, fs) in ir.fieldsets.iter() {
             if re.is_match(id) {

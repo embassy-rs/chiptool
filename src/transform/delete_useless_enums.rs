@@ -1,6 +1,6 @@
 use log::*;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 
 use super::delete_enums::remove_enum_ids;
 use crate::ir::*;
@@ -13,7 +13,7 @@ pub struct DeleteUselessEnums {
 
 impl DeleteUselessEnums {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
-        let mut ids: HashSet<String> = HashSet::new();
+        let mut ids: BTreeSet<String> = BTreeSet::new();
 
         for (id, e) in &ir.enums {
             if is_useless(e) {

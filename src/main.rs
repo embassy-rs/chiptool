@@ -5,7 +5,7 @@ use chiptool::{generate, svd2ir};
 use clap::Parser;
 use log::*;
 use regex::Regex;
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 use std::fs;
 use std::io::Read;
 use std::path::PathBuf;
@@ -305,7 +305,7 @@ fn fmt(args: Fmt) -> Result<()> {
         let mut ir: IR = serde_yaml::from_slice(&got_data)?;
 
         if args.remove_unused {
-            let mut used_enums = HashSet::new();
+            let mut used_enums = BTreeSet::new();
             for fs in ir.fieldsets.values_mut() {
                 for f in fs.fields.iter_mut().filter(|f| f.enumm.is_some()) {
                     used_enums.insert(f.enumm.as_ref().unwrap().clone());

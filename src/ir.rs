@@ -1,15 +1,15 @@
 use de::MapAccess;
 use serde::{de, de::Visitor, ser::SerializeMap, Deserialize, Deserializer, Serialize, Serializer};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::fmt;
 use std::ops::RangeInclusive;
 
 #[derive(Default, Clone, Debug, PartialEq)]
 pub struct IR {
-    pub devices: HashMap<String, Device>,
-    pub blocks: HashMap<String, Block>,
-    pub fieldsets: HashMap<String, FieldSet>,
-    pub enums: HashMap<String, Enum>,
+    pub devices: BTreeMap<String, Device>,
+    pub blocks: BTreeMap<String, Block>,
+    pub fieldsets: BTreeMap<String, FieldSet>,
+    pub enums: BTreeMap<String, Enum>,
 }
 
 impl IR {
@@ -47,10 +47,10 @@ pub struct Peripheral {
 
     #[serde(
         default,
-        skip_serializing_if = "HashMap::is_empty",
+        skip_serializing_if = "BTreeMap::is_empty",
         serialize_with = "ordered_map"
     )]
-    pub interrupts: HashMap<String, String>,
+    pub interrupts: BTreeMap<String, String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -348,7 +348,7 @@ impl<'de> Deserialize<'de> for IR {
     }
 }
 
-fn ordered_map<S>(value: &HashMap<String, String>, serializer: S) -> Result<S::Ok, S::Error>
+fn ordered_map<S>(value: &BTreeMap<String, String>, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
