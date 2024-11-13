@@ -8,7 +8,9 @@
 
 ## PACs using chiptool
 
-Tested with the RP2040 SVD. Other SVDs might not work quite right yet.
+It is mainly used by [Embassy project][embassy] to generate PACs targeting
+Raspberry Pi RP2040 and RP2350, Atmel STM32-series and Nordic Semiconductor
+nRF5x-series microcontrollers. Other SVDs might not work quite right yet.
 
 - https://github.com/embassy-rs/rp-pac
 - https://github.com/embassy-rs/nrf-pac
@@ -251,4 +253,5 @@ Conduct][coc], the maintainer of this crate, the [Tools team][team], promises
 to intervene to uphold that code of conduct.
 
 [coc]: CODE_OF_CONDUCT.md
+[embassy]: https://embassy.dev/
 [team]: https://github.com/rust-embedded/wg#the-tools-team
