@@ -1,3 +1,4 @@
+use anyhow::bail;
 use log::*;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
@@ -57,7 +58,7 @@ impl MergeEnums {
 
         for id in &ids {
             let e2 = ir.enums.get(id).unwrap();
-            if let Err(e) = check_mergeable_enums(&e, e2, self.check) {
+            if let Err(e) = check_mergeable_enums(&main_id, &e, id, e2, self.check) {
                 if self.skip_unmergeable {
                     info!("skipping: {:?}", to);
                     return Ok(());
@@ -75,4 +76,62 @@ impl MergeEnums {
 
         Ok(())
     }
+}
+
+fn check_mergeable_enums(
+    a_id: &str,
+    a: &Enum,
+    b_id: &str,
+    b: &Enum,
+    level: CheckLevel,
+) -> anyhow::Result<()> {
+    if let Err(e) = check_mergeable_enums_inner(a, b, level) {
+        bail!("Cannot merge enums.\nfirst: {a_id}\n{a:#?}\nsecond: {b_id}\n{b:#?}\ncause: {e:?}",)
+    }
+    Ok(())
+}
+
+fn check_mergeable_enums_inner(a: &Enum, b: &Enum, level: CheckLevel) -> anyhow::Result<()> {
+    if a.bit_size != b.bit_size {
+        bail!("Different bit size: {} vs {}", a.bit_size, b.bit_size)
+    }
+
+    if level >= CheckLevel::Layout {
+        if a.variants.len() != b.variants.len() {
+            bail!("Different variant count")
+        }
+
+        let mut aok = [false; 1024];
+        let mut bok = [false; 1024];
+
+        for (ia, fa) in a.variants.iter().enumerate() {
+            if let Some((ib, _fb)) = b
+                .variants
+                .iter()
+                .enumerate()
+                .find(|(ib, fb)| !bok[*ib] && mergeable_variants(fa, fb, level))
+            {
+                aok[ia] = true;
+                bok[ib] = true;
+            } else {
+                bail!("Variant in first enum has no match: {:?}", fa);
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn mergeable_variants(a: &EnumVariant, b: &EnumVariant, level: CheckLevel) -> bool {
+    let mut res = true;
+    if level >= CheckLevel::Layout {
+        res &= a.value == b.value;
+    }
+    if level >= CheckLevel::Names {
+        res &= a.name == b.name;
+    }
+    if level >= CheckLevel::Descriptions {
+        res &= a.description == b.description;
+    }
+    res
 }
