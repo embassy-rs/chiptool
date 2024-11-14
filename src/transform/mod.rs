@@ -255,4 +255,5 @@ transforms!(
     make_block::MakeBlock,
     modify_byte_offset::ModifyByteOffset,
     fix_register_bit_sizes::FixRegisterBitSizes,
+    rename_interrupts::RenameInterrupts,
 );
