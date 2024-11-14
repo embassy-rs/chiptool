@@ -29,9 +29,10 @@ struct ProtoEnum {
 
 pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()> {
     let mut blocks = Vec::new();
+    let pname = p.header_struct_name.clone().unwrap_or(p.name.clone());
     collect_blocks(
         &mut blocks,
-        vec![p.name.clone()],
+        vec![pname],
         p.description.clone(),
         p.registers.as_deref().unwrap_or(&[]),
     );
@@ -331,15 +332,23 @@ pub fn convert_svd(svd: &svd::Device) -> anyhow::Result<IR> {
     };
 
     for p in &svd.peripherals {
-        let block_name = p.derived_from.as_ref().unwrap_or(&p.name);
-        let block_name = format!("{}::{}", block_name, block_name);
-        let periname = p.name.to_ascii_uppercase();
+        let base_p = if let Some(derived) = &p.derived_from {
+            svd.peripherals.iter().find(|p| p.name == *derived).unwrap()
+        } else {
+            p
+        };
+        let block_name = base_p
+            .header_struct_name
+            .clone()
+            .unwrap_or(base_p.name.clone());
+        let block_path = format!("{}::{}", block_name, block_name);
+        let peri_name = p.name.to_ascii_uppercase();
 
         let peri = Peripheral {
-            name: periname.clone(),
+            name: peri_name.clone(),
             description: p.description.clone(),
             base_address: p.base_address,
-            block: Some(block_name),
+            block: Some(block_path),
             array: None,
             interrupts: BTreeMap::new(),
         };
@@ -383,11 +392,10 @@ pub fn convert_svd(svd: &svd::Device) -> anyhow::Result<IR> {
             let mut pir = IR::new();
             convert_peripheral(&mut pir, p)?;
 
-            let path = &p.name;
             transform::map_names(&mut pir, |k, s| match k {
-                transform::NameKind::Block => *s = format!("{}::{}", path, s),
-                transform::NameKind::Fieldset => *s = format!("{}::regs::{}", path, s),
-                transform::NameKind::Enum => *s = format!("{}::vals::{}", path, s),
+                transform::NameKind::Block => *s = format!("{}::{}", block_name, s),
+                transform::NameKind::Fieldset => *s = format!("{}::regs::{}", block_name, s),
+                transform::NameKind::Enum => *s = format!("{}::vals::{}", block_name, s),
                 _ => {}
             });
 
