@@ -392,7 +392,9 @@ fn gen_block(args: GenBlock) -> Result<()> {
     let data = fs::read(&args.input)?;
     let mut ir: IR = serde_yaml::from_slice(&data)?;
 
-    chiptool::transform::Sanitize {}.run(&mut ir).unwrap();
+    chiptool::transform::sanitize::Sanitize {}
+        .run(&mut ir)
+        .unwrap();
 
     // Ensure consistent sort order in the YAML.
     chiptool::transform::sort::Sort {}.run(&mut ir).unwrap();

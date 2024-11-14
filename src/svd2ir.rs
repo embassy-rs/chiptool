@@ -398,7 +398,7 @@ pub fn convert_svd(svd: &svd::Device) -> anyhow::Result<IR> {
     ir.devices.insert("".to_string(), device);
 
     transform::sort::Sort {}.run(&mut ir).unwrap();
-    transform::Sanitize {}.run(&mut ir).unwrap();
+    transform::sanitize::Sanitize {}.run(&mut ir).unwrap();
 
     Ok(ir)
 }

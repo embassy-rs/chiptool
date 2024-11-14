@@ -3,27 +3,6 @@ use std::collections::{BTreeMap, HashSet};
 use std::mem::take;
 
 use crate::ir::*;
-use crate::util::StringExt;
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Sanitize {}
-
-impl Sanitize {
-    pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
-        map_names(ir, |k, p| match k {
-            NameKind::Device => *p = sanitize_path(p),
-            NameKind::DevicePeripheral => *p = p.to_sanitized_constant_case().to_string(),
-            NameKind::DeviceInterrupt => *p = p.to_sanitized_constant_case().to_string(),
-            NameKind::Block => *p = sanitize_path(p),
-            NameKind::Fieldset => *p = sanitize_path(p),
-            NameKind::Enum => *p = sanitize_path(p),
-            NameKind::BlockItem => *p = p.to_sanitized_snake_case().to_string(),
-            NameKind::Field => *p = p.to_sanitized_snake_case().to_string(),
-            NameKind::EnumVariant => *p = p.to_sanitized_constant_case().to_string(),
-        });
-        Ok(())
-    }
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum NameKind {
@@ -233,99 +212,47 @@ fn remap_names<T>(
     Ok(())
 }
 
-fn sanitize_path(p: &str) -> String {
-    let v = p.split("::").collect::<Vec<_>>();
-    let len = v.len();
-    v.into_iter()
-        .enumerate()
-        .map(|(i, s)| {
-            if i == len - 1 {
-                s.to_sanitized_pascal_case()
-            } else {
-                s.to_sanitized_snake_case()
-            }
-        })
-        .collect::<Vec<_>>()
-        .join("::")
-}
-
 mod common;
 
-pub mod delete;
-pub mod delete_enums;
-pub mod delete_enums_used_in;
-pub mod delete_enums_with_variants;
-pub mod delete_fieldsets;
-pub mod delete_registers;
-pub mod delete_useless_enums;
-pub mod expand_extends;
-pub mod fix_register_bit_sizes;
-pub mod make_block;
-pub mod make_field_array;
-pub mod make_register_array;
-pub mod merge_blocks;
-pub mod merge_enums;
-pub mod merge_fieldsets;
-pub mod modify_byte_offset;
-pub mod rename;
-pub mod rename_enum_variants;
-pub mod rename_fields;
-pub mod rename_registers;
-pub mod sort;
+macro_rules! transforms {
+    ($($mod:ident::$struct:ident,)*) => {
+        $( pub mod $mod; )*
 
-#[derive(Debug, Serialize, Deserialize)]
-pub enum Transform {
-    Sanitize(Sanitize),
-    Sort(sort::Sort),
-    Delete(delete::Delete),
-    DeleteEnums(delete_enums::DeleteEnums),
-    DeleteEnumsWithVariants(delete_enums_with_variants::DeleteEnumsWithVariants),
-    DeleteEnumsUsedIn(delete_enums_used_in::DeleteEnumsUsedIn),
-    DeleteUselessEnums(delete_useless_enums::DeleteUselessEnums),
-    DeleteFieldsets(delete_fieldsets::DeleteFieldsets),
-    DeleteRegisters(delete_registers::DeleteRegisters),
-    MergeBlocks(merge_blocks::MergeBlocks),
-    MergeEnums(merge_enums::MergeEnums),
-    MergeFieldsets(merge_fieldsets::MergeFieldsets),
-    Rename(rename::Rename),
-    RenameFields(rename_fields::RenameFields),
-    RenameRegisters(rename_registers::RenameRegisters),
-    RenameEnumVariants(rename_enum_variants::RenameEnumVariants),
-    MakeRegisterArray(make_register_array::MakeRegisterArray),
-    MakeFieldArray(make_field_array::MakeFieldArray),
-    MakeBlock(make_block::MakeBlock),
-    ModifyByteOffset(modify_byte_offset::ModifyByteOffset),
-    FixRegisterBitSizes(fix_register_bit_sizes::FixRegisterBitSizes),
-    //FindDuplicateEnums(find_duplicate_enums::FindDuplicateEnums),
-    //FindDuplicateFieldsets(find_duplicate_fieldsets::FindDuplicateFieldsets),
-}
-
-impl Transform {
-    pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
-        match self {
-            Self::Sanitize(t) => t.run(ir),
-            Self::Sort(t) => t.run(ir),
-            Self::Delete(t) => t.run(ir),
-            Self::DeleteEnums(t) => t.run(ir),
-            Self::DeleteEnumsUsedIn(t) => t.run(ir),
-            Self::DeleteEnumsWithVariants(t) => t.run(ir),
-            Self::DeleteUselessEnums(t) => t.run(ir),
-            Self::DeleteFieldsets(t) => t.run(ir),
-            Self::DeleteRegisters(t) => t.run(ir),
-            Self::MergeBlocks(t) => t.run(ir),
-            Self::MergeEnums(t) => t.run(ir),
-            Self::MergeFieldsets(t) => t.run(ir),
-            Self::Rename(t) => t.run(ir),
-            Self::RenameFields(t) => t.run(ir),
-            Self::RenameRegisters(t) => t.run(ir),
-            Self::RenameEnumVariants(t) => t.run(ir),
-            Self::MakeRegisterArray(t) => t.run(ir),
-            Self::MakeFieldArray(t) => t.run(ir),
-            Self::MakeBlock(t) => t.run(ir),
-            Self::ModifyByteOffset(t) => t.run(ir),
-            Self::FixRegisterBitSizes(t) => t.run(ir),
-            //Self::FindDuplicateEnums(t) => t.run(ir),
-            //Self::FindDuplicateFieldsets(t) => t.run(ir),
+        #[derive(Debug, Serialize, Deserialize)]
+        pub enum Transform {
+            $( $struct($mod::$struct), )*
         }
-    }
+
+        impl Transform {
+            pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
+                match self {
+                    $( Self::$struct(t) => t.run(ir), )*
+                }
+            }
+        }
+    };
 }
+
+transforms!(
+    sanitize::Sanitize,
+    sort::Sort,
+    delete::Delete,
+    delete_enums::DeleteEnums,
+    delete_enums_with_variants::DeleteEnumsWithVariants,
+    delete_enums_used_in::DeleteEnumsUsedIn,
+    delete_useless_enums::DeleteUselessEnums,
+    delete_fieldsets::DeleteFieldsets,
+    delete_registers::DeleteRegisters,
+    merge_blocks::MergeBlocks,
+    merge_enums::MergeEnums,
+    merge_fieldsets::MergeFieldsets,
+    rename::Rename,
+    rename_fields::RenameFields,
+    rename_registers::RenameRegisters,
+    rename_enum_variants::RenameEnumVariants,
+    make_register_array::MakeRegisterArray,
+    make_field_array::MakeFieldArray,
+    make_block::MakeBlock,
+    modify_byte_offset::ModifyByteOffset,
+    fix_register_bit_sizes::FixRegisterBitSizes,
+);
