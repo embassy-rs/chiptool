@@ -6,19 +6,17 @@ use crate::ir::*;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RenameEnumVariants {
     #[serde(rename = "enum")]
-    pub enumm: String,
-    pub from: String,
+    pub enumm: RegexSet,
+    pub from: RegexSet,
     pub to: String,
 }
 
 impl RenameEnumVariants {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
-        let path_re = make_regex(&self.enumm)?;
-        let re = make_regex(&self.from)?;
-        for id in match_all(ir.enums.keys().cloned(), &path_re) {
+        for id in match_all(ir.enums.keys().cloned(), &self.enumm) {
             let e = ir.enums.get_mut(&id).unwrap();
             for i in &mut e.variants {
-                if let Some(name) = match_expand(&i.name, &re, &self.to) {
+                if let Some(name) = match_expand(&i.name, &self.from, &self.to) {
                     i.name = name;
                 }
             }

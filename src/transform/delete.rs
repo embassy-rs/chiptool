@@ -7,16 +7,14 @@ use crate::ir::*;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Delete {
-    pub from: String,
+    pub from: RegexSet,
 }
 
 impl Delete {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
-        let re = make_regex(&self.from)?;
-
         let mut ids: BTreeSet<String> = BTreeSet::new();
         for (id, _fs) in ir.fieldsets.iter() {
-            if re.is_match(id) {
+            if self.from.is_match(id) {
                 info!("deleting fieldset {}", id);
                 ids.insert(id.clone());
             }
@@ -30,7 +28,7 @@ impl Delete {
 
         let mut ids: BTreeSet<String> = BTreeSet::new();
         for (id, _e) in ir.enums.iter() {
-            if re.is_match(id) {
+            if self.from.is_match(id) {
                 info!("deleting enum {}", id);
                 ids.insert(id.clone());
             }
@@ -44,7 +42,7 @@ impl Delete {
 
         let mut ids: BTreeSet<String> = BTreeSet::new();
         for (id, _b) in ir.blocks.iter() {
-            if re.is_match(id) {
+            if self.from.is_match(id) {
                 info!("deleting block {}", id);
                 ids.insert(id.clone());
             }

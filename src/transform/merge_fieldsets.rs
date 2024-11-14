@@ -7,17 +7,16 @@ use crate::ir::*;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MergeFieldsets {
-    pub from: String,
+    pub from: RegexSet,
     pub to: String,
-    pub main: Option<String>,
+    pub main: Option<RegexSet>,
     #[serde(default)]
     pub check: CheckLevel,
 }
 
 impl MergeFieldsets {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
-        let re = make_regex(&self.from)?;
-        let groups = match_groups(ir.fieldsets.keys().cloned(), &re, &self.to);
+        let groups = match_groups(ir.fieldsets.keys().cloned(), &self.from, &self.to);
 
         for (to, group) in groups {
             info!("Merging fieldsets, dest: {}", to);
@@ -35,13 +34,12 @@ impl MergeFieldsets {
         ir: &mut IR,
         ids: BTreeSet<String>,
         to: String,
-        main: Option<&String>,
+        main: Option<&RegexSet>,
     ) -> anyhow::Result<()> {
         let mut main_id = ids.iter().next().unwrap().clone();
         if let Some(main) = main {
-            let re = make_regex(main)?;
             for id in ids.iter() {
-                if re.is_match(id) {
+                if main.is_match(id) {
                     main_id = id.clone();
                     break;
                 }

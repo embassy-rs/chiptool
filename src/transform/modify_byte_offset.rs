@@ -5,30 +5,25 @@ use crate::ir::*;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ModifyByteOffset {
-    pub blocks: String,
-    pub exclude_items: Option<String>,
+    pub blocks: RegexSet,
+    pub exclude_items: Option<RegexSet>,
     pub add_offset: i32,
     pub strict: Option<bool>, // if this value is false, bypass overflowed/underflowed modification
 }
 
 impl ModifyByteOffset {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
-        let path_re = make_regex(&self.blocks)?;
-        let ex_re = if let Some(exclude_items) = &self.exclude_items {
-            make_regex(exclude_items)?
-        } else {
-            make_regex("")?
-        };
-
         let strict = self.strict.unwrap_or_default();
 
         let mut err_names = Vec::new();
 
-        for id in match_all(ir.blocks.keys().cloned(), &path_re) {
+        for id in match_all(ir.blocks.keys().cloned(), &self.blocks) {
             let b = ir.blocks.get_mut(&id).unwrap();
             for i in &mut b.items {
-                if ex_re.is_match(&i.name) {
-                    continue;
+                if let Some(exclude) = &self.exclude_items {
+                    if exclude.is_match(&i.name) {
+                        continue;
+                    }
                 }
 
                 match i.byte_offset.checked_add_signed(self.add_offset) {

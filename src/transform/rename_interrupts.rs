@@ -5,17 +5,15 @@ use crate::ir::*;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RenameInterrupts {
-    pub from: String,
+    pub from: RegexSet,
     pub to: String,
 }
 
 impl RenameInterrupts {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
-        let re = make_regex(&self.from)?;
-
         for d in ir.devices.values_mut() {
             for i in &mut d.interrupts {
-                if let Some(name) = match_expand(&i.name, &re, &self.to) {
+                if let Some(name) = match_expand(&i.name, &self.from, &self.to) {
                     i.name = name;
                 }
             }

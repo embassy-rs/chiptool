@@ -6,8 +6,8 @@ use crate::ir::*;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MakeBlock {
-    pub blocks: String,
-    pub from: String,
+    pub blocks: RegexSet,
+    pub from: RegexSet,
     pub to_outer: String,
     pub to_block: String,
     pub to_inner: String,
@@ -15,11 +15,13 @@ pub struct MakeBlock {
 
 impl MakeBlock {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
-        let path_re = make_regex(&self.blocks)?;
-        let re = make_regex(&self.from)?;
-        for id in match_all(ir.blocks.keys().cloned(), &path_re) {
+        for id in match_all(ir.blocks.keys().cloned(), &self.blocks) {
             let b = ir.blocks.get_mut(&id).unwrap();
-            let groups = match_groups(b.items.iter().map(|f| f.name.clone()), &re, &self.to_outer);
+            let groups = match_groups(
+                b.items.iter().map(|f| f.name.clone()),
+                &self.from,
+                &self.to_outer,
+            );
             for (to, group) in groups {
                 let b = ir.blocks.get_mut(&id).unwrap();
                 info!("blockifizing to {}", to);
@@ -48,7 +50,7 @@ impl MakeBlock {
                         .iter()
                         .map(|&i| {
                             let mut i = i.clone();
-                            i.name = match_expand(&i.name, &re, &self.to_inner).unwrap();
+                            i.name = match_expand(&i.name, &self.from, &self.to_inner).unwrap();
                             i.byte_offset -= byte_offset;
                             i
                         })

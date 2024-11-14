@@ -5,17 +5,15 @@ use crate::ir::*;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DeleteRegisters {
-    pub block: String,
-    pub from: String,
+    pub block: RegexSet,
+    pub from: RegexSet,
 }
 
 impl DeleteRegisters {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
-        let path_re = make_regex(&self.block)?;
-        let re = make_regex(&self.from)?;
-        for id in match_all(ir.blocks.keys().cloned(), &path_re) {
+        for id in match_all(ir.blocks.keys().cloned(), &self.block) {
             let b = ir.blocks.get_mut(&id).unwrap();
-            b.items.retain(|i| !re.is_match(&i.name));
+            b.items.retain(|i| !self.from.is_match(&i.name));
         }
         Ok(())
     }

@@ -8,18 +8,17 @@ use crate::ir::*;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DeleteEnumsUsedIn {
-    pub fieldsets: String,
+    pub fieldsets: RegexSet,
     #[serde(default)]
     pub soft: bool,
 }
 
 impl DeleteEnumsUsedIn {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
-        let re = make_regex(&self.fieldsets)?;
         let mut ids: BTreeSet<String> = BTreeSet::new();
 
         for (id, fs) in ir.fieldsets.iter() {
-            if re.is_match(id) {
+            if self.fieldsets.is_match(id) {
                 info!("matched fieldset {}", id);
                 for f in &fs.fields {
                     if let Some(id) = &f.enumm {

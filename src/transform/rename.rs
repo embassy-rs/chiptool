@@ -5,16 +5,14 @@ use crate::ir::*;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Rename {
-    pub from: String,
+    pub from: RegexSet,
     pub to: String,
 }
 
 impl Rename {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
-        let re = make_regex(&self.from)?;
-
         let renamer = |name: &mut String| {
-            if let Some(res) = match_expand(name, &re, &self.to) {
+            if let Some(res) = match_expand(name, &self.from, &self.to) {
                 *name = res
             }
         };

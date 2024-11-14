@@ -7,7 +7,7 @@ use crate::ir::*;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DeleteFieldsets {
-    pub from: String,
+    pub from: RegexSet,
     #[serde(default)]
     pub useless: bool,
     #[serde(default)]
@@ -16,11 +16,9 @@ pub struct DeleteFieldsets {
 
 impl DeleteFieldsets {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
-        let re = make_regex(&self.from)?;
-
         let mut ids: BTreeSet<String> = BTreeSet::new();
         for (id, fs) in ir.fieldsets.iter() {
-            if re.is_match(id) && (!self.useless | is_useless(fs)) {
+            if self.from.is_match(id) && (!self.useless | is_useless(fs)) {
                 info!("deleting fieldset {}", id);
                 ids.insert(id.clone());
             }

@@ -5,19 +5,17 @@ use crate::ir::*;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RenameFields {
-    pub fieldset: String,
-    pub from: String,
+    pub fieldset: RegexSet,
+    pub from: RegexSet,
     pub to: String,
 }
 
 impl RenameFields {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
-        let path_re = make_regex(&self.fieldset)?;
-        let re = make_regex(&self.from)?;
-        for id in match_all(ir.fieldsets.keys().cloned(), &path_re) {
+        for id in match_all(ir.fieldsets.keys().cloned(), &self.fieldset) {
             let fs = ir.fieldsets.get_mut(&id).unwrap();
             for f in &mut fs.fields {
-                if let Some(name) = match_expand(&f.name, &re, &self.to) {
+                if let Some(name) = match_expand(&f.name, &self.from, &self.to) {
                     f.name = name;
                 }
             }

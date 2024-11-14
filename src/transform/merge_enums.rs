@@ -7,9 +7,9 @@ use crate::ir::*;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MergeEnums {
-    pub from: String,
+    pub from: RegexSet,
     pub to: String,
-    pub main: Option<String>,
+    pub main: Option<RegexSet>,
     #[serde(default)]
     pub check: CheckLevel,
     #[serde(default)]
@@ -24,8 +24,7 @@ impl MergeEnums {
             append_variant_desc_to_field(ir, &variant_desc, None);
         }
 
-        let re = make_regex(&self.from)?;
-        let groups = match_groups(ir.enums.keys().cloned(), &re, &self.to);
+        let groups = match_groups(ir.enums.keys().cloned(), &self.from, &self.to);
 
         for (to, group) in groups {
             info!("Merging enums, dest: {}", to);
@@ -43,13 +42,12 @@ impl MergeEnums {
         ir: &mut IR,
         ids: BTreeSet<String>,
         to: String,
-        main: Option<&String>,
+        main: Option<&RegexSet>,
     ) -> anyhow::Result<()> {
         let mut main_id = ids.iter().next().unwrap().clone();
         if let Some(main) = main {
-            let re = make_regex(main)?;
             for id in ids.iter() {
-                if re.is_match(id) {
+                if main.is_match(id) {
                     main_id = id.clone();
                     break;
                 }

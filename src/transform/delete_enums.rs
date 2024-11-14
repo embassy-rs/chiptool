@@ -7,7 +7,7 @@ use crate::ir::*;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DeleteEnums {
-    pub from: String,
+    pub from: RegexSet,
     pub bit_size: Option<u32>,
     #[serde(default)]
     pub soft: bool,
@@ -21,12 +21,10 @@ impl DeleteEnums {
             append_variant_desc_to_field(ir, &variant_desc, self.bit_size);
         }
 
-        let re = make_regex(&self.from)?;
-
         let mut ids: BTreeSet<String> = BTreeSet::new();
         for (id, e) in ir.enums.iter() {
             let bit_size_matches = self.bit_size.map_or(true, |s| s == e.bit_size);
-            if re.is_match(id) && bit_size_matches {
+            if self.from.is_match(id) && bit_size_matches {
                 info!("deleting enum {}", id);
                 ids.insert(id.clone());
             }

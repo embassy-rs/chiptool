@@ -4,8 +4,105 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::ir::*;
 
-pub(crate) fn make_regex(r: &str) -> Result<regex::Regex, regex::Error> {
-    regex::Regex::new(&format!("^{}$", r))
+#[derive(Debug, Clone)]
+pub struct RegexSet {
+    include: Vec<regex::Regex>,
+    exclude: Vec<regex::Regex>,
+}
+
+impl RegexSet {
+    pub fn captures<'h>(&self, haystack: &'h str) -> Option<regex::Captures<'h>> {
+        for r in &self.exclude {
+            if r.is_match(haystack) {
+                return None;
+            }
+        }
+        for r in &self.include {
+            if let Some(c) = r.captures(haystack) {
+                return Some(c);
+            }
+        }
+        None
+    }
+
+    pub fn is_match(&self, haystack: &str) -> bool {
+        for r in &self.exclude {
+            if r.is_match(haystack) {
+                return false;
+            }
+        }
+        for r in &self.include {
+            if r.is_match(haystack) {
+                return true;
+            }
+        }
+        false
+    }
+}
+
+impl<'de> Deserialize<'de> for RegexSet {
+    fn deserialize<D>(de: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        fn make_regex(r: &str) -> Result<regex::Regex, regex::Error> {
+            regex::Regex::new(&format!("^{}$", r))
+        }
+
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum VecOrString {
+            One(String),
+            Many(Vec<String>),
+        }
+        impl VecOrString {
+            fn regexes(self) -> Vec<regex::Regex> {
+                let strs = match self {
+                    VecOrString::Many(s) => s,
+                    VecOrString::One(s) => vec![s],
+                };
+                strs.into_iter().map(|s| make_regex(&s).unwrap()).collect()
+            }
+        }
+
+        impl Default for VecOrString {
+            fn default() -> Self {
+                Self::Many(vec![])
+            }
+        }
+
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Inner {
+            String(String),
+            Complex {
+                include: VecOrString,
+                #[serde(default)]
+                exclude: VecOrString,
+            },
+        }
+
+        let x = Inner::deserialize(de)?;
+        match x {
+            Inner::String(s) => Ok(RegexSet {
+                include: vec![make_regex(&s).unwrap()],
+                exclude: vec![],
+            }),
+            Inner::Complex { include, exclude } => Ok(RegexSet {
+                include: include.regexes(),
+                exclude: exclude.regexes(),
+            }),
+        }
+    }
+}
+
+impl Serialize for RegexSet {
+    fn serialize<S>(&self, _: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        todo!()
+    }
 }
 
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone, Copy, Serialize, Deserialize)]
@@ -154,7 +251,7 @@ pub(crate) fn check_mergeable_fieldsets_inner(
     Ok(())
 }
 
-pub(crate) fn match_all(set: impl Iterator<Item = String>, re: &regex::Regex) -> BTreeSet<String> {
+pub(crate) fn match_all(set: impl Iterator<Item = String>, re: &RegexSet) -> BTreeSet<String> {
     let mut ids: BTreeSet<String> = BTreeSet::new();
     for id in set {
         if re.is_match(&id) {
@@ -166,7 +263,7 @@ pub(crate) fn match_all(set: impl Iterator<Item = String>, re: &regex::Regex) ->
 
 pub(crate) fn match_groups(
     set: impl Iterator<Item = String>,
-    re: &regex::Regex,
+    re: &RegexSet,
     to: &str,
 ) -> BTreeMap<String, BTreeSet<String>> {
     let mut groups: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
@@ -184,7 +281,7 @@ pub(crate) fn match_groups(
     groups
 }
 
-pub(crate) fn match_expand(s: &str, regex: &regex::Regex, res: &str) -> Option<String> {
+pub(crate) fn match_expand(s: &str, regex: &RegexSet, res: &str) -> Option<String> {
     let m = regex.captures(s)?;
     let mut dst = String::new();
     m.expand(res, &mut dst);
@@ -299,14 +396,12 @@ pub(crate) fn calc_array(mut offsets: Vec<u32>, mode: ArrayMode) -> anyhow::Resu
 // filter enum by enum name, then copy variant description
 pub(crate) fn extract_variant_desc(
     ir: &IR,
-    enum_names: &str,
+    enum_names: &RegexSet,
     bit_size: Option<u32>,
 ) -> anyhow::Result<BTreeMap<String, String>> {
-    let re = make_regex(enum_names)?;
-
     let mut enum_desc_pair: BTreeMap<String, String> = BTreeMap::new();
     for (e_name, e_struct) in ir.enums.iter().filter(|(e_name, e_struct)| {
-        bit_size.map_or(true, |s| s == e_struct.bit_size) && re.is_match(e_name)
+        bit_size.map_or(true, |s| s == e_struct.bit_size) && enum_names.is_match(e_name)
     }) {
         let variant_desc_str = e_struct.variants.iter().fold(String::new(), |mut acc, v| {
             acc.push_str(

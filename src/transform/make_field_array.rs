@@ -7,8 +7,8 @@ use crate::ir::*;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MakeFieldArray {
-    pub fieldsets: String,
-    pub from: String,
+    pub fieldsets: RegexSet,
+    pub from: RegexSet,
     pub to: String,
     #[serde(default)]
     pub mode: ArrayMode,
@@ -16,11 +16,13 @@ pub struct MakeFieldArray {
 
 impl MakeFieldArray {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
-        let path_re = make_regex(&self.fieldsets)?;
-        let re = make_regex(&self.from)?;
-        for id in match_all(ir.fieldsets.keys().cloned(), &path_re) {
+        for id in match_all(ir.fieldsets.keys().cloned(), &self.fieldsets) {
             let b = ir.fieldsets.get_mut(&id).unwrap();
-            let groups = match_groups(b.fields.iter().map(|f| f.name.clone()), &re, &self.to);
+            let groups = match_groups(
+                b.fields.iter().map(|f| f.name.clone()),
+                &self.from,
+                &self.to,
+            );
             for (to, group) in groups {
                 info!("arrayizing to {}", to);
 

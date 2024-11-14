@@ -5,19 +5,17 @@ use crate::ir::*;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RenameRegisters {
-    pub block: String,
-    pub from: String,
+    pub block: RegexSet,
+    pub from: RegexSet,
     pub to: String,
 }
 
 impl RenameRegisters {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
-        let path_re = make_regex(&self.block)?;
-        let re = make_regex(&self.from)?;
-        for id in match_all(ir.blocks.keys().cloned(), &path_re) {
+        for id in match_all(ir.blocks.keys().cloned(), &self.block) {
             let b = ir.blocks.get_mut(&id).unwrap();
             for i in &mut b.items {
-                if let Some(name) = match_expand(&i.name, &re, &self.to) {
+                if let Some(name) = match_expand(&i.name, &self.from, &self.to) {
                     i.name = name;
                 }
             }
