@@ -11,6 +11,8 @@ use std::str::FromStr;
 
 use crate::ir::*;
 
+pub use device::render_device_x;
+
 pub const COMMON_MODULE: &[u8] = include_bytes!("common.rs");
 
 struct Module {

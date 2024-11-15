@@ -1,3 +1,5 @@
+use std::fmt::Write as _;
+
 use anyhow::Result;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
@@ -6,6 +8,14 @@ use crate::ir::*;
 use crate::util::{self, StringExt};
 
 use super::sorted;
+
+pub fn render_device_x(_ir: &IR, d: &Device) -> Result<String> {
+    let mut device_x = String::new();
+    for i in sorted(&d.interrupts, |i| i.value) {
+        writeln!(&mut device_x, "PROVIDE({} = DefaultHandler);", i.name).unwrap();
+    }
+    Ok(device_x)
+}
 
 pub fn render(_opts: &super::Options, ir: &IR, d: &Device, path: &str) -> Result<TokenStream> {
     let mut out = TokenStream::new();

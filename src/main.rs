@@ -282,6 +282,9 @@ fn gen(args: Generate) -> Result<()> {
     let items = generate::render(&ir, &generate_opts).unwrap();
     fs::write("lib.rs", items.to_string())?;
 
+    let device_x = generate::render_device_x(&ir, &ir.devices.values().next().unwrap())?;
+    fs::write("device.x", device_x)?;
+
     Ok(())
 }
 
