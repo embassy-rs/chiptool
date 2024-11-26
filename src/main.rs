@@ -191,15 +191,12 @@ fn extract_peripheral(args: ExtractPeripheral) -> Result<()> {
 
     // Descriptions in SVD's contain a lot of noise and weird formatting. Clean them up.
     let description_cleanups = [
-        // Fix weird newline spam in descriptions.
-        (Regex::new("[ \n]+").unwrap(), " "),
-        // Fix weird tab and cr spam in descriptions.
-        (Regex::new("[\r\t]+").unwrap(), " "),
-        // Replace double-space (end of sentence) with period.
-        (
-            Regex::new(r"(?<first_sentence>.*?)[\s]{2}(?<next_sentence>.*)").unwrap(),
-            "$first_sentence. $next_sentence",
-        ),
+        // Replace consecutive LF and whitespace with one newline/whitespace.
+        (Regex::new("([ \n]){2,}").unwrap(), "$1"),
+        // Replace (consecutive) CR with (one) LF.
+        (Regex::new("\r+").unwrap(), "\n"),
+        // Replace (consecutive) TAB with (one) whitespace
+        (Regex::new("\t+").unwrap(), " "),
         // Make sure every description ends with a period.
         (
             Regex::new(r"(?<full_description>.*)(?<last_character>[\s'[^\.\s']])$").unwrap(),
