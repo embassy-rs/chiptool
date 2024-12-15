@@ -410,7 +410,8 @@ fn apply_transform<P: AsRef<std::path::Path>>(ir: &mut IR, p: P) -> anyhow::Resu
     }
     if let Some(transforms) = &config.transforms {
         for transform in transforms {
-            transform.run(ir);
+            info!("running {:?}", transform);
+            transform.run(ir)?;
         }
     }
 
