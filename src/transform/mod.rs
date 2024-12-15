@@ -236,6 +236,7 @@ macro_rules! transforms {
 transforms!(
     sanitize::Sanitize,
     sort::Sort,
+    add::Add,
     delete::Delete,
     delete_enums::DeleteEnums,
     delete_enums_with_variants::DeleteEnumsWithVariants,
