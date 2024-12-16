@@ -160,15 +160,6 @@ fn load_config(path: &str) -> Result<Config> {
 }
 
 fn extract_peripheral(args: ExtractPeripheral) -> Result<()> {
-    let config = if args.transform.is_empty() {
-        Config::default()
-    } else {
-        args.transform
-            .into_iter()
-            .map(|s| load_config(&s))
-            .collect::<Result<Config>>()?
-    };
-
     let svd = load_svd(&args.svd)?;
     let mut ir = IR::new();
 
@@ -215,9 +206,8 @@ fn extract_peripheral(args: ExtractPeripheral) -> Result<()> {
         chiptool::transform::map_descriptions(&mut ir, |d| re.replace_all(d, *rep).into_owned())?;
     }
 
-    for t in &config.transforms {
-        info!("running: {:?}", t);
-        t.run(&mut ir)?;
+    for transform in args.transform {
+        apply_transform(&mut ir, transform)?;
     }
 
     // Ensure consistent sort order in the YAML.
@@ -255,15 +245,6 @@ fn extract_all(args: ExtractAll) -> Result<()> {
 }
 
 fn gen(args: Generate) -> Result<()> {
-    let config = if args.transform.is_empty() {
-        Config::default()
-    } else {
-        args.transform
-            .into_iter()
-            .map(|s| load_config(&s))
-            .collect::<Result<Config>>()?
-    };
-
     let svd = load_svd(&args.svd)?;
     let mut ir = svd2ir::convert_svd(&svd)?;
 
@@ -271,9 +252,8 @@ fn gen(args: Generate) -> Result<()> {
     let re = Regex::new("[ \n]+").unwrap();
     chiptool::transform::map_descriptions(&mut ir, |d| re.replace_all(d, " ").into_owned())?;
 
-    for t in &config.transforms {
-        info!("running: {:?}", t);
-        t.run(&mut ir)?;
+    for transform in args.transform {
+        apply_transform(&mut ir, transform)?;
     }
 
     let generate_opts = generate::Options {
@@ -291,11 +271,8 @@ fn gen(args: Generate) -> Result<()> {
 fn transform(args: Transform) -> Result<()> {
     let data = fs::read(&args.input)?;
     let mut ir: IR = serde_yaml::from_slice(&data)?;
-    let config = load_config(&args.transform)?;
-    for t in &config.transforms {
-        info!("running: {:?}", t);
-        t.run(&mut ir)?;
-    }
+    apply_transform(&mut ir, args.transform)?;
+
     let data = serde_yaml::to_string(&ir)?;
     fs::write(&args.output, data.as_bytes())?;
 
@@ -412,12 +389,24 @@ fn gen_block(args: GenBlock) -> Result<()> {
 }
 #[derive(Default, serde::Serialize, serde::Deserialize)]
 struct Config {
+    #[serde(default)]
+    includes: Vec<String>,
+    #[serde(default)]
     transforms: Vec<chiptool::transform::Transform>,
 }
 
-impl FromIterator<Config> for Config {
-    fn from_iter<I: IntoIterator<Item = Config>>(iter: I) -> Self {
-        let transforms: Vec<_> = iter.into_iter().flat_map(|c| c.transforms).collect();
-        Self { transforms }
+fn apply_transform<P: AsRef<std::path::Path>>(ir: &mut IR, p: P) -> anyhow::Result<()> {
+    info!("applying transform {}", p.as_ref().display());
+    let config = load_config(p.as_ref().to_str().unwrap())?;
+
+    for include in &config.includes {
+        let subp = p.as_ref().parent().unwrap().join(include);
+        apply_transform(ir, subp)?;
     }
+    for transform in &config.transforms {
+        info!("running {:?}", transform);
+        transform.run(ir)?;
+    }
+
+    Ok(())
 }
