@@ -271,14 +271,6 @@ fn gen(args: Generate) -> Result<()> {
 fn transform(args: Transform) -> Result<()> {
     let data = fs::read(&args.input)?;
     let mut ir: IR = serde_yaml::from_slice(&data)?;
-    // let config = load_config(&args.transform)?;
-    // if let Some(transforms) = &config.transforms {
-    //     for t in transforms {
-    //         info!("running: {:?}", t);
-    //         t.run(&mut ir)?;
-    //     }
-    // }
-
     apply_transform(&mut ir, args.transform)?;
 
     let data = serde_yaml::to_string(&ir)?;
@@ -407,18 +399,14 @@ fn apply_transform<P: AsRef<std::path::Path>>(ir: &mut IR, p: P) -> anyhow::Resu
     info!("applying transform {}", p.as_ref().display());
     let config = load_config(p.as_ref().to_str().unwrap())?;
 
-    // if let Some(includes) = &config.includes {
     for include in &config.includes {
         let subp = p.as_ref().parent().unwrap().join(include);
         apply_transform(ir, subp)?;
     }
-    // }
-    // if let Some(transforms) = &config.transforms {
     for transform in &config.transforms {
         info!("running {:?}", transform);
         transform.run(ir)?;
     }
-    // }
 
     Ok(())
 }
