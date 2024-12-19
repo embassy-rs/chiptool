@@ -201,6 +201,8 @@ pub struct Field {
     pub name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
+    #[serde(default = "default_readwrite", skip_serializing_if = "is_readwrite")]
+    pub access: Access,
     pub bit_offset: BitOffset,
     pub bit_size: u32,
     #[serde(default, skip_serializing_if = "Option::is_none")]

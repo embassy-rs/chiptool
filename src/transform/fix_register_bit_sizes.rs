@@ -31,6 +31,7 @@ impl FixRegisterBitSizes {
                                         bit_size: good_bit_size,
                                         fields: vec![Field {
                                             name: "val".to_string(),
+                                            access: Access::ReadWrite,
                                             bit_offset: BitOffset::Regular(0),
                                             bit_size: orig_bit_size,
                                             description: None,
