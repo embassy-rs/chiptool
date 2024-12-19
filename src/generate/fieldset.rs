@@ -31,6 +31,9 @@ pub fn render(_opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Res
         let to_bits: TokenStream;
         let from_bits: TokenStream;
 
+        let have_read: bool = f.access == Access::Read || f.access == Access::ReadWrite;
+        let have_write: bool = f.access == Access::Write || f.access == Access::ReadWrite;
+
         if let Some(e_path) = &f.enumm {
             let Some(e) = ir.enums.get(e_path) else {
                 panic!("missing enum {}", e_path);
@@ -69,37 +72,49 @@ pub fn render(_opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Res
                 let off_in_reg = off_in_reg as usize;
                 if let Some(array) = &f.array {
                     let (len, offs_expr) = super::process_array(array);
-                    items.extend(quote!(
-                        #doc
-                        #[inline(always)]
-                        pub const fn #name(&self, n: usize) -> #field_ty{
-                            assert!(n < #len);
-                            let offs = #off_in_reg + #offs_expr;
-                            let val = (self.0 >> offs) & #mask;
-                            #from_bits
-                        }
-                        #doc
-                        #[inline(always)]
-                        pub fn #name_set(&mut self, n: usize, val: #field_ty) {
-                            assert!(n < #len);
-                            let offs = #off_in_reg + #offs_expr;
-                            self.0 = (self.0 & !(#mask << offs)) | (((#to_bits) & #mask) << offs);
-                        }
-                    ));
+                    if have_read {
+                        items.extend(quote! {
+                            #doc
+                            #[inline(always)]
+                            pub const fn #name(&self, n: usize) -> #field_ty{
+                                assert!(n < #len);
+                                let offs = #off_in_reg + #offs_expr;
+                                let val = (self.0 >> offs) & #mask;
+                                #from_bits
+                            }
+                        });
+                    }
+                    if have_write {
+                        items.extend(quote! {
+                            #doc
+                            #[inline(always)]
+                            pub fn #name_set(&mut self, n: usize, val: #field_ty) {
+                                assert!(n < #len);
+                                let offs = #off_in_reg + #offs_expr;
+                                self.0 = (self.0 & !(#mask << offs)) | (((#to_bits) & #mask) << offs);
+                            }
+                        });
+                    }
                 } else {
-                    items.extend(quote!(
-                        #doc
-                        #[inline(always)]
-                        pub const fn #name(&self) -> #field_ty{
-                            let val = (self.0 >> #off_in_reg) & #mask;
-                            #from_bits
-                        }
-                        #doc
-                        #[inline(always)]
-                        pub fn #name_set(&mut self, val: #field_ty) {
-                            self.0 = (self.0 & !(#mask << #off_in_reg)) | (((#to_bits) & #mask) << #off_in_reg);
-                        }
-                    ));
+                    if have_read {
+                        items.extend(quote! {
+                            #doc
+                            #[inline(always)]
+                            pub const fn #name(&self) -> #field_ty{
+                                let val = (self.0 >> #off_in_reg) & #mask;
+                                #from_bits
+                            }
+                        });
+                    }
+                    if have_write {
+                        items.extend(quote! {
+                            #doc
+                            #[inline(always)]
+                            pub fn #name_set(&mut self, val: #field_ty) {
+                                self.0 = (self.0 & !(#mask << #off_in_reg)) | (((#to_bits) & #mask) << #off_in_reg);
+                            }
+                        });
+                    }
                 }
             }
             BitOffset::Cursed(ranges) => {
