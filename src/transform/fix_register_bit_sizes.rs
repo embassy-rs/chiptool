@@ -9,16 +9,16 @@ pub struct FixRegisterBitSizes {
 
 impl FixRegisterBitSizes {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
-        for (_, b) in &mut ir.blocks {
+        for b in ir.blocks.values_mut() {
             for i in &mut b.items {
                 if let BlockItemInner::Register(r) = &mut i.inner {
                     let orig_bit_size = r.bit_size;
                     let good_bit_size = match r.bit_size {
-                        ..=8 => 8,
-                        ..=16 => 16,
-                        ..=32 => 32,
-                        ..=64 => 64,
-                        _ => panic!("Invalid register bit size {}", r.bit_size),
+                        0..=8 => 8,
+                        9..=16 => 16,
+                        17..=32 => 32,
+                        33..=64 => 64,
+                        65.. => panic!("Invalid register bit size {}", r.bit_size),
                     };
                     if r.bit_size != good_bit_size {
                         r.bit_size = good_bit_size;
