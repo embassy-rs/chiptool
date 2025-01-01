@@ -77,8 +77,10 @@ pub fn render(_opts: &super::Options, ir: &IR, d: &Device, path: &str) -> Result
         }
     }
     let n = util::unsuffixed(pos as u64);
+
     out.extend(quote!(
         #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+        #[cfg_attr(feature = "defmt", derive(defmt::Format))]
         pub enum Interrupt {
             #interrupts
         }
