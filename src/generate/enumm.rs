@@ -33,10 +33,16 @@ pub fn render(_opts: &super::Options, _ir: &IR, e: &Enum, path: &str) -> Result<
 
     if newtype {
         let mut items = TokenStream::new();
+        let mut item_names_str = Vec::with_capacity(e.variants.len());
+        let mut item_values = Vec::with_capacity(e.variants.len());
 
         for f in sorted(&e.variants, |f| (f.value, f.name.clone())) {
             let name = Ident::new(&f.name, span);
             let value = util::hex(f.value);
+
+            item_names_str.push(&f.name);
+            item_values.push(value.clone());
+
             let doc = util::doc(&f.description);
             items.extend(quote!(
                 #doc
@@ -61,6 +67,29 @@ pub fn render(_opts: &super::Options, _ir: &IR, e: &Enum, path: &str) -> Result<
 
                 pub const fn to_bits(self) -> #ty {
                     self.0
+                }
+            }
+
+            impl core::fmt::Debug for #name {
+                fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+                    match self.0 {
+                        #(
+                            #item_values => f.write_str(#item_names_str),
+                        )*
+                        other => core::write!(f, "0x{:02X}", other),
+                    }
+                }
+            }
+
+            #[cfg(feature = "defmt")]
+            impl defmt::Format for #name {
+                fn format(&self, f: defmt::Formatter) {
+                    match self.0 {
+                        #(
+                            #item_values => defmt::write!("{}", #item_names_str),
+                        )*
+                        other => defmt::write!(f, "0x{:02X}", other),
+                    }
                 }
             }
         });
@@ -88,7 +117,8 @@ pub fn render(_opts: &super::Options, _ir: &IR, e: &Enum, path: &str) -> Result<
         out.extend(quote! {
             #doc
             #[repr(#ty)]
-            #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
+            #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+            #[cfg_attr(feature = "defmt", derive(defmt::Format))]
             pub enum #name {
                 #items
             }

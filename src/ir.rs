@@ -99,6 +99,16 @@ pub enum Array {
     Cursed(CursedArray),
 }
 
+impl Array {
+    /// Get the number of elements in the array.
+    pub fn len(&self) -> usize {
+        match self {
+            Self::Regular(x) => x.len as usize,
+            Self::Cursed(x) => x.offsets.len(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RegularArray {
     pub len: u32,

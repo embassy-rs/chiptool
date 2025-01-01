@@ -1,6 +1,6 @@
 use anyhow::Result;
 use proc_macro2::TokenStream;
-use proc_macro2::{Ident, Span};
+use proc_macro2::{Ident, Literal, Span};
 use quote::quote;
 
 use crate::ir::*;
@@ -11,6 +11,10 @@ use super::sorted;
 pub fn render(_opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Result<TokenStream> {
     let span = Span::call_site();
     let mut items = TokenStream::new();
+    let mut field_names = Vec::with_capacity(fs.fields.len());
+    let mut field_names_str = Vec::with_capacity(fs.fields.len());
+    let mut field_getters = Vec::with_capacity(fs.fields.len());
+    let mut field_types = Vec::with_capacity(fs.fields.len());
 
     let ty = match fs.bit_size {
         1..=8 => quote!(u8),
@@ -62,6 +66,18 @@ pub fn render(_opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Res
             } else {
                 quote!(val as #field_ty)
             }
+        }
+
+        field_names.push(name.clone());
+        field_names_str.push(f.name.as_str());
+        if let Some(array) = &f.array {
+            let len = array.len();
+            let i = 0..len;
+            field_types.push(quote!([#field_ty; #len]));
+            field_getters.push(quote!([#( self.#name(#i), )*]));
+        } else {
+            field_types.push(field_ty.clone());
+            field_getters.push(quote!(self.#name()));
         }
 
         match off_in_reg {
@@ -165,6 +181,11 @@ pub fn render(_opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Res
     }
 
     let (_, name) = super::split_path(path);
+    let name_str = {
+        let mut literal = Literal::string(name);
+        literal.set_span(span);
+        literal
+    };
     let name = Ident::new(name, span);
     let doc = util::doc(&fs.description);
 
@@ -182,6 +203,34 @@ pub fn render(_opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Res
             #[inline(always)]
             fn default() -> #name {
                 #name(0)
+            }
+        }
+
+        impl core::fmt::Debug for #name {
+            fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+                f.debug_struct(#name_str)
+                #(
+                    .field(#field_names_str, &#field_getters)
+                )*
+                    .finish()
+            }
+        }
+
+        #[cfg(feature = "defmt")]
+        impl defmt::Format for #name {
+            fn format(&self, f: defmt::Formatter) {
+                #[derive(defmt::Format)]
+                struct #name {
+                    #(
+                        #field_names: #field_types,
+                    )*
+                }
+                let proxy = #name {
+                    #(
+                        #field_names: #field_getters,
+                    )*
+                };
+                defmt::write!(f, "{}", proxy)
             }
         }
     };
