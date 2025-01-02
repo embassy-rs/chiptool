@@ -4,6 +4,8 @@ use anyhow::{bail, Context, Result};
 use chiptool::{generate, svd2ir};
 use clap::Parser;
 use log::*;
+use proc_macro2::TokenStream;
+use quote::format_ident;
 use regex::Regex;
 use std::collections::BTreeSet;
 use std::fs;
@@ -80,6 +82,11 @@ struct Generate {
     /// Transforms file path
     #[clap(long)]
     transform: Vec<String>,
+    /// Path of the `common` module.
+    ///
+    /// Defaults to `crate::common`.
+    #[clap(long)]
+    pub common_module: Option<String>,
 }
 
 /// Reformat a YAML
@@ -122,6 +129,11 @@ struct GenBlock {
     /// Output YAML path
     #[clap(short, long)]
     output: String,
+    /// Path of the `common` module.
+    ///
+    /// Defaults to `crate::common`.
+    #[clap(long)]
+    pub common_module: Option<String>,
 }
 
 fn main() -> Result<()> {
@@ -257,7 +269,12 @@ fn gen(args: Generate) -> Result<()> {
     }
 
     let generate_opts = generate::Options {
-        common_module: generate::CommonModule::Builtin,
+        common_module: args
+            .common_module
+            .map_or(generate::CommonModule::Builtin, |path| {
+                let path = parse_path(path);
+                generate::CommonModule::External(quote::quote!(#path))
+            }),
     };
     let items = generate::render(&ir, &generate_opts).unwrap();
     fs::write("lib.rs", items.to_string())?;
@@ -380,7 +397,12 @@ fn gen_block(args: GenBlock) -> Result<()> {
     chiptool::transform::sort::Sort {}.run(&mut ir).unwrap();
 
     let generate_opts = generate::Options {
-        common_module: generate::CommonModule::Builtin,
+        common_module: args
+            .common_module
+            .map_or(generate::CommonModule::Builtin, |path| {
+                let path = parse_path(path);
+                generate::CommonModule::External(quote::quote!(#path))
+            }),
     };
     let items = generate::render(&ir, &generate_opts).unwrap();
     fs::write(&args.output, items.to_string())?;
@@ -409,4 +431,9 @@ fn apply_transform<P: AsRef<std::path::Path>>(ir: &mut IR, p: P) -> anyhow::Resu
     }
 
     Ok(())
+}
+
+fn parse_path(path: String) -> TokenStream {
+    let segments = path.split("::").map(|s| format_ident!("{}", s));
+    quote::quote!(#(#segments)::*)
 }
