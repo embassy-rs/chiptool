@@ -245,6 +245,7 @@ transforms!(
     delete_fieldsets::DeleteFieldsets,
     delete_peripherals::DeletePeripherals,
     delete_registers::DeleteRegisters,
+    expand_extends::ExpandExtends,
     merge_blocks::MergeBlocks,
     merge_enums::MergeEnums,
     merge_fieldsets::MergeFieldsets,

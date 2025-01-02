@@ -17,7 +17,7 @@ pub fn render_device_x(_ir: &IR, d: &Device) -> Result<String> {
     Ok(device_x)
 }
 
-pub fn render(_opts: &super::Options, ir: &IR, d: &Device, path: &str) -> Result<TokenStream> {
+pub fn render(opts: &super::Options, ir: &IR, d: &Device, path: &str) -> Result<TokenStream> {
     let mut out = TokenStream::new();
     let span = Span::call_site();
 
@@ -77,8 +77,16 @@ pub fn render(_opts: &super::Options, ir: &IR, d: &Device, path: &str) -> Result
         }
     }
     let n = util::unsuffixed(pos as u64);
+
+    let defmt = opts.defmt_feature.as_ref().map(|defmt_feature| {
+        quote! {
+            #[cfg_attr(feature = #defmt_feature, derive(defmt::Format))]
+        }
+    });
+
     out.extend(quote!(
         #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+        #defmt
         pub enum Interrupt {
             #interrupts
         }

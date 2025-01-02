@@ -474,13 +474,11 @@ fn unique_names(names: Vec<Vec<String>>) -> BTreeMap<Vec<String>, String> {
                         prefix.push('_');
                     }
                     prefix.push_str(s);
+                } else if prefix.is_empty() {
+                    res.push(s.clone());
                 } else {
-                    if prefix.is_empty() {
-                        res.push(s.clone());
-                    } else {
-                        res.push(format!("{prefix}_{s}"));
-                        prefix = String::new()
-                    }
+                    res.push(format!("{prefix}_{s}"));
+                    prefix = String::new()
                 }
             }
             if !prefix.is_empty() {
