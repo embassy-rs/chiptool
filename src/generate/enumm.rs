@@ -10,7 +10,7 @@ use crate::util;
 
 use super::sorted;
 
-pub fn render(_opts: &super::Options, _ir: &IR, e: &Enum, path: &str) -> Result<TokenStream> {
+pub fn render(opts: &super::Options, _ir: &IR, e: &Enum, path: &str) -> Result<TokenStream> {
     let span = Span::call_site();
 
     // For very "sparse" enums, generate a newtype wrapping the uX.
@@ -50,6 +50,22 @@ pub fn render(_opts: &super::Options, _ir: &IR, e: &Enum, path: &str) -> Result<
             ));
         }
 
+        let defmt = opts.defmt_feature.as_ref().map(|defmt_feature| {
+            quote! {
+                #[cfg(feature = #defmt_feature)]
+                impl defmt::Format for #name {
+                    fn format(&self, f: defmt::Formatter) {
+                        match self.0 {
+                            #(
+                                #item_values => defmt::write!(f, #item_names_str),
+                            )*
+                            other => defmt::write!(f, "0x{:02X}", other),
+                        }
+                    }
+                }
+            }
+        });
+
         out.extend(quote! {
             #doc
             #[repr(transparent)]
@@ -81,17 +97,8 @@ pub fn render(_opts: &super::Options, _ir: &IR, e: &Enum, path: &str) -> Result<
                 }
             }
 
-            #[cfg(feature = "defmt")]
-            impl defmt::Format for #name {
-                fn format(&self, f: defmt::Formatter) {
-                    match self.0 {
-                        #(
-                            #item_values => defmt::write!("{}", #item_names_str),
-                        )*
-                        other => defmt::write!(f, "0x{:02X}", other),
-                    }
-                }
-            }
+            #defmt
+
         });
     } else {
         let variants: BTreeMap<_, _> = e.variants.iter().map(|v| (v.value, v)).collect();
@@ -114,11 +121,17 @@ pub fn render(_opts: &super::Options, _ir: &IR, e: &Enum, path: &str) -> Result<
             }
         }
 
+        let defmt = opts.defmt_feature.as_ref().map(|defmt_feature| {
+            quote! {
+                #[cfg_attr(feature = #defmt_feature, derive(defmt::Format))]
+            }
+        });
+
         out.extend(quote! {
             #doc
             #[repr(#ty)]
             #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
-            #[cfg_attr(feature = "defmt", derive(defmt::Format))]
+            #defmt
             pub enum #name {
                 #items
             }

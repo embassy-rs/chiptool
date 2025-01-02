@@ -59,21 +59,75 @@ impl Module {
     }
 }
 
+#[derive(Debug, Default)]
 pub enum CommonModule {
+    #[default]
     Builtin,
     External(TokenStream),
 }
 
+/// Options for the code generator.
+///
+/// See the individual methods for the different options you can change.
+#[derive(Debug)]
 pub struct Options {
-    pub common_module: CommonModule,
+    common_module: CommonModule,
+    defmt_feature: Option<String>,
+}
+
+impl Default for Options {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Options {
+    /// Create new options with all values set to the default.
+    ///
+    /// This will use a builtin common module,
+    /// and adds `defmt` support to the generated code gated behind a `feature = "defmt"` flag.
+    pub fn new() -> Self {
+        Self {
+            common_module: CommonModule::Builtin,
+            defmt_feature: Some("defmt".into()),
+        }
+    }
+
+    /// Get the path to the common module.
     fn common_path(&self) -> TokenStream {
         match &self.common_module {
             CommonModule::Builtin => TokenStream::from_str("crate::common").unwrap(),
             CommonModule::External(path) => path.clone(),
         }
+    }
+
+    /// Get the configuration of the common module.
+    pub fn common_module(&self) -> &CommonModule {
+        &self.common_module
+    }
+
+    /// Set the common module to use.
+    ///
+    /// Specify [`CommonModule::Builtin`] for a built-in common module,
+    /// or [`CommonModule::External`] to use an external common module.
+    pub fn with_common_module(mut self, common_module: CommonModule) -> Self {
+        self.common_module = common_module;
+        self
+    }
+
+    /// Set the feature for adding defmt support in the generated code.
+    ///
+    /// You can fully remove `defmt` support in the generated code by specifying `None`.
+    pub fn with_defmt_feature(mut self, defmt_feature: Option<String>) -> Self {
+        self.defmt_feature = defmt_feature;
+        self
+    }
+
+    /// Get the feature flag used to enable/disable `defmt` support in the generated code.
+    ///
+    /// If set to `None`, no `defmt` support will be added at all to the generated code.
+    pub fn defmt_feature(&self) -> Option<&str> {
+        self.defmt_feature.as_deref()
     }
 }
 

@@ -8,7 +8,7 @@ use crate::util;
 
 use super::sorted;
 
-pub fn render(_opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Result<TokenStream> {
+pub fn render(opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Result<TokenStream> {
     let span = Span::call_site();
     let mut items = TokenStream::new();
     let mut field_names = Vec::with_capacity(fs.fields.len());
@@ -189,6 +189,28 @@ pub fn render(_opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Res
     let name = Ident::new(name, span);
     let doc = util::doc(&fs.description);
 
+    let impl_defmt_format = opts.defmt_feature.as_ref().map(|defmt_feature| {
+        quote! {
+            #[cfg(feature = #defmt_feature)]
+            impl defmt::Format for #name {
+                fn format(&self, f: defmt::Formatter) {
+                    #[derive(defmt::Format)]
+                    struct #name {
+                        #(
+                            #field_names: #field_types,
+                        )*
+                    }
+                    let proxy = #name {
+                        #(
+                            #field_names: #field_getters,
+                        )*
+                    };
+                    defmt::write!(f, "{}", proxy)
+                }
+            }
+        }
+    });
+
     let out = quote! {
         #doc
         #[repr(transparent)]
@@ -216,23 +238,7 @@ pub fn render(_opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Res
             }
         }
 
-        #[cfg(feature = "defmt")]
-        impl defmt::Format for #name {
-            fn format(&self, f: defmt::Formatter) {
-                #[derive(defmt::Format)]
-                struct #name {
-                    #(
-                        #field_names: #field_types,
-                    )*
-                }
-                let proxy = #name {
-                    #(
-                        #field_names: #field_getters,
-                    )*
-                };
-                defmt::write!(f, "{}", proxy)
-            }
-        }
+        #impl_defmt_format
     };
 
     Ok(out)

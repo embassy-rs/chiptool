@@ -80,6 +80,19 @@ struct Generate {
     /// Transforms file path
     #[clap(long)]
     transform: Vec<String>,
+    /// Use an external `common` module.
+    #[clap(long)]
+    #[clap(value_name = "MODULE_PATH")]
+    common_module: Option<ModulePath>,
+    /// Specify the feature name used in the generated code to conditionally enable defmt support.
+    #[clap(long)]
+    #[clap(value_name = "FEATURE")]
+    #[clap(default_value = "defmt")]
+    #[clap(conflicts_with = "no_defmt")]
+    defmt_feature: String,
+    /// Do not add defmt support to the generated code at all.
+    #[clap(long)]
+    no_defmt: bool,
 }
 
 /// Reformat a YAML
@@ -122,6 +135,10 @@ struct GenBlock {
     /// Output YAML path
     #[clap(short, long)]
     output: String,
+    /// Use an external `common` module.
+    #[clap(long)]
+    #[clap(value_name = "MODULE_PATH")]
+    common_module: Option<ModulePath>,
 }
 
 fn main() -> Result<()> {
@@ -256,9 +273,17 @@ fn gen(args: Generate) -> Result<()> {
         apply_transform(&mut ir, transform)?;
     }
 
-    let generate_opts = generate::Options {
-        common_module: generate::CommonModule::Builtin,
+    let common_module = match args.common_module {
+        None => generate::CommonModule::Builtin,
+        Some(module) => generate::CommonModule::External(module.tokens()),
     };
+    let defmt_feature = match args.no_defmt {
+        true => None,
+        false => Some(args.defmt_feature),
+    };
+    let generate_opts = generate::Options::default()
+        .with_common_module(common_module)
+        .with_defmt_feature(defmt_feature);
     let items = generate::render(&ir, &generate_opts).unwrap();
     fs::write("lib.rs", items.to_string())?;
 
@@ -379,9 +404,11 @@ fn gen_block(args: GenBlock) -> Result<()> {
     // Ensure consistent sort order in the YAML.
     chiptool::transform::sort::Sort {}.run(&mut ir).unwrap();
 
-    let generate_opts = generate::Options {
-        common_module: generate::CommonModule::Builtin,
+    let common_module = match args.common_module {
+        None => generate::CommonModule::Builtin,
+        Some(module) => generate::CommonModule::External(module.tokens()),
     };
+    let generate_opts = generate::Options::default().with_common_module(common_module);
     let items = generate::render(&ir, &generate_opts).unwrap();
     fs::write(&args.output, items.to_string())?;
 
@@ -409,4 +436,45 @@ fn apply_transform<P: AsRef<std::path::Path>>(ir: &mut IR, p: P) -> anyhow::Resu
     }
 
     Ok(())
+}
+
+/// Struct holding a valid module path as a string.
+///
+/// Implements `FromStr` so it can be used directly as command line argument.
+#[derive(Clone)]
+struct ModulePath {
+    path: String,
+}
+
+impl ModulePath {
+    /// Get the module path as a TokenStream.
+    fn tokens(&self) -> proc_macro2::TokenStream {
+        self.path.parse().unwrap()
+    }
+}
+
+impl std::str::FromStr for ModulePath {
+    type Err = anyhow::Error;
+
+    fn from_str(data: &str) -> Result<Self, Self::Err> {
+        data.parse::<proc_macro2::TokenStream>()
+            .map_err(|e| anyhow::anyhow!("{e}"))?;
+
+        for (i, component) in data.split("::").enumerate() {
+            if component.is_empty() && i != 0 {
+                anyhow::bail!("path components can not be empty")
+            }
+            for (i, c) in component.chars().enumerate() {
+                if c.is_alphabetic() || c == '_' {
+                    continue;
+                }
+                if i > 0 && c.is_alphanumeric() {
+                    continue;
+                }
+                anyhow::bail!("path components may only consist of letters, digits and underscore")
+            }
+        }
+
+        Ok(Self { path: data.into() })
+    }
 }
