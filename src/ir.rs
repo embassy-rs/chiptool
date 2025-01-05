@@ -215,6 +215,9 @@ pub struct Field {
     pub bit_size: u32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub array: Option<Array>,
+    /// The names of the individual array elements.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub array_names: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "enum")]
     pub enumm: Option<String>,
 }

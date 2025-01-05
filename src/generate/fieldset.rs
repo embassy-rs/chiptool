@@ -69,12 +69,21 @@ pub fn render(opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Resu
         }
 
         if let Some(array) = &f.array {
-            for i in 0..array.len() {
-                let debug_name = format!("{}{i}", f.name);
-                field_names.push(proc_macro2::Ident::new(&debug_name, span));
-                field_names_str.push(debug_name);
-                field_types.push(field_ty.clone());
-                field_getters.push(quote!(self.#name(#i)));
+            if !f.array_names.is_empty() {
+                for (i, field_name) in f.array_names.iter().enumerate() {
+                    field_names.push(proc_macro2::Ident::new(&field_name, span));
+                    field_names_str.push(field_name.clone());
+                    field_types.push(field_ty.clone());
+                    field_getters.push(quote!(self.#name(#i)));
+                }
+            } else {
+                for i in 0..array.len() {
+                    let debug_name = format!("{}{i}", f.name);
+                    field_names.push(proc_macro2::Ident::new(&debug_name, span));
+                    field_names_str.push(debug_name);
+                    field_types.push(field_ty.clone());
+                    field_getters.push(quote!(self.#name(#i)));
+                }
             }
         } else {
             field_names.push(name.clone());

@@ -36,6 +36,7 @@ impl FixRegisterBitSizes {
                                             description: None,
                                             enumm: None,
                                             array: None,
+                                            array_names: Vec::new(),
                                         }],
                                         description: None,
                                         extends: None,
