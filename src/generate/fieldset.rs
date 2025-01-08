@@ -1,6 +1,6 @@
 use anyhow::Result;
 use proc_macro2::TokenStream;
-use proc_macro2::{Ident, Literal, Span};
+use proc_macro2::{Ident, Span};
 use quote::quote;
 
 use crate::ir::*;
@@ -12,7 +12,6 @@ pub fn render(opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Resu
     let span = Span::call_site();
     let mut items = TokenStream::new();
     let mut field_names = Vec::with_capacity(fs.fields.len());
-    let mut field_names_str = Vec::with_capacity(fs.fields.len());
     let mut field_getters = Vec::with_capacity(fs.fields.len());
     let mut field_types = Vec::with_capacity(fs.fields.len());
 
@@ -69,25 +68,24 @@ pub fn render(opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Resu
         }
 
         if let Some(array) = &f.array {
+            // If the original field names are available, use them for the Debug/defmt::Format impls.
             if !f.array_names.is_empty() {
                 for (i, field_name) in f.array_names.iter().enumerate() {
-                    field_names.push(proc_macro2::Ident::new(&field_name, span));
-                    field_names_str.push(field_name.clone());
+                    field_names.push(field_name.clone());
                     field_types.push(field_ty.clone());
                     field_getters.push(quote!(self.#name(#i)));
                 }
+            // Otherwise use array indexing in field names: "field[0]"
             } else {
                 for i in 0..array.len() {
-                    let debug_name = format!("{}{i}", f.name);
-                    field_names.push(proc_macro2::Ident::new(&debug_name, span));
-                    field_names_str.push(debug_name);
+                    let debug_name = format!("{}[{i}]", f.name);
+                    field_names.push(debug_name);
                     field_types.push(field_ty.clone());
                     field_getters.push(quote!(self.#name(#i)));
                 }
             }
         } else {
-            field_names.push(name.clone());
-            field_names_str.push(f.name.clone());
+            field_names.push(f.name.clone());
             field_types.push(field_ty.clone());
             field_getters.push(quote!(self.#name()));
         }
@@ -193,31 +191,37 @@ pub fn render(opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Resu
     }
 
     let (_, name) = super::split_path(path);
-    let name_str = {
-        let mut literal = Literal::string(name);
-        literal.set_span(span);
-        literal
-    };
+    let name_str = name;
     let name = Ident::new(name, span);
     let doc = util::doc(&fs.description);
 
     let impl_defmt_format = opts.defmt_feature.as_ref().map(|defmt_feature| {
+        let mut defmt_format_string = String::new();
+        defmt_format_string.push_str(name_str);
+        defmt_format_string.push_str(" {{");
+        for (i, (field_name, field_type)) in field_names.iter().zip(&field_types).enumerate() {
+            if i > 0 {
+                defmt_format_string.push_str(", ");
+            } else {
+                defmt_format_string.push_str(" ");
+            }
+            defmt_format_string.push_str(field_name);
+
+            if is_defmt_primitive_type(field_type) {
+                defmt_format_string.push_str(": {=");
+                defmt_format_string.push_str(&field_type.to_string());
+                defmt_format_string.push_str(":?}");
+            } else {
+                defmt_format_string.push_str(": {:?}");
+            }
+        }
+        defmt_format_string.push_str(" }}");
+
         quote! {
             #[cfg(feature = #defmt_feature)]
             impl defmt::Format for #name {
                 fn format(&self, f: defmt::Formatter) {
-                    #[derive(defmt::Format)]
-                    struct #name {
-                        #(
-                            #field_names: #field_types,
-                        )*
-                    }
-                    let proxy = #name {
-                        #(
-                            #field_names: #field_getters,
-                        )*
-                    };
-                    defmt::write!(f, "{}", proxy)
+                    defmt::write!(f, #defmt_format_string, #(#field_getters),*)
                 }
             }
         }
@@ -244,7 +248,7 @@ pub fn render(opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Resu
             fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
                 f.debug_struct(#name_str)
                 #(
-                    .field(#field_names_str, &#field_getters)
+                    .field(#field_names, &#field_getters)
                 )*
                     .finish()
             }
@@ -254,4 +258,15 @@ pub fn render(opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Resu
     };
 
     Ok(out)
+}
+
+fn is_defmt_primitive_type(ty: &TokenStream) -> bool {
+    // Supported by defmt but not included: [u8; N], [u8] and str.
+    // Parsing these types is more complicated, so we skip them.
+    // They should never occur as the field of a fieldset,
+    // so this should not be a problem.
+    let primitives = [
+        "bool", "u8", "i8", "u16", "i16", "u32", "i32", "u64", "i64", "u128", "i128", "f32", "f64",
+    ];
+    primitives.as_slice().contains(&ty.to_string().as_str())
 }
