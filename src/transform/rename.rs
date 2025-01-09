@@ -4,9 +4,25 @@ use super::common::*;
 use crate::ir::*;
 
 #[derive(Debug, Serialize, Deserialize)]
+pub enum RenameType {
+    All,
+    Device,
+    Block,
+    Fieldset,
+    Enum,
+}
+
+impl Default for RenameType {
+    fn default() -> Self {
+        RenameType::All
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Rename {
     pub from: RegexSet,
     pub to: String,
+    pub r#type: RenameType,
 }
 
 impl Rename {
@@ -17,10 +33,18 @@ impl Rename {
             }
         };
 
-        super::map_device_names(ir, renamer);
-        super::map_block_names(ir, renamer);
-        super::map_fieldset_names(ir, renamer);
-        super::map_enum_names(ir, renamer);
+        match self.r#type {
+            RenameType::All => {
+                super::map_device_names(ir, renamer);
+                super::map_block_names(ir, renamer);
+                super::map_fieldset_names(ir, renamer);
+                super::map_enum_names(ir, renamer);
+            }
+            RenameType::Device => super::map_device_names(ir, renamer),
+            RenameType::Block => super::map_block_names(ir, renamer),
+            RenameType::Fieldset => super::map_fieldset_names(ir, renamer),
+            RenameType::Enum => super::map_enum_names(ir, renamer),
+        }
 
         Ok(())
     }
