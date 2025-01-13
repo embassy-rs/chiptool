@@ -37,6 +37,7 @@ impl FixRegisterBitSizes {
                                             enumm: None,
                                             array: None,
                                         }],
+                                        reset_value: None,
                                         description: None,
                                         extends: None,
                                     };

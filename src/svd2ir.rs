@@ -18,6 +18,7 @@ struct ProtoFieldset {
     description: Option<String>,
     bit_size: u32,
     fields: Vec<svd::Field>,
+    reset_value: Option<u64>,
 }
 
 #[derive(Debug)]
@@ -56,6 +57,7 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
                         description: r.description.clone(),
                         bit_size: r.properties.size.unwrap_or(32),
                         fields: fields.clone(),
+                        reset_value: r.properties.reset_value,
                     });
 
                     for f in fields {
@@ -264,6 +266,7 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
             extends: None,
             description: proto.description.clone(),
             bit_size: proto.bit_size,
+            reset_value: proto.reset_value,
             fields: Vec::new(),
         };
 

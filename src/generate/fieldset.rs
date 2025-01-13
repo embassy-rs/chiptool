@@ -211,6 +211,7 @@ pub fn render(opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Resu
         }
     });
 
+    let reset_value = fs.reset_value.unwrap_or_default();
     let out = quote! {
         #doc
         #[repr(transparent)]
@@ -224,7 +225,7 @@ pub fn render(opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Resu
         impl Default for #name {
             #[inline(always)]
             fn default() -> #name {
-                #name(0)
+                #name(#reset_value as #ty)
             }
         }
 

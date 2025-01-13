@@ -151,6 +151,7 @@ pub struct FieldSet {
     #[serde(default = "default_32", skip_serializing_if = "is_32")]
     pub bit_size: u32,
     pub fields: Vec<Field>,
+    pub reset_value: Option<u64>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Eq)]
