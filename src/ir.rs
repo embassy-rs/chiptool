@@ -321,7 +321,7 @@ impl<'de> Visitor<'de> for IRVisitor {
         // into our map.
         while let Some(key) = access.next_key()? {
             let key: String = key;
-            let (kind, name) = key.split_once('/').ok_or(de::Error::custom("item names must be in form `kind/name`, where kind is `block`, `fieldset` or `enum`"))?;
+            let (kind, name) = key.split_once('/').ok_or(de::Error::custom("item names must be in form `kind/name`, where kind is `block`, `fieldset` `enum` or `device`"))?;
             match kind {
                 "block" => {
                     let val: Block = access.next_value()?;
@@ -338,6 +338,12 @@ impl<'de> Visitor<'de> for IRVisitor {
                 "enum" => {
                     let val: Enum = access.next_value()?;
                     if ir.enums.insert(name.to_string(), val).is_some() {
+                        return Err(de::Error::custom(format!("Duplicate item {:?}", key)));
+                    }
+                }
+                "device" => {
+                    let val: Device = access.next_value()?;
+                    if ir.devices.insert(name.to_string(), val).is_some() {
                         return Err(de::Error::custom(format!("Duplicate item {:?}", key)));
                     }
                 }
