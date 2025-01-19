@@ -242,6 +242,7 @@ transforms!(
     delete_enums_with_variants::DeleteEnumsWithVariants,
     delete_enums_used_in::DeleteEnumsUsedIn,
     delete_useless_enums::DeleteUselessEnums,
+    delete_fields::DeleteFields,
     delete_fieldsets::DeleteFieldsets,
     delete_peripherals::DeletePeripherals,
     delete_registers::DeleteRegisters,
