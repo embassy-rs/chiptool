@@ -237,6 +237,7 @@ transforms!(
     sanitize::Sanitize,
     sort::Sort,
     add::Add,
+    add_interrupts::AddInterrupts,
     delete::Delete,
     delete_enums::DeleteEnums,
     delete_enums_with_variants::DeleteEnumsWithVariants,
