@@ -48,6 +48,7 @@ const USELESS_ZERO_NAMES: &[&str] = &[
     "disconnected",
     "not_detected",
     "invalid",
+    "no_effect",
 ];
 const USELESS_ONE_NAMES: &[&str] = &[
     "en",
@@ -62,6 +63,8 @@ const USELESS_ONE_NAMES: &[&str] = &[
     "connected",
     "detected",
     "valid",
+    "set",
+    "clr",
 ];
 
 const NOT_NAMES: &[&str] = &["not", "no", "un", "de", "in"];
