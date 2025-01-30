@@ -239,6 +239,7 @@ transforms!(
     add::Add,
     add_interrupts::AddInterrupts,
     delete::Delete,
+    delete_enum_variants::DeleteEnumVariants,
     delete_enums::DeleteEnums,
     delete_enums_with_variants::DeleteEnumsWithVariants,
     delete_enums_used_in::DeleteEnumsUsedIn,
