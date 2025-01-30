@@ -255,6 +255,7 @@ transforms!(
     rename_fields::RenameFields,
     rename_registers::RenameRegisters,
     rename_enum_variants::RenameEnumVariants,
+    resize_enums::ResizeEnums,
     make_register_array::MakeRegisterArray,
     make_field_array::MakeFieldArray,
     make_block::MakeBlock,
