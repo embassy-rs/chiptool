@@ -70,7 +70,7 @@ pub fn render(opts: &super::Options, _ir: &IR, e: &Enum, path: &str) -> Result<T
             #doc
             #[repr(transparent)]
             #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
-            pub struct #name (pub #ty);
+            pub struct #name (#ty);
 
             impl #name {
                 #items
@@ -98,7 +98,6 @@ pub fn render(opts: &super::Options, _ir: &IR, e: &Enum, path: &str) -> Result<T
             }
 
             #defmt
-
         });
     } else {
         let variants: BTreeMap<_, _> = e.variants.iter().map(|v| (v.value, v)).collect();
