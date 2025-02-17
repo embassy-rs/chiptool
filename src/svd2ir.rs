@@ -278,7 +278,6 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
                 bit_offset: BitOffset::Regular(f.bit_range.offset),
                 bit_size: f.bit_range.width,
                 array: None,
-                array_names: Vec::new(),
                 enumm: None,
             };
 

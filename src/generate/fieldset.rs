@@ -68,21 +68,12 @@ pub fn render(opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Resu
         }
 
         if let Some(array) = &f.array {
-            // If the original field names are available, use them for the Debug/defmt::Format impls.
-            if !f.array_names.is_empty() {
-                for (i, field_name) in f.array_names.iter().enumerate() {
-                    field_names.push(field_name.clone());
-                    field_types.push(field_ty.clone());
-                    field_getters.push(quote!(self.#name(#i)));
-                }
-            // Otherwise use array indexing in field names: "field[0]"
-            } else {
-                for i in 0..array.len() {
-                    let debug_name = format!("{}[{i}]", f.name);
-                    field_names.push(debug_name);
-                    field_types.push(field_ty.clone());
-                    field_getters.push(quote!(self.#name(#i)));
-                }
+            // Print array fields using array indexing: "field[0]"
+            for i in 0..array.len() {
+                let debug_name = format!("{}[{i}]", f.name);
+                field_names.push(debug_name);
+                field_types.push(field_ty.clone());
+                field_getters.push(quote!(self.#name(#i)));
             }
         } else {
             field_names.push(f.name.clone());

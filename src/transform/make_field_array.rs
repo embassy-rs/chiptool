@@ -62,7 +62,6 @@ impl MakeFieldArray {
                     self.mode,
                 )?;
 
-                let item_names = items.iter().map(|x| x.name.clone()).collect();
                 let mut item = items[0].clone();
 
                 // Remove all
@@ -71,7 +70,6 @@ impl MakeFieldArray {
                 // Create the new array item
                 item.name = to;
                 item.array = Some(array);
-                item.array_names = item_names;
                 item.bit_offset = BitOffset::Regular(offset);
                 b.fields.push(item);
             }
