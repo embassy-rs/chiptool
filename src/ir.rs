@@ -251,6 +251,7 @@ fn is_readwrite(x: &Access) -> bool {
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum Kind {
+    Device,
     Block,
     Fieldset,
     Enum,
@@ -266,6 +267,9 @@ impl Serialize for IR {
         // - Easier diffing between yamls
         // - No spurious changes when roundtripping
         let mut entries = Vec::new();
+        for name in self.devices.keys() {
+            entries.push((Kind::Device, name));
+        }
         for name in self.blocks.keys() {
             entries.push((Kind::Block, name));
         }
@@ -281,6 +285,12 @@ impl Serialize for IR {
         let mut map = serializer.serialize_map(Some(entries.len()))?;
         for (kind, name) in entries {
             match kind {
+                Kind::Device => {
+                    map.serialize_entry(
+                        &format!("device/{}", name),
+                        self.devices.get(name).unwrap(),
+                    )?;
+                }
                 Kind::Block => {
                     map.serialize_entry(
                         &format!("block/{}", name),
@@ -321,8 +331,14 @@ impl<'de> Visitor<'de> for IRVisitor {
         // into our map.
         while let Some(key) = access.next_key()? {
             let key: String = key;
-            let (kind, name) = key.split_once('/').ok_or(de::Error::custom("item names must be in form `kind/name`, where kind is `block`, `fieldset` or `enum`"))?;
+            let (kind, name) = key.split_once('/').ok_or(de::Error::custom("item names must be in form `kind/name`, where kind is `block`, `device`, `fieldset` or `enum`"))?;
             match kind {
+                "device" => {
+                    let val: Device = access.next_value()?;
+                    if ir.devices.insert(name.to_string(), val).is_some() {
+                        return Err(de::Error::custom(format!("Duplicate item {:?}", key)));
+                    }
+                }
                 "block" => {
                     let val: Block = access.next_value()?;
                     if ir.blocks.insert(name.to_string(), val).is_some() {
