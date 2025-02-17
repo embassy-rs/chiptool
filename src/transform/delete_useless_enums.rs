@@ -49,6 +49,7 @@ const USELESS_ZERO_NAMES: &[&str] = &[
     "not_detected",
     "invalid",
     "no_effect",
+    "passthru",
 ];
 const USELESS_ONE_NAMES: &[&str] = &[
     "en",
