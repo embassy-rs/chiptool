@@ -14,7 +14,12 @@ pub fn render(opts: &super::Options, _ir: &IR, e: &Enum, path: &str) -> Result<T
     let span = Span::call_site();
 
     // For very "sparse" enums, generate a newtype wrapping the uX.
-    let newtype = e.bit_size > 8 || (e.variants.len() < 6 && e.bit_size > 4);
+    // In particular, we generate a newtype if:
+    // - there'd be 100 or more "reserved" cases, AND
+    // - there'd be 50% or more "reserved" cases.
+    let variant_count = e.variants.len() as u64;
+    let reserved_count = (1u64 << e.bit_size) - variant_count;
+    let newtype = reserved_count >= 100 && reserved_count >= variant_count;
 
     let ty = match e.bit_size {
         1..=8 => quote!(u8),
