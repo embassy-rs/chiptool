@@ -152,6 +152,8 @@ pub fn render(ir: &IR, opts: &Options) -> Result<TokenStream> {
     );
 
     root.items.extend(quote!(
+        #![allow(non_camel_case_types)]
+        #![allow(non_snake_case)]
         #![no_std]
         #![doc=#doc]
     ));
