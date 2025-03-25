@@ -93,6 +93,9 @@ struct Generate {
     /// Do not add defmt support to the generated code at all.
     #[clap(long)]
     no_defmt: bool,
+
+    #[clap(long)]
+    target: Option<generate::Target>,
 }
 
 /// Reformat a YAML
@@ -281,9 +284,17 @@ fn gen(args: Generate) -> Result<()> {
         true => None,
         false => Some(args.defmt_feature),
     };
+
+    let target = match args.target {
+        None => generate::Target::CortexM,
+        Some(target) => target,
+    };
+
     let generate_opts = generate::Options::default()
         .with_common_module(common_module)
-        .with_defmt_feature(defmt_feature);
+        .with_defmt_feature(defmt_feature)
+        .with_target(target);
+
     let items = generate::render(&ir, &generate_opts).unwrap();
     fs::write("lib.rs", items.to_string())?;
 
