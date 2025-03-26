@@ -67,12 +67,14 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
                         let mut enum_write = None;
                         let mut enum_readwrite = None;
 
+                        let field_name = util::replace_suffix(&f.name, "");
+
                         for e in &f.enumerated_values {
                             let e = if let Some(derived_from) = &e.derived_from {
                                 let Some(e) = enum_from_name.get(derived_from.as_str()) else {
                                     warn!(
                                         "unknown enum to derive from ({} -> {})",
-                                        f.name, derived_from
+                                        field_name, derived_from
                                     );
                                     continue;
                                 };
@@ -148,7 +150,7 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
                             };
 
                             let mut name = fieldset_name.clone();
-                            name.push(f.name.clone());
+                            name.push(field_name);
                             enums.push(ProtoEnum {
                                 name,
                                 bit_size: f.bit_range.width,
@@ -272,18 +274,29 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
                 warn!("unsupported derived_from in fieldset");
             }
 
+            let array = if let svd::Field::Array(_, dim) = f {
+                Some(Array::Regular(RegularArray {
+                    len: dim.dim,
+                    stride: dim.dim_increment,
+                }))
+            } else {
+                None
+            };
+
+            let field_name = util::replace_suffix(&f.name, "");
+
             let mut field = Field {
-                name: f.name.clone(),
+                name: field_name.clone(),
                 description: f.description.clone(),
                 bit_offset: BitOffset::Regular(f.bit_range.offset),
                 bit_size: f.bit_range.width,
-                array: None,
+                array,
                 enumm: None,
             };
 
             if !f.enumerated_values.is_empty() {
                 let mut enum_name = proto.name.clone();
-                enum_name.push(f.name.clone());
+                enum_name.push(field_name);
 
                 trace!("finding enum {:?}", enum_name);
                 let enum_name = enum_names.get(&enum_name).unwrap().clone();
