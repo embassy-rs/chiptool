@@ -97,7 +97,7 @@ pub fn render(opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Resu
                         }
                         #doc
                         #[inline(always)]
-                        pub fn #name_set(&mut self, n: usize, val: #field_ty) {
+                        pub const fn #name_set(&mut self, n: usize, val: #field_ty) {
                             assert!(n < #len);
                             let offs = #off_in_reg + #offs_expr;
                             self.0 = (self.0 & !(#mask << offs)) | (((#to_bits) & #mask) << offs);
@@ -113,7 +113,7 @@ pub fn render(opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Resu
                         }
                         #doc
                         #[inline(always)]
-                        pub fn #name_set(&mut self, val: #field_ty) {
+                        pub const fn #name_set(&mut self, val: #field_ty) {
                             self.0 = (self.0 & !(#mask << #off_in_reg)) | (((#to_bits) & #mask) << #off_in_reg);
                         }
                     ));
@@ -155,7 +155,7 @@ pub fn render(opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Resu
                         }
                         #doc
                         #[inline(always)]
-                        pub fn #name_set(&mut self, n: usize, val: #field_ty) {
+                        pub const fn #name_set(&mut self, n: usize, val: #field_ty) {
                             assert!(n < #len);
                             #( let offs = #off_in_reg + #offs_expr;
                                self.0 = (self.0 & !(#mask << offs)) | (((#to_bits >> #off_in_val) & #mask) << offs); )*;
@@ -172,7 +172,7 @@ pub fn render(opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Resu
                         }
                         #doc
                         #[inline(always)]
-                        pub fn #name_set(&mut self, val: #field_ty) {
+                        pub const fn #name_set(&mut self, val: #field_ty) {
                            #( self.0 = (self.0 & !(#mask << #off_in_reg)) | (((#to_bits >> #off_in_val) & #mask) << #off_in_reg); )*;
                         }
                     ))
