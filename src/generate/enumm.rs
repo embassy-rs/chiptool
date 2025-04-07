@@ -6,7 +6,7 @@ use proc_macro2::{Ident, Span};
 use quote::quote;
 
 use crate::ir::*;
-use crate::util;
+use crate::util::{self, StringExt};
 
 use super::sorted;
 
@@ -109,7 +109,7 @@ pub fn render(opts: &super::Options, _ir: &IR, e: &Enum, path: &str) -> Result<T
         let mut items = TokenStream::new();
         for val in 0..(1 << e.bit_size) {
             if let Some(f) = variants.get(&val) {
-                let name = Ident::new(&f.name, span);
+                let name = Ident::new(&f.name.to_sanitized_pascal_case(), span);
                 let value = util::hex(f.value);
                 let doc = util::doc(&f.description);
                 items.extend(quote!(
