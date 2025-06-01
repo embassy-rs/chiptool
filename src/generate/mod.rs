@@ -72,7 +72,18 @@ pub enum CommonModule {
 #[derive(Debug)]
 pub struct Options {
     common_module: CommonModule,
-    defmt_feature: Option<String>,
+    defmt: DefmtOption,
+}
+
+/// Option for generating code for `defmt` support.
+#[derive(Debug, Clone)]
+pub enum DefmtOption {
+    /// No code referencing `defmt` will be generated.
+    Disabled,
+    /// Support for `defmt` will be gated behind this feature.
+    Feature(String),
+    /// Support for `defmt` will be included unconditionally.
+    Enabled,
 }
 
 impl Default for Options {
@@ -89,7 +100,7 @@ impl Options {
     pub fn new() -> Self {
         Self {
             common_module: CommonModule::Builtin,
-            defmt_feature: Some("defmt".into()),
+            defmt: DefmtOption::Feature("defmt".to_owned()),
         }
     }
 
@@ -115,19 +126,15 @@ impl Options {
         self
     }
 
-    /// Set the feature for adding defmt support in the generated code.
-    ///
-    /// You can fully remove `defmt` support in the generated code by specifying `None`.
-    pub fn with_defmt_feature(mut self, defmt_feature: Option<String>) -> Self {
-        self.defmt_feature = defmt_feature;
+    /// Set the option for adding defmt support in the generated code.
+    pub fn with_defmt(mut self, defmt: DefmtOption) -> Self {
+        self.defmt = defmt;
         self
     }
 
-    /// Get the feature flag used to enable/disable `defmt` support in the generated code.
-    ///
-    /// If set to `None`, no `defmt` support will be added at all to the generated code.
-    pub fn defmt_feature(&self) -> Option<&str> {
-        self.defmt_feature.as_deref()
+    /// Get the option for adding `defmt` support in the generated code.
+    pub fn defmt(&self) -> &DefmtOption {
+        &self.defmt
     }
 }
 
@@ -252,4 +259,29 @@ where
     let mut v = v.into_iter().collect::<Vec<_>>();
     v.sort_by_key(|&(k, v)| by(k, v));
     v
+}
+
+fn with_defmt_cfg<F>(defmt: &DefmtOption, f: F) -> Option<TokenStream>
+where
+    F: FnOnce() -> TokenStream,
+{
+    match defmt {
+        DefmtOption::Disabled => None,
+        DefmtOption::Feature(feature) => {
+            let body = f();
+            Some(quote! {
+                #[cfg(feature = #feature)]
+                #body
+            })
+        }
+        DefmtOption::Enabled => Some(f()),
+    }
+}
+
+fn with_defmt_cfg_attr(defmt: &DefmtOption, attr: TokenStream) -> Option<TokenStream> {
+    match defmt {
+        DefmtOption::Disabled => None,
+        DefmtOption::Feature(feature) => Some(quote! { #[cfg_attr(feature = #feature, #attr)] }),
+        DefmtOption::Enabled => Some(quote! { #[#attr] }),
+    }
 }

@@ -80,19 +80,8 @@ struct Generate {
     /// Transforms file path
     #[clap(long)]
     transform: Vec<String>,
-    /// Use an external `common` module.
-    #[clap(long)]
-    #[clap(value_name = "MODULE_PATH")]
-    common_module: Option<ModulePath>,
-    /// Specify the feature name used in the generated code to conditionally enable defmt support.
-    #[clap(long)]
-    #[clap(value_name = "FEATURE")]
-    #[clap(default_value = "defmt")]
-    #[clap(conflicts_with = "no_defmt")]
-    defmt_feature: String,
-    /// Do not add defmt support to the generated code at all.
-    #[clap(long)]
-    no_defmt: bool,
+    #[clap(flatten)]
+    gen_shared: GenShared,
 }
 
 /// Reformat a YAML
@@ -132,13 +121,33 @@ struct GenBlock {
     /// Input YAML path
     #[clap(short, long)]
     input: String,
-    /// Output YAML path
+    /// Output Rust code path
     #[clap(short, long)]
     output: String,
+    #[clap(flatten)]
+    gen_shared: GenShared,
+}
+
+#[derive(Parser)]
+struct GenShared {
     /// Use an external `common` module.
     #[clap(long)]
     #[clap(value_name = "MODULE_PATH")]
     common_module: Option<ModulePath>,
+    /// Specify the feature name used in the generated code to conditionally enable defmt support.
+    #[clap(long)]
+    #[clap(value_name = "FEATURE")]
+    #[clap(default_value = "defmt")]
+    #[clap(conflicts_with = "no_defmt")]
+    #[clap(conflicts_with = "yes_defmt")]
+    defmt_feature: String,
+    /// Do not add defmt support to the generated code at all.
+    #[clap(long)]
+    #[clap(conflicts_with = "yes_defmt")]
+    no_defmt: bool,
+    /// Add defmt support to the generated code unconditionally.
+    #[clap(long)]
+    yes_defmt: bool,
 }
 
 fn main() -> Result<()> {
@@ -273,17 +282,7 @@ fn gen(args: Generate) -> Result<()> {
         apply_transform(&mut ir, transform)?;
     }
 
-    let common_module = match args.common_module {
-        None => generate::CommonModule::Builtin,
-        Some(module) => generate::CommonModule::External(module.tokens()),
-    };
-    let defmt_feature = match args.no_defmt {
-        true => None,
-        false => Some(args.defmt_feature),
-    };
-    let generate_opts = generate::Options::default()
-        .with_common_module(common_module)
-        .with_defmt_feature(defmt_feature);
+    let generate_opts = get_generate_opts(args.gen_shared)?;
     let items = generate::render(&ir, &generate_opts).unwrap();
     fs::write("lib.rs", items.to_string())?;
 
@@ -404,16 +403,13 @@ fn gen_block(args: GenBlock) -> Result<()> {
     // Ensure consistent sort order in the YAML.
     chiptool::transform::sort::Sort {}.run(&mut ir).unwrap();
 
-    let common_module = match args.common_module {
-        None => generate::CommonModule::Builtin,
-        Some(module) => generate::CommonModule::External(module.tokens()),
-    };
-    let generate_opts = generate::Options::default().with_common_module(common_module);
+    let generate_opts = get_generate_opts(args.gen_shared)?;
     let items = generate::render(&ir, &generate_opts).unwrap();
     fs::write(&args.output, items.to_string())?;
 
     Ok(())
 }
+
 #[derive(Default, serde::Serialize, serde::Deserialize)]
 struct Config {
     #[serde(default)]
@@ -477,4 +473,23 @@ impl std::str::FromStr for ModulePath {
 
         Ok(Self { path: data.into() })
     }
+}
+
+fn get_generate_opts(args: GenShared) -> Result<generate::Options> {
+    let common_module = match args.common_module {
+        None => generate::CommonModule::Builtin,
+        Some(module) => generate::CommonModule::External(module.tokens()),
+    };
+
+    let defmt = match (args.no_defmt, args.yes_defmt) {
+        (true, false) => generate::DefmtOption::Disabled,
+        (false, true) => generate::DefmtOption::Enabled,
+        (false, false) => generate::DefmtOption::Feature(args.defmt_feature),
+        (true, true) => bail!("--no-defmt and --yes-defmt are mutually exclusive"),
+    };
+
+    let opts = generate::Options::default()
+        .with_common_module(common_module)
+        .with_defmt(defmt);
+    Ok(opts)
 }

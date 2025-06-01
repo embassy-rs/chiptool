@@ -7,7 +7,7 @@ use quote::quote;
 use crate::ir::*;
 use crate::util::{self, StringExt};
 
-use super::sorted;
+use super::{sorted, with_defmt_cfg_attr};
 
 pub fn render_device_x(_ir: &IR, d: &Device) -> Result<String> {
     let mut device_x = String::new();
@@ -78,15 +78,11 @@ pub fn render(opts: &super::Options, ir: &IR, d: &Device, path: &str) -> Result<
     }
     let n = util::unsuffixed(pos as u64);
 
-    let defmt = opts.defmt_feature.as_ref().map(|defmt_feature| {
-        quote! {
-            #[cfg_attr(feature = #defmt_feature, derive(defmt::Format))]
-        }
-    });
+    let derive_defmt = with_defmt_cfg_attr(&opts.defmt, quote! { derive(defmt::Format) });
 
     out.extend(quote!(
         #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-        #defmt
+        #derive_defmt
         pub enum Interrupt {
             #interrupts
         }
