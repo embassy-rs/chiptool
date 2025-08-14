@@ -14,7 +14,7 @@ proc-macro2 = "1.0"
 anyhow = "1.0.79"
 regex = "1.10.3"
 serde = { version = "1.0.196", features = [ "derive" ]}
-svd-parser = { git = "https://github.com/Dirbaio/svd.git", rev = "4d5c96f95b32acf9c9bfbda5a0619a2374475fe7", features = ["derive-from", "expand"] }
+svd-parser = { git = "https://github.com/Dirbaio/svd.git", rev = "04f062be3490dcc6d042e0dbec57b32d1bd6fa1c", features = ["derive-from", "expand"] }
 #svd-parser = { path = "./svd/svd-parser", features = ["derive-from", "expand"] }
 # Development has stopped for `serde_yaml`
 serde_yaml = "=0.9.34-deprecated"
