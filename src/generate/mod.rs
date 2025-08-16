@@ -66,6 +66,13 @@ pub enum CommonModule {
     External(TokenStream),
 }
 
+#[derive(clap::ValueEnum, Debug, Default, Clone, Copy, PartialEq)]
+pub enum Target {
+    #[default]
+    CortexM,
+    Riscv,
+}
+
 /// Options for the code generator.
 ///
 /// See the individual methods for the different options you can change.
@@ -73,6 +80,7 @@ pub enum CommonModule {
 pub struct Options {
     common_module: CommonModule,
     defmt_feature: Option<String>,
+    target: Target,
 }
 
 impl Default for Options {
@@ -90,6 +98,7 @@ impl Options {
         Self {
             common_module: CommonModule::Builtin,
             defmt_feature: Some("defmt".into()),
+            target: Target::default(),
         }
     }
 
@@ -128,6 +137,12 @@ impl Options {
     /// If set to `None`, no `defmt` support will be added at all to the generated code.
     pub fn defmt_feature(&self) -> Option<&str> {
         self.defmt_feature.as_deref()
+    }
+
+    /// Select what kind fo target to generate code for.
+    pub fn with_target(mut self, target: Target) -> Self {
+        self.target = target;
+        self
     }
 }
 
