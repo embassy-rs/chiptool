@@ -22,6 +22,7 @@ impl Default for RenameType {
 pub struct Rename {
     pub from: RegexSet,
     pub to: String,
+    #[serde(default)]
     pub r#type: RenameType,
 }
 
