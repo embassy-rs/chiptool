@@ -265,6 +265,7 @@ transforms!(
     make_block::MakeBlock,
     modify_byte_offset::ModifyByteOffset,
     modify_fields_enum::ModifyFieldsEnum,
+    modify_registers::ModifyRegisters,
     fix_register_bit_sizes::FixRegisterBitSizes,
     rename_interrupts::RenameInterrupts,
     rename_peripherals::RenamePeripherals,
