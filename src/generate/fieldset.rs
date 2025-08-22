@@ -6,7 +6,7 @@ use quote::quote;
 use crate::ir::*;
 use crate::util;
 
-use super::sorted;
+use super::{sorted, with_defmt_cfg};
 
 pub fn render(opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Result<TokenStream> {
     let span = Span::call_site();
@@ -190,7 +190,7 @@ pub fn render(opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Resu
     let name = Ident::new(name, span);
     let doc = util::doc(&fs.description);
 
-    let impl_defmt_format = opts.defmt_feature.as_ref().map(|defmt_feature| {
+    let impl_defmt = with_defmt_cfg(&opts.defmt, || {
         let mut defmt_format_string = String::new();
         defmt_format_string.push_str(name_str);
         defmt_format_string.push_str(" {{");
@@ -213,7 +213,6 @@ pub fn render(opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Resu
         defmt_format_string.push_str(" }}");
 
         quote! {
-            #[cfg(feature = #defmt_feature)]
             impl defmt::Format for #name {
                 fn format(&self, f: defmt::Formatter) {
                     defmt::write!(f, #defmt_format_string, #(#field_getters),*)
@@ -249,7 +248,7 @@ pub fn render(opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Resu
             }
         }
 
-        #impl_defmt_format
+        #impl_defmt
     };
 
     Ok(out)

@@ -8,7 +8,7 @@ use quote::quote;
 use crate::ir::*;
 use crate::util;
 
-use super::sorted;
+use super::{sorted, with_defmt_cfg, with_defmt_cfg_attr};
 
 pub fn render(opts: &super::Options, _ir: &IR, e: &Enum, path: &str) -> Result<TokenStream> {
     let span = Span::call_site();
@@ -55,9 +55,8 @@ pub fn render(opts: &super::Options, _ir: &IR, e: &Enum, path: &str) -> Result<T
             ));
         }
 
-        let defmt = opts.defmt_feature.as_ref().map(|defmt_feature| {
+        let impl_defmt = with_defmt_cfg(&opts.defmt, || {
             quote! {
-                #[cfg(feature = #defmt_feature)]
                 impl defmt::Format for #name {
                     fn format(&self, f: defmt::Formatter) {
                         match self.0 {
@@ -102,7 +101,7 @@ pub fn render(opts: &super::Options, _ir: &IR, e: &Enum, path: &str) -> Result<T
                 }
             }
 
-            #defmt
+            #impl_defmt
         });
     } else {
         let variants: BTreeMap<_, _> = e.variants.iter().map(|v| (v.value, v)).collect();
@@ -125,17 +124,13 @@ pub fn render(opts: &super::Options, _ir: &IR, e: &Enum, path: &str) -> Result<T
             }
         }
 
-        let defmt = opts.defmt_feature.as_ref().map(|defmt_feature| {
-            quote! {
-                #[cfg_attr(feature = #defmt_feature, derive(defmt::Format))]
-            }
-        });
+        let derive_defmt = with_defmt_cfg_attr(&opts.defmt, quote! { derive(defmt::Format) });
 
         out.extend(quote! {
             #doc
             #[repr(#ty)]
             #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
-            #defmt
+            #derive_defmt
             pub enum #name {
                 #items
             }
