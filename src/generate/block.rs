@@ -49,7 +49,7 @@ pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<T
                         #[inline(always)]
                         pub const fn #name(self, n: usize) -> #ty {
                             assert!(n < #len);
-                            unsafe { #common_path::Reg::from_ptr(self.ptr.add(#offset + #offs_expr) as _) }
+                            unsafe { #common_path::Reg::from_ptr(self.ptr.wrapping_add(#offset + #offs_expr) as _) }
                         }
                     ));
                 } else {
@@ -57,7 +57,7 @@ pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<T
                         #doc
                         #[inline(always)]
                         pub const fn #name(self) -> #ty {
-                            unsafe { #common_path::Reg::from_ptr(self.ptr.add(#offset) as _) }
+                            unsafe { #common_path::Reg::from_ptr(self.ptr.wrapping_add(#offset) as _) }
                         }
                     ));
                 }
@@ -74,7 +74,7 @@ pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<T
                         #[inline(always)]
                         pub const fn #name(self, n: usize) -> #ty {
                             assert!(n < #len);
-                            unsafe { #ty::from_ptr(self.ptr.add(#offset + #offs_expr) as _) }
+                            unsafe { #ty::from_ptr(self.ptr.wrapping_add(#offset + #offs_expr) as _) }
                         }
                     ));
                 } else {
@@ -82,7 +82,7 @@ pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<T
                         #doc
                         #[inline(always)]
                         pub const fn #name(self) -> #ty {
-                            unsafe { #ty::from_ptr(self.ptr.add(#offset) as _) }
+                            unsafe { #ty::from_ptr(self.ptr.wrapping_add(#offset) as _) }
                         }
                     ));
                 }

@@ -316,7 +316,7 @@ checksum = "5ee073c9e4cd00e28217186dbe12796d692868f432bf2e97ee73bed0c56dfa01"
 [[package]]
 name = "svd-parser"
 version = "0.14.5"
-source = "git+https://github.com/Dirbaio/svd.git?rev=4d5c96f95b32acf9c9bfbda5a0619a2374475fe7#4d5c96f95b32acf9c9bfbda5a0619a2374475fe7"
+source = "git+https://github.com/Dirbaio/svd.git?rev=04f062be3490dcc6d042e0dbec57b32d1bd6fa1c#04f062be3490dcc6d042e0dbec57b32d1bd6fa1c"
 dependencies = [
  "anyhow",
  "roxmltree",
@@ -327,7 +327,7 @@ dependencies = [
 [[package]]
 name = "svd-rs"
 version = "0.14.7"
-source = "git+https://github.com/Dirbaio/svd.git?rev=4d5c96f95b32acf9c9bfbda5a0619a2374475fe7#4d5c96f95b32acf9c9bfbda5a0619a2374475fe7"
+source = "git+https://github.com/Dirbaio/svd.git?rev=04f062be3490dcc6d042e0dbec57b32d1bd6fa1c#04f062be3490dcc6d042e0dbec57b32d1bd6fa1c"
 dependencies = [
  "once_cell",
  "regex",
