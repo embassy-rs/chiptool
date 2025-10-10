@@ -148,6 +148,10 @@ struct GenShared {
     /// Add defmt support to the generated code unconditionally.
     #[clap(long)]
     yes_defmt: bool,
+
+    /// Specify the target architecture for the generated code.
+    #[clap(long)]
+    target: Option<generate::Target>,
 }
 
 fn main() -> Result<()> {
@@ -283,6 +287,7 @@ fn gen(args: Generate) -> Result<()> {
     }
 
     let generate_opts = get_generate_opts(args.gen_shared)?;
+
     let items = generate::render(&ir, &generate_opts).unwrap();
     fs::write("lib.rs", items.to_string())?;
 
@@ -488,8 +493,16 @@ fn get_generate_opts(args: GenShared) -> Result<generate::Options> {
         (true, true) => bail!("--no-defmt and --yes-defmt are mutually exclusive"),
     };
 
+    let target = match args.target {
+        None => generate::Target::CortexM,
+        Some(target) => target,
+    };
+
+
     let opts = generate::Options::default()
         .with_common_module(common_module)
-        .with_defmt(defmt);
+        .with_defmt(defmt)
+        .with_target(target);
+
     Ok(opts)
 }
