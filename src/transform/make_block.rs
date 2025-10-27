@@ -11,6 +11,8 @@ pub struct MakeBlock {
     pub to_outer: String,
     pub to_block: String,
     pub to_inner: String,
+    #[serde(default)]
+    pub array_on_outer: bool,
 }
 
 impl MakeBlock {
@@ -42,6 +44,7 @@ impl MakeBlock {
                 // todo check they're not arrays (arrays of arrays not supported)
 
                 let byte_offset = items[0].byte_offset;
+                let array = items[0].array.clone();
 
                 let b2 = Block {
                     extends: None,
@@ -52,6 +55,9 @@ impl MakeBlock {
                             let mut i = i.clone();
                             i.name = match_expand(&i.name, &self.from, &self.to_inner).unwrap();
                             i.byte_offset -= byte_offset;
+                            if self.array_on_outer {
+                                i.array = None; // Move array to outer block
+                            }
                             i
                         })
                         .collect(),
@@ -69,7 +75,11 @@ impl MakeBlock {
                 b.items.push(BlockItem {
                     name: to,
                     description: None,
-                    array: None,
+                    array: if self.array_on_outer {
+                        array // Take array from original items
+                    } else {
+                        None
+                    },
                     byte_offset,
                     inner: BlockItemInner::Block(BlockItemBlock { block: dest }),
                 });
