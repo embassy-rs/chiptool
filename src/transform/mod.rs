@@ -241,6 +241,7 @@ transforms!(
     add_fields::AddFields,
     add_registers::AddRegisters,
     add_interrupts::AddInterrupts,
+    add_peripherals::AddPeripherals,
     delete::Delete,
     delete_enum_variants::DeleteEnumVariants,
     delete_enums::DeleteEnums,
