@@ -91,7 +91,7 @@ fn is_useless(e: &Enum) -> bool {
 
                 obvious || not
             }
-            _ => unreachable!(),
+            _ => false, // should never happen, but does happen in practice...
         },
         _ => false,
     }
