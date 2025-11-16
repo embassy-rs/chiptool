@@ -20,6 +20,12 @@ impl Sanitize {
             NameKind::Field => *p = p.to_sanitized_snake_case().to_string(),
             NameKind::EnumVariant => *p = p.to_sanitized_constant_case().to_string(),
         });
+
+        // After sanitizing names, merge duplicate enum variants with the same name and value
+        for (_, enumm) in ir.enums.iter_mut() {
+            merge_duplicate_variants(enumm);
+        }
+
         Ok(())
     }
 }
@@ -38,4 +44,31 @@ fn sanitize_path(p: &str) -> String {
         })
         .collect::<Vec<_>>()
         .join("::")
+}
+
+fn merge_duplicate_variants(enumm: &mut crate::ir::Enum) {
+    use std::collections::BTreeMap;
+
+    let mut seen: BTreeMap<(String, u64), crate::ir::EnumVariant> = BTreeMap::new();
+    let mut new_variants = Vec::new();
+
+    for v in enumm.variants.drain(..) {
+        let key = (v.name.clone(), v.value);
+
+        if let Some(existing) = seen.get_mut(&key) {
+            // Merge description if the existing one doesn't have one
+            if existing.description.is_none() && v.description.is_some() {
+                existing.description = v.description;
+            }
+        } else {
+            seen.insert(key, v);
+        }
+    }
+
+    // Collect all unique variants
+    for (_, variant) in seen {
+        new_variants.push(variant);
+    }
+
+    enumm.variants = new_variants;
 }
