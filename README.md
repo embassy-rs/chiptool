@@ -22,6 +22,10 @@ nRF5x-series microcontrollers. Other SVDs might not work quite right yet.
 cargo install --git https://github.com/embassy-rs/chiptool --locked
 ```
 
+## Safety
+
+Note that the generated PACs provide direct register access, which is technically unsafe and can cause undefined behavior if misused. Despite this, register access methods are not marked as unsafe. This is a deliberate choice to ease the development of HALs. Because the generated peripheral structs do not track ownership, it is also possible for direct usage of PACs to violate HAL ownership rules in safe Rust. Doing so can cause HAL methods to misbehave.
+
 ## Changes from svd2rust main
 
 ### No owned structs
