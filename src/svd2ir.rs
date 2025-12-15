@@ -315,10 +315,17 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
         let variants = proto
             .variants
             .iter()
-            .map(|v| EnumVariant {
-                description: v.description.clone(),
-                name: v.name.clone(),
-                value: v.value.unwrap() as _, // TODO what are variants without values used for??
+            .filter_map(|v| {
+                // A value which is default and has no defined value should be skipped.
+                if v.is_default() && v.value.is_none() {
+                    return None;
+                }
+
+                Some(EnumVariant {
+                    description: v.description.clone(),
+                    name: v.name.clone(),
+                    value: v.value.unwrap() as _, // TODO what are variants without values used for??
+                })
             })
             .collect();
 
