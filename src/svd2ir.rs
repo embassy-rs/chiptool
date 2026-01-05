@@ -64,7 +64,7 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
 
                 if let Some(fields) = &r.fields {
                     let mut fieldset_name = block.name.clone();
-                    fieldset_name.push(util::replace_suffix(&r.name, ""));
+                    fieldset_name.push(util::replace_suffix(&register_name, ""));
                     fieldsets.push(ProtoFieldset {
                         name: fieldset_name.clone(),
                         description: r.description.clone(),

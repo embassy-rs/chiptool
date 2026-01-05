@@ -46,15 +46,15 @@ pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<T
                     let (len, offs_expr, indexes) = super::process_array(array);
 
                     if let Some(indexes) = indexes {
-                        for index in indexes.iter() {
+                        for (offset, index) in indexes.iter() {
                             // TODO don't erase %s so we can position the index in the name as our overlords intended?
                             let name = Ident::new(&format!("{}_{}", i.name, index), span);
+
                             items.extend(quote!(
                                 #doc
                                 #[inline(always)]
-                                pub const fn #name(self, n: usize) -> #ty {
-                                    assert!(n < #len);
-                                    unsafe { #common_path::Reg::from_ptr(self.ptr.wrapping_add(#offset + #offs_expr) as _) }
+                                pub const fn #name(self) -> #ty {
+                                    unsafe { #common_path::Reg::from_ptr(self.ptr.wrapping_add(#offset + #offset) as _) }
                                 }
                             ));
                         }

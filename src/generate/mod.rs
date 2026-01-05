@@ -214,13 +214,19 @@ fn split_path(s: &str) -> (Vec<&str>, &str) {
     (v, n)
 }
 
-fn process_array(array: &Array) -> (usize, TokenStream, Option<Vec<String>>) {
+fn process_array(array: &Array) -> (usize, TokenStream, Option<Vec<(TokenStream, String)>>) {
     match array {
         Array::Regular(array) => {
             let len = array.len as usize;
             let stride = array.stride as usize;
             let offs_expr = quote!(n*#stride);
-            let indexes = array.indexes.clone();
+            let indexes = array.indexes.clone().map(|indexes| {
+                indexes
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, index_name)| (quote!(#i * #stride), index_name))
+                    .collect()
+            });
             (len, offs_expr, indexes)
         }
         Array::Cursed(array) => {
