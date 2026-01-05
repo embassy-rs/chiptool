@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::util::StringExt;
+use crate::{ir::BlockItemInner, util::StringExt};
 
 use super::{map_names, NameKind, IR};
 
@@ -28,6 +28,7 @@ impl Sanitize {
             rename_duplicate_variants(enumm);
         }
 
+        rename_duplicate_fieldsets(ir);
         Ok(())
     }
 }
@@ -89,6 +90,31 @@ fn rename_duplicate_variants(enumm: &mut crate::ir::Enum) {
             v.name = format!("{}_{:x}", v.name, v.value);
             // increment new name to catch cascading name collisons
             *name_counts.entry(v.name.clone()).or_insert(0) += 1;
+        }
+    }
+}
+
+fn rename_duplicate_fieldsets(ir: &mut crate::ir::IR) {
+    use std::collections::BTreeMap;
+
+    for (_name, blk) in ir.blocks.iter_mut() {
+        let mut register_name_counts: BTreeMap<String, usize> = BTreeMap::new();
+        for block_item in blk.items.iter_mut() {
+            if let BlockItemInner::Register(r) = &mut block_item.inner {
+                let name_count = register_name_counts
+                    .entry(block_item.name.clone())
+                    .or_insert(0);
+
+                *name_count += 1;
+
+                if *name_count > 1 {
+                    block_item.name = format!("{}{}", block_item.name, name_count);
+                    r.fieldset = r
+                        .fieldset
+                        .as_mut()
+                        .map(|path| format!("{}{}", path, name_count));
+                }
+            }
         }
     }
 }
