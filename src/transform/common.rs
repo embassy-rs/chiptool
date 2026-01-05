@@ -311,6 +311,7 @@ pub(crate) fn calc_array(mut offsets: Vec<u32>, mode: ArrayMode) -> anyhow::Resu
             Array::Regular(RegularArray {
                 len: offsets.len() as _,
                 stride,
+                indexes: None,
             }),
         ));
     }
@@ -328,7 +329,14 @@ pub(crate) fn calc_array(mut offsets: Vec<u32>, mode: ArrayMode) -> anyhow::Resu
         }
         ArrayMode::Holey => {
             let len = (offsets.last().unwrap() - offsets.first().unwrap()) / stride + 1;
-            Ok((start_offset, Array::Regular(RegularArray { len, stride })))
+            Ok((
+                start_offset,
+                Array::Regular(RegularArray {
+                    len,
+                    stride,
+                    indexes: None,
+                }),
+            ))
         }
     }
 }

@@ -85,7 +85,7 @@ pub fn render(opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Resu
             BitOffset::Regular(off_in_reg) => {
                 let off_in_reg = off_in_reg as usize;
                 if let Some(array) = &f.array {
-                    let (len, offs_expr) = super::process_array(array);
+                    let (len, offs_expr, _indexes) = super::process_array(array);
                     items.extend(quote!(
                         #doc
                         #[must_use]
@@ -144,7 +144,7 @@ pub fn render(opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Resu
                 }
 
                 if let Some(array) = &f.array {
-                    let (len, offs_expr) = super::process_array(array);
+                    let (len, offs_expr, _indexes) = super::process_array(array);
                     items.extend(quote!(
                         #doc
                         #[must_use]

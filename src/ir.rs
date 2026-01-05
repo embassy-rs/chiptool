@@ -113,6 +113,7 @@ impl Array {
 pub struct RegularArray {
     pub len: u32,
     pub stride: u32,
+    pub indexes: Option<Vec<String>>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

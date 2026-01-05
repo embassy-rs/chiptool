@@ -42,10 +42,24 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
     let mut enums: Vec<ProtoEnum> = Vec::new();
 
     for block in &blocks {
+        let mut register_name_counts: BTreeMap<String, usize> = BTreeMap::new();
+
         for r in &block.registers {
             if let svd::RegisterCluster::Register(r) = r {
                 if r.derived_from.is_some() {
                     continue;
+                }
+
+                let register_name_count = register_name_counts.entry(r.name.clone()).or_insert(0);
+                let mut register_name = r.name.clone();
+                *register_name_count += 1;
+                if *register_name_count > 1 {
+                    if r.is_array() {
+                        register_name = format!("{}{}", register_name, register_name_count);
+                    } else {
+                        // This will blow up in unique_names
+                        error!("Dupe Register: {register_name}");
+                    }
                 }
 
                 if let Some(fields) = &r.fields {
@@ -193,9 +207,31 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
                     };
 
                     let array = if let svd::Register::Array(_, dim) = r {
+                        let indexes = match &dim.dim_index {
+                            Some(indexes) => {
+                                // If the indexes are a range of integers treat the register as an array
+                                // TODO: Check the stop, start and finesse the accessors thusly
+                                let indexes = indexes
+                                    .iter()
+                                    .filter_map(|i| match i.parse::<usize>() {
+                                        Ok(_) => None,
+                                        Err(_) => Some(i.to_lowercase()),
+                                    })
+                                    .collect::<Vec<String>>();
+
+                                if !indexes.is_empty() {
+                                    Some(indexes.clone())
+                                } else {
+                                    None
+                                }
+                            }
+                            None => None,
+                        };
+
                         Some(Array::Regular(RegularArray {
                             len: dim.dim,
                             stride: dim.dim_increment,
+                            indexes,
                         }))
                     } else {
                         None
@@ -236,6 +272,7 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
                         Some(Array::Regular(RegularArray {
                             len: dim.dim,
                             stride: dim.dim_increment,
+                            indexes: dim.dim_index.clone(),
                         }))
                     } else {
                         None
@@ -278,6 +315,7 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
                 Some(Array::Regular(RegularArray {
                     len: dim.dim,
                     stride: dim.dim_increment,
+                    indexes: dim.dim_index.clone(),
                 }))
             } else {
                 None
