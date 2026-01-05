@@ -49,6 +49,8 @@ pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<T
                         for (array_offset, index) in indexes.iter() {
                             // TODO don't erase %s so we can position the index in the name as our overlords intended?
                             let name = Ident::new(&format!("{}_{}", i.name, index), span);
+                            let doc =
+                                util::doc(&i.description.clone().map(|s| s.replace("%s", index)));
 
                             items.extend(quote!(
                                 #doc
