@@ -4,6 +4,7 @@ use anyhow::Result;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 
+use crate::generate::Target;
 use crate::ir::*;
 use crate::util::{self, StringExt};
 
@@ -22,6 +23,7 @@ pub fn render(opts: &super::Options, ir: &IR, d: &Device, path: &str) -> Result<
     let span = Span::call_site();
 
     let mut interrupts = TokenStream::new();
+    let mut interrupt_match = TokenStream::new();
     let mut peripherals = TokenStream::new();
     let mut vectors = TokenStream::new();
     let mut names = vec![];
@@ -52,9 +54,13 @@ pub fn render(opts: &super::Options, ir: &IR, d: &Device, path: &str) -> Result<
             #[doc = #description]
             #name_uc = #value,
         });
+        interrupt_match.extend(quote!(#value => Ok(Interrupt::#name_uc),));
+
         vectors.extend(quote!(Vector { _handler: #name_uc },));
         names.push(name_uc);
     }
+
+    let max_interrupt_number = util::unsuffixed((pos - 1) as u64);
 
     for p in sorted(&d.peripherals, |p| p.base_address) {
         let name = Ident::new(&p.name, span);
@@ -86,14 +92,43 @@ pub fn render(opts: &super::Options, ir: &IR, d: &Device, path: &str) -> Result<
         pub enum Interrupt {
             #interrupts
         }
+    ));
 
-        unsafe impl cortex_m::interrupt::InterruptNumber for Interrupt {
-            #[inline(always)]
-            fn number(self) -> u16 {
-                self as u16
-            }
+    match opts.target {
+        Target::Riscv => {
+            out.extend(quote!(
+                unsafe impl riscv::InterruptNumber for Interrupt {
+                    /// Returns the number of the interrupt
+                    #[inline(always)]
+                    fn number(self) -> usize {
+                        self as usize
+                    }
+
+                    fn from_number(number: usize) -> riscv::result::Result<Self> {
+                        match number {
+                            #interrupt_match
+                            _ => Err(riscv::result::Error::InvalidVariant(number)),
+                        }
+                    }
+
+                    const MAX_INTERRUPT_NUMBER: usize = #max_interrupt_number;
+                }
+            ));
         }
+        Target::CortexM => {
+            out.extend(quote!(
+                unsafe impl cortex_m::interrupt::InterruptNumber for Interrupt {
+                    /// Returns the number of the interrupt
+                    #[inline(always)]
+                    fn number(self) -> u16 {
+                        self as u16
+                    }
+                }
+            ));
+        }
+    }
 
+    out.extend(quote!(
         #[cfg(feature = "rt")]
         mod _vectors {
             unsafe extern "C" {
@@ -124,12 +159,23 @@ pub fn render(opts: &super::Options, ir: &IR, d: &Device, path: &str) -> Result<
         });
     }
 
-    out.extend(quote! {
-        #[cfg(feature = "rt")]
-        pub use cortex_m_rt::interrupt;
-        #[cfg(feature = "rt")]
-        pub use Interrupt as interrupt;
-    });
+    match opts.target {
+        Target::CortexM => {
+            out.extend(quote! {
+                #[cfg(feature = "rt")]
+                pub use cortex_m_rt::interrupt;
+                #[cfg(feature = "rt")]
+                pub use Interrupt as interrupt;
+            });
+        }
+        Target::Riscv => {
+            // TODO: Do we need to export something from riscv_rt here?
+            out.extend(quote! {
+                #[cfg(feature = "rt")]
+                pub use Interrupt as interrupt;
+            });
+        }
+    }
 
     Ok(out)
 }
