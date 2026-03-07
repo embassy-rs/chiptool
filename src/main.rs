@@ -8,7 +8,7 @@ use regex::Regex;
 use std::collections::BTreeSet;
 use std::fs;
 use std::io::Read;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::{fs::File, io::stdout};
 use svd_parser::ValidateLevel;
 
@@ -37,13 +37,13 @@ enum Subcommand {
 struct ExtractPeripheral {
     /// SVD file path
     #[clap(long)]
-    svd: String,
+    svd: PathBuf,
     /// Peripheral from the SVD
     #[clap(long)]
     peripheral: String,
     /// Transforms file path
     #[clap(long)]
-    transform: Vec<String>,
+    transform: Vec<PathBuf>,
 }
 
 /// Extract all peripherals from SVD to YAML
@@ -51,10 +51,10 @@ struct ExtractPeripheral {
 struct ExtractAll {
     /// SVD file path
     #[clap(long)]
-    svd: String,
+    svd: PathBuf,
     /// Output directory. Each peripheral will be created as a YAML file here.
     #[clap(short, long)]
-    output: String,
+    output: PathBuf,
 }
 
 /// Apply transform to YAML
@@ -62,13 +62,13 @@ struct ExtractAll {
 struct Transform {
     /// Input YAML path
     #[clap(short, long)]
-    input: String,
+    input: PathBuf,
     /// Output YAML path
     #[clap(short, long)]
-    output: String,
+    output: PathBuf,
     /// Transforms file path
     #[clap(short, long)]
-    transform: String,
+    transform: PathBuf,
 }
 
 /// Generate a PAC directly from a SVD
@@ -76,10 +76,10 @@ struct Transform {
 struct Generate {
     /// SVD file path
     #[clap(long)]
-    svd: String,
+    svd: PathBuf,
     /// Transforms file path
     #[clap(long)]
-    transform: Vec<String>,
+    transform: Vec<PathBuf>,
     #[clap(flatten)]
     gen_shared: GenShared,
 }
@@ -88,7 +88,7 @@ struct Generate {
 #[derive(Parser)]
 struct Fmt {
     /// Peripheral file path
-    files: Vec<String>,
+    files: Vec<PathBuf>,
     /// Error if incorrectly formatted, instead of fixing.
     #[clap(long)]
     check: bool,
@@ -101,7 +101,7 @@ struct Fmt {
 #[derive(Parser)]
 struct Check {
     /// Peripheral file path
-    files: Vec<String>,
+    files: Vec<PathBuf>,
 
     #[clap(long)]
     allow_register_overlap: bool,
@@ -120,10 +120,10 @@ struct Check {
 struct GenBlock {
     /// Input YAML path
     #[clap(short, long)]
-    input: String,
+    input: PathBuf,
     /// Output Rust code path
     #[clap(short, long)]
-    output: String,
+    output: PathBuf,
     #[clap(flatten)]
     gen_shared: GenShared,
 }
@@ -166,7 +166,7 @@ fn main() -> Result<()> {
     }
 }
 
-fn load_svd(path: &str) -> Result<svd_parser::svd::Device> {
+fn load_svd(path: &Path) -> Result<svd_parser::svd::Device> {
     let xml = &mut String::new();
     File::open(path)
         .context("Cannot open the SVD file")?
@@ -355,7 +355,7 @@ fn fmt(args: Fmt) -> Result<()> {
 
         if got_data != want_data.as_bytes() {
             if args.check {
-                bail!("File {} is not correctly formatted", &file);
+                bail!("File {:?} is not correctly formatted", &file);
             } else {
                 fs::write(&file, want_data)?;
             }
@@ -381,7 +381,7 @@ fn check(args: Check) -> Result<()> {
         let errs = chiptool::validate::validate(&ir, opts.clone());
         fails += errs.len();
         for e in errs {
-            println!("{}: {}", &file, e);
+            println!("{:?}: {}", &file, e);
         }
     }
 
