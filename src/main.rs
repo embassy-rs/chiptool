@@ -2,13 +2,16 @@
 
 use anyhow::{bail, Context, Result};
 use chiptool::{generate, svd2ir};
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use log::*;
 use regex::Regex;
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 use std::collections::BTreeSet;
 use std::fs;
-use std::io::Read;
-use std::path::PathBuf;
+use std::io;
+use std::io::{Read, Write};
+use std::path::{Path, PathBuf};
 use std::{fs::File, io::stdout};
 use svd_parser::ValidateLevel;
 
@@ -32,43 +35,78 @@ enum Subcommand {
     GenBlock(GenBlock),
 }
 
-/// Extract peripheral from SVD to YAML
+/// Extract peripheral from SVD to Yaml/Toml/Json IR in stdout
 #[derive(Parser)]
 struct ExtractPeripheral {
     /// SVD file path
     #[clap(long)]
-    svd: String,
+    #[clap(value_name = "FILE")]
+    svd: PathBuf,
     /// Peripheral from the SVD
     #[clap(long)]
+    #[clap(value_name = "NAME")]
     peripheral: String,
-    /// Transforms file path
+    /// Peripheral IR format
+    #[clap(value_name = "FORMAT")]
+    #[clap(long, default_value = "yaml")]
+    peripheral_format: Format,
+    /// Transform file paths
     #[clap(long)]
-    transform: Vec<String>,
+    #[clap(value_name = "FILES")]
+    transform: Vec<PathBuf>,
+    /// Transform IR format
+    #[clap(value_name = "FORMAT")]
+    #[clap(long, default_value = "auto")]
+    transform_format: AutoFormat,
 }
 
-/// Extract all peripherals from SVD to YAML
+/// Extract all peripherals from SVD to Yaml/Toml/Json IR files
 #[derive(Parser)]
 struct ExtractAll {
     /// SVD file path
     #[clap(long)]
-    svd: String,
-    /// Output directory. Each peripheral will be created as a YAML file here.
+    #[clap(value_name = "FILE")]
+    svd: PathBuf,
+    /// Output directory. Each peripheral will be created as a Yaml/Toml/Json IR file here.
     #[clap(short, long)]
-    output: String,
+    #[clap(value_name = "DIRECTORY")]
+    output: PathBuf,
+    /// Output IR format
+    #[clap(long)]
+    #[clap(value_name = "FORMAT")]
+    #[clap(default_value = "yaml")]
+    output_format: Format,
 }
 
-/// Apply transform to YAML
+/// Apply transform to Yaml/Toml/Json IR
 #[derive(Parser)]
 struct Transform {
-    /// Input YAML path
+    /// Input IR file path
     #[clap(short, long)]
-    input: String,
-    /// Output YAML path
+    #[clap(value_name = "FILE")]
+    input: PathBuf,
+    /// Input IR format
+    #[clap(long)]
+    #[clap(value_name = "FORMAT")]
+    #[clap(default_value = "auto")]
+    input_format: AutoFormat,
+    /// Output IR file path
     #[clap(short, long)]
-    output: String,
-    /// Transforms file path
+    #[clap(value_name = "FILE")]
+    output: PathBuf,
+    /// Output IR format
+    #[clap(long)]
+    #[clap(value_name = "FORMAT")]
+    #[clap(default_value = "auto")]
+    output_format: AutoFormat,
+    /// Transform file path
     #[clap(short, long)]
-    transform: String,
+    #[clap(value_name = "FILE")]
+    transform: PathBuf,
+    /// Transform IR format
+    #[clap(value_name = "FORMAT")]
+    #[clap(long, default_value = "auto")]
+    transform_format: AutoFormat,
 }
 
 /// Generate a PAC directly from a SVD
@@ -76,19 +114,32 @@ struct Transform {
 struct Generate {
     /// SVD file path
     #[clap(long)]
-    svd: String,
-    /// Transforms file path
+    #[clap(value_name = "FILE")]
+    svd: PathBuf,
+    /// Transform file paths
     #[clap(long)]
-    transform: Vec<String>,
+    #[clap(value_name = "FILES")]
+    transform: Vec<PathBuf>,
+    /// Transform IR format
+    #[clap(value_name = "FORMAT")]
+    #[clap(long, default_value = "auto")]
+    transform_format: AutoFormat,
     #[clap(flatten)]
     gen_shared: GenShared,
 }
 
-/// Reformat a YAML
+/// Reformat Yaml/Toml/Json IR files
 #[derive(Parser)]
 struct Fmt {
-    /// Peripheral file path
-    files: Vec<String>,
+    /// Peripheral IR file paths
+    #[arg(required = true)]
+    files: Vec<PathBuf>,
+
+    /// Peripheral IR format
+    #[clap(long)]
+    #[clap(value_name = "FORMAT")]
+    #[clap(default_value = "auto")]
+    file_format: AutoFormat,
     /// Error if incorrectly formatted, instead of fixing.
     #[clap(long)]
     check: bool,
@@ -97,12 +148,18 @@ struct Fmt {
     remove_unused: bool,
 }
 
-/// Check a YAML for errors.
+/// Check Yaml/Toml/Json IR files for errors
 #[derive(Parser)]
 struct Check {
-    /// Peripheral file path
-    files: Vec<String>,
+    /// Peripheral IR file paths
+    #[arg(required = true)]
+    files: Vec<PathBuf>,
 
+    /// Peripheral IR format
+    #[clap(long)]
+    #[clap(value_name = "FORMAT")]
+    #[clap(default_value = "auto")]
+    file_format: AutoFormat,
     #[clap(long)]
     allow_register_overlap: bool,
     #[clap(long)]
@@ -115,15 +172,22 @@ struct Check {
     allow_unused_fieldsets: bool,
 }
 
-/// Generate Rust code from a YAML register block
+/// Generate Rust code from a Yaml/Toml/Json IR register block
 #[derive(Parser)]
 struct GenBlock {
-    /// Input YAML path
+    /// Input IR file path
     #[clap(short, long)]
-    input: String,
-    /// Output Rust code path
+    #[clap(value_name = "FILE")]
+    input: PathBuf,
+    /// Input IR format
+    #[clap(long)]
+    #[clap(value_name = "FORMAT")]
+    #[clap(default_value = "auto")]
+    input_format: AutoFormat,
+    /// Output Rust file path
     #[clap(short, long)]
-    output: String,
+    #[clap(value_name = "FILE")]
+    output: PathBuf,
     #[clap(flatten)]
     gen_shared: GenShared,
 }
@@ -150,6 +214,84 @@ struct GenShared {
     yes_defmt: bool,
 }
 
+#[derive(Copy, Clone, ValueEnum)]
+enum AutoFormat {
+    Auto,
+    Yaml,
+    Toml,
+    Json,
+}
+impl AutoFormat {
+    pub fn get_format(&self, path: &Path) -> Result<Format> {
+        let format = match self {
+            Self::Auto => {
+                let some_file_name = path.file_name().and_then(|x| x.to_str());
+                match some_file_name {
+                    Some(x) if x.ends_with(Format::Yaml.ext()) => Format::Yaml,
+                    Some(x) if x.ends_with(Format::Toml.ext()) => Format::Toml,
+                    Some(x) if x.ends_with(Format::Json.ext()) => Format::Json,
+                    _ => bail!("Cannot determine the format from the path {path:?}"),
+                }
+            }
+            Self::Yaml => Format::Yaml,
+            Self::Toml => Format::Toml,
+            Self::Json => Format::Json,
+        };
+        Ok(format)
+    }
+}
+
+#[derive(ValueEnum, Copy, Clone)]
+enum Format {
+    Yaml,
+    Toml,
+    Json,
+}
+impl Format {
+    pub fn ext(&self) -> &'static str {
+        match self {
+            Self::Yaml => ".yaml",
+            Self::Toml => ".toml",
+            Self::Json => ".json",
+        }
+    }
+    pub fn load_from_path<T: DeserializeOwned>(&self, path: &Path) -> Result<T> {
+        let f = File::open(path).with_context(|| format!("Cannot open the file {path:?}"))?;
+        self.load_from_reader(f)
+    }
+    pub fn load_from_reader<R: Read, T: DeserializeOwned>(&self, reader: R) -> Result<T> {
+        match self {
+            Self::Yaml => serde_yaml::from_reader(reader).context("Cannot deserialize the Yaml"),
+            Self::Toml => {
+                let s = io::read_to_string(reader).context("Cannot read the TOml")?;
+                toml::from_str(&s).context("Cannot deserialize the Toml")
+            }
+            Self::Json => serde_json::from_reader(reader).context("Cannot deserialize the Json"),
+        }
+    }
+    pub fn save_to_path<T: Serialize>(&self, path: &Path, value: &T) -> Result<()> {
+        let f = File::create(path).with_context(|| format!("Cannot create the file {path:?}"))?;
+        self.save_to_writer(f, value)
+    }
+    pub fn save_to_writer<W: Write, T: Serialize>(&self, mut writer: W, value: &T) -> Result<()> {
+        match self {
+            Self::Yaml => {
+                serde_yaml::to_writer(writer, value).context("Cannot serialize the Yaml")?
+            }
+            Self::Toml => {
+                let data = toml::to_string(value).context("Cannot serialize the Toml")?;
+                writer
+                    .write_all(data.as_bytes())
+                    .context("Cannot write the Toml")?;
+            }
+            Self::Json => {
+                serde_json::to_writer_pretty(writer, value).context("Cannot serialize the Json")?
+            }
+        }
+        Ok(())
+    }
+}
+
 fn main() -> Result<()> {
     env_logger::init();
 
@@ -166,7 +308,7 @@ fn main() -> Result<()> {
     }
 }
 
-fn load_svd(path: &str) -> Result<svd_parser::svd::Device> {
+fn load_svd(path: &Path) -> Result<svd_parser::svd::Device> {
     let xml = &mut String::new();
     File::open(path)
         .context("Cannot open the SVD file")?
@@ -180,9 +322,11 @@ fn load_svd(path: &str) -> Result<svd_parser::svd::Device> {
     Ok(device)
 }
 
-fn load_config(path: &str) -> Result<Config> {
-    let config = fs::read(path).context("Cannot read the config file")?;
-    serde_yaml::from_slice(&config).context("cannot deserialize config")
+fn load_config(path: &Path, config_format: AutoFormat) -> Result<Config> {
+    config_format
+        .get_format(path)
+        .and_then(|format| format.load_from_path(path))
+        .with_context(|| format!("Cannot read the config file {path:?}"))
 }
 
 fn extract_peripheral(args: ExtractPeripheral) -> Result<()> {
@@ -233,13 +377,13 @@ fn extract_peripheral(args: ExtractPeripheral) -> Result<()> {
     }
 
     for transform in args.transform {
-        apply_transform(&mut ir, transform)?;
+        apply_transform(&mut ir, &transform, args.transform_format)?;
     }
 
     // Ensure consistent sort order in the YAML.
     chiptool::transform::sort::Sort {}.run(&mut ir).unwrap();
 
-    serde_yaml::to_writer(stdout(), &ir).unwrap();
+    args.peripheral_format.save_to_writer(stdout(), &ir)?;
     Ok(())
 }
 
@@ -263,8 +407,9 @@ fn extract_all(args: ExtractAll) -> Result<()> {
         // Ensure consistent sort order in the YAML.
         chiptool::transform::sort::Sort {}.run(&mut ir).unwrap();
 
-        let f = File::create(PathBuf::from(&args.output).join(format!("{}.yaml", p.name)))?;
-        serde_yaml::to_writer(f, &ir).unwrap();
+        let filename = format!("{}{}", p.name, args.output_format.ext());
+        let path = args.output.join(filename);
+        args.output_format.save_to_path(&path, &ir)?;
     }
 
     Ok(())
@@ -279,7 +424,7 @@ fn gen(args: Generate) -> Result<()> {
     chiptool::transform::map_descriptions(&mut ir, |d| re.replace_all(d, " ").into_owned())?;
 
     for transform in args.transform {
-        apply_transform(&mut ir, transform)?;
+        apply_transform(&mut ir, &transform, args.transform_format)?;
     }
 
     let generate_opts = get_generate_opts(args.gen_shared)?;
@@ -293,20 +438,31 @@ fn gen(args: Generate) -> Result<()> {
 }
 
 fn transform(args: Transform) -> Result<()> {
-    let data = fs::read(&args.input)?;
-    let mut ir: IR = serde_yaml::from_slice(&data)?;
-    apply_transform(&mut ir, args.transform)?;
+    let mut ir: IR = args
+        .input_format
+        .get_format(&args.input)
+        .and_then(|format| format.load_from_path(&args.input))
+        .with_context(|| format!("Cannot load the input IR file {:?}", args.input))?;
 
-    let data = serde_yaml::to_string(&ir)?;
-    fs::write(&args.output, data.as_bytes())?;
+    apply_transform(&mut ir, &args.transform, args.transform_format)?;
+
+    args.output_format
+        .get_format(&args.output)
+        .and_then(|format| format.save_to_path(&args.output, &ir))
+        .with_context(|| format!("Cannot save the output IR file {:?}", args.output))?;
 
     Ok(())
 }
 
 fn fmt(args: Fmt) -> Result<()> {
     for file in args.files {
-        let got_data = fs::read(&file)?;
-        let mut ir: IR = serde_yaml::from_slice(&got_data)?;
+        let got_data =
+            fs::read(&file).with_context(|| format!("Cannot read the IR file {file:?}"))?;
+        let mut ir: IR = args
+            .file_format
+            .get_format(&file)
+            .and_then(|format| format.load_from_reader(got_data.as_slice()))
+            .with_context(|| format!("Cannot load the IR file {file:?}"))?;
 
         if args.remove_unused {
             let mut used_enums = BTreeSet::new();
@@ -351,11 +507,15 @@ fn fmt(args: Fmt) -> Result<()> {
             }
         }
 
-        let want_data = serde_yaml::to_string(&ir)?;
+        let mut want_data = Vec::new();
+        args.file_format
+            .get_format(&file)
+            .and_then(|format| format.save_to_writer(&mut want_data, &ir))
+            .with_context(|| format!("Cannot serialize the IR of file {file:?}"))?;
 
-        if got_data != want_data.as_bytes() {
+        if got_data != want_data.as_slice() {
             if args.check {
-                bail!("File {} is not correctly formatted", &file);
+                bail!("File {:?} is not correctly formatted", &file);
             } else {
                 fs::write(&file, want_data)?;
             }
@@ -376,12 +536,15 @@ fn check(args: Check) -> Result<()> {
     let mut fails = 0;
 
     for file in args.files {
-        let got_data = fs::read(&file)?;
-        let ir: IR = serde_yaml::from_slice(&got_data)?;
+        let ir: IR = args
+            .file_format
+            .get_format(&file)
+            .and_then(|format| format.load_from_path(&file))
+            .with_context(|| format!("Cannot load the IR file {file:?}"))?;
         let errs = chiptool::validate::validate(&ir, opts.clone());
         fails += errs.len();
         for e in errs {
-            println!("{}: {}", &file, e);
+            println!("{:?}: {}", &file, e);
         }
     }
 
@@ -393,8 +556,11 @@ fn check(args: Check) -> Result<()> {
 }
 
 fn gen_block(args: GenBlock) -> Result<()> {
-    let data = fs::read(&args.input)?;
-    let mut ir: IR = serde_yaml::from_slice(&data)?;
+    let mut ir: IR = args
+        .input_format
+        .get_format(&args.input)
+        .and_then(|format| format.load_from_path(&args.input))
+        .with_context(|| format!("Cannot load the input IR file {:?}", args.input))?;
 
     chiptool::transform::sanitize::Sanitize {}
         .run(&mut ir)
@@ -418,13 +584,13 @@ struct Config {
     transforms: Vec<chiptool::transform::Transform>,
 }
 
-fn apply_transform<P: AsRef<std::path::Path>>(ir: &mut IR, p: P) -> anyhow::Result<()> {
-    info!("applying transform {}", p.as_ref().display());
-    let config = load_config(p.as_ref().to_str().unwrap())?;
+fn apply_transform(ir: &mut IR, p: &Path, transform_format: AutoFormat) -> Result<()> {
+    info!("applying transform {:?}", p);
+    let config = load_config(p, transform_format)?;
 
     for include in &config.includes {
-        let subp = p.as_ref().parent().unwrap().join(include);
-        apply_transform(ir, subp)?;
+        let subp = p.join(include);
+        apply_transform(ir, &subp, transform_format)?;
     }
     for transform in &config.transforms {
         info!("running {:?}", transform);
