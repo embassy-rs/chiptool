@@ -16,8 +16,10 @@ regex = "1.10.3"
 serde = { version = "1.0.196", features = [ "derive" ]}
 svd-parser = { git = "https://github.com/embassy-rs/svd.git", rev = "f4f192d083946fc6227db7ac17eba8aa58bb9d4c", features = ["derive-from", "expand"] }
 #svd-parser = { path = "./svd/svd-parser", features = ["derive-from", "expand"] }
+serde_json = "1.0"
 # Development has stopped for `serde_yaml`
 serde_yaml = "=0.9.34-deprecated"
+toml = "1.0"
 
 [dev-dependencies]
 assert_cmd = "2.1"
