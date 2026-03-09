@@ -55,6 +55,9 @@ struct ExtractAll {
     /// Output directory. Each peripheral will be created as a YAML file here.
     #[clap(short, long)]
     output: String,
+    /// Transforms file path
+    #[clap(long)]
+    transform: Option<Vec<String>>,
 }
 
 /// Apply transform to YAML
@@ -206,31 +209,7 @@ fn extract_peripheral(args: ExtractPeripheral) -> Result<()> {
 
     chiptool::svd2ir::convert_peripheral(&mut ir, p)?;
 
-    // Descriptions in SVD's contain a lot of noise and weird formatting. Clean them up.
-    let description_cleanups = [
-        // Fix weird newline spam in descriptions.
-        (Regex::new("[ \n]+").unwrap(), " "),
-        // Fix weird tab and cr spam in descriptions.
-        (Regex::new("[\r\t]+").unwrap(), " "),
-        // Replace double-space (end of sentence) with period.
-        (
-            Regex::new(r"(?<first_sentence>.*?)[\s]{2}(?<next_sentence>.*)").unwrap(),
-            "$first_sentence. $next_sentence",
-        ),
-        // Make sure every description ends with a period.
-        (
-            Regex::new(r"(?<full_description>.*)(?<last_character>[\s'[^\.\s']])$").unwrap(),
-            "$full_description$last_character.",
-        ),
-        // Eliminate space characters between end of description and the closing period.
-        (
-            Regex::new(r"(?<full_description>.*)\s\.$").unwrap(),
-            "$full_description.",
-        ),
-    ];
-    for (re, rep) in description_cleanups.iter() {
-        chiptool::transform::map_descriptions(&mut ir, |d| re.replace_all(d, *rep).into_owned())?;
-    }
+    clean_up_ir(&mut ir)?;
 
     for transform in args.transform {
         apply_transform(&mut ir, transform)?;
@@ -256,27 +235,62 @@ fn extract_all(args: ExtractAll) -> Result<()> {
         let mut ir = IR::new();
         chiptool::svd2ir::convert_peripheral(&mut ir, p)?;
 
-        // Fix weird newline spam in descriptions.
-        let re = Regex::new("[ \n]+").unwrap();
-        chiptool::transform::map_descriptions(&mut ir, |d| re.replace_all(d, " ").into_owned())?;
+        clean_up_ir(&mut ir)?;
+
+        // Apply the transform when specified
+        for transform in args.transform.iter().flatten() {
+            apply_transform(&mut ir, transform).context(format!("{transform}"))?;
+        }
 
         // Ensure consistent sort order in the YAML.
         chiptool::transform::sort::Sort {}.run(&mut ir).unwrap();
 
-        let f = File::create(PathBuf::from(&args.output).join(format!("{}.yaml", p.name)))?;
+        let f = File::create(PathBuf::from(&args.output).join(format!(
+                "{}.yaml",
+                // Take the shortest block name as the file name
+                ir.blocks
+                    .keys()
+                    .reduce(|acc, val| if val.len() < acc.len() { val } else { acc })
+                    .unwrap()
+            )))?;
         serde_yaml::to_writer(f, &ir).unwrap();
     }
 
     Ok(())
 }
 
+fn clean_up_ir(ir: &mut IR) -> Result<(), anyhow::Error> {
+    let description_cleanups = [
+        // Fix weird newline spam in descriptions.
+        (Regex::new("[ \n]+").unwrap(), " "),
+        // Fix weird tab and cr spam in descriptions.
+        (Regex::new("[\r\t]+").unwrap(), " "),
+        // Replace double-space (end of sentence) with period.
+        (
+            Regex::new(r"(?<first_sentence>.*?)[\s]{2}(?<next_sentence>.*)").unwrap(),
+            "$first_sentence. $next_sentence",
+        ),
+        // Make sure every description ends with a period.
+        (
+            Regex::new(r"(?<full_description>.*)(?<last_character>[\s'[^\.\s']])$").unwrap(),
+            "$full_description$last_character.",
+        ),
+        // Eliminate space characters between end of description and the closing period.
+        (
+            Regex::new(r"(?<full_description>.*)\s\.$").unwrap(),
+            "$full_description.",
+        ),
+    ];
+    Ok(for (re, rep) in description_cleanups.iter() {
+        chiptool::transform::map_descriptions(ir, |d| re.replace_all(d, *rep).into_owned())?;
+    })
+}
+
 fn gen(args: Generate) -> Result<()> {
     let svd = load_svd(&args.svd)?;
     let mut ir = svd2ir::convert_svd(&svd)?;
 
-    // Fix weird newline spam in descriptions.
-    let re = Regex::new("[ \n]+").unwrap();
-    chiptool::transform::map_descriptions(&mut ir, |d| re.replace_all(d, " ").into_owned())?;
+    clean_up_ir(&mut ir)?;
 
     for transform in args.transform {
         apply_transform(&mut ir, transform)?;
