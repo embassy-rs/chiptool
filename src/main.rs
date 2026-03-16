@@ -30,6 +30,7 @@ enum Subcommand {
     Fmt(Fmt),
     Check(Check),
     GenBlock(GenBlock),
+    GenCommon(GenCommon),
 }
 
 /// Extract peripheral from SVD to YAML
@@ -131,6 +132,14 @@ struct GenBlock {
     gen_shared: GenShared,
 }
 
+/// Output the common.rs file
+#[derive(Parser)]
+struct GenCommon {
+    /// Output Rust code *file* path
+    #[clap(short, long)]
+    output: String,
+}
+
 #[derive(Parser)]
 struct GenShared {
     /// Use an external `common` module.
@@ -166,6 +175,7 @@ fn main() -> Result<()> {
         Subcommand::Fmt(x) => fmt(x),
         Subcommand::Check(x) => check(x),
         Subcommand::GenBlock(x) => gen_block(x),
+        Subcommand::GenCommon(x) => gen_common(x),
     }
 }
 
@@ -420,6 +430,12 @@ fn gen_block(args: GenBlock) -> Result<()> {
     let generate_opts = get_generate_opts(args.gen_shared)?;
     let items = generate::render(&ir, &generate_opts).unwrap();
     fs::write(&args.output, items.to_string())?;
+
+    Ok(())
+}
+
+fn gen_common(args: GenCommon) -> Result<()> {
+    fs::write(&args.output, generate::COMMON_MODULE)?;
 
     Ok(())
 }

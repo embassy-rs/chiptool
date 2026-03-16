@@ -13,7 +13,7 @@ use crate::ir::*;
 
 pub use device::render_device_x;
 
-pub const COMMON_MODULE: &[u8] = include_bytes!("common.rs");
+pub const COMMON_MODULE: &str = include_str!("common.rs");
 
 struct Module {
     items: TokenStream,
@@ -195,8 +195,7 @@ pub fn render(ir: &IR, opts: &Options) -> Result<TokenStream> {
 
     match &opts.common_module {
         CommonModule::Builtin => {
-            let tokens =
-                TokenStream::from_str(std::str::from_utf8(COMMON_MODULE).unwrap()).unwrap();
+            let tokens = TokenStream::from_str(COMMON_MODULE).unwrap();
 
             let module = root.get_by_path(&["common"]);
             module.items = TokenStream::new(); // Remove default contents
