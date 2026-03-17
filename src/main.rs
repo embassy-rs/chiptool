@@ -160,6 +160,9 @@ struct GenShared {
     /// Add defmt support to the generated code unconditionally.
     #[clap(long)]
     yes_defmt: bool,
+    /// Don't put a `#![no_std]` attribute on the generated files.
+    #[clap(long)]
+    skip_no_std: bool,
 }
 
 fn main() -> Result<()> {
@@ -520,6 +523,7 @@ fn get_generate_opts(args: GenShared) -> Result<generate::Options> {
 
     let opts = generate::Options::default()
         .with_common_module(common_module)
-        .with_defmt(defmt);
+        .with_defmt(defmt)
+        .with_skip_no_std(args.skip_no_std);
     Ok(opts)
 }
