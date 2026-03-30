@@ -30,6 +30,7 @@ enum Subcommand {
     Fmt(Fmt),
     Check(Check),
     GenBlock(GenBlock),
+    GenCommon(GenCommon),
 }
 
 /// Extract peripheral from SVD to YAML
@@ -55,6 +56,9 @@ struct ExtractAll {
     /// Output directory. Each peripheral will be created as a YAML file here.
     #[clap(short, long)]
     output: String,
+    /// Transforms file path
+    #[clap(long)]
+    transform: Option<Vec<String>>,
 }
 
 /// Apply transform to YAML
@@ -82,6 +86,9 @@ struct Generate {
     transform: Vec<String>,
     #[clap(flatten)]
     gen_shared: GenShared,
+    /// Output YAML path for the whole IR. Useful for debugging
+    #[clap(long)]
+    debug_ir_output: Option<PathBuf>,
 }
 
 /// Reformat a YAML
@@ -128,6 +135,14 @@ struct GenBlock {
     gen_shared: GenShared,
 }
 
+/// Output the common.rs file
+#[derive(Parser)]
+struct GenCommon {
+    /// Output Rust code *file* path
+    #[clap(short, long)]
+    output: String,
+}
+
 #[derive(Parser)]
 struct GenShared {
     /// Use an external `common` module.
@@ -148,6 +163,9 @@ struct GenShared {
     /// Add defmt support to the generated code unconditionally.
     #[clap(long)]
     yes_defmt: bool,
+    /// Don't put a `#![no_std]` attribute on the generated files.
+    #[clap(long)]
+    skip_no_std: bool,
 }
 
 fn main() -> Result<()> {
@@ -163,6 +181,7 @@ fn main() -> Result<()> {
         Subcommand::Fmt(x) => fmt(x),
         Subcommand::Check(x) => check(x),
         Subcommand::GenBlock(x) => gen_block(x),
+        Subcommand::GenCommon(x) => gen_common(x),
     }
 }
 
@@ -206,31 +225,7 @@ fn extract_peripheral(args: ExtractPeripheral) -> Result<()> {
 
     chiptool::svd2ir::convert_peripheral(&mut ir, p)?;
 
-    // Descriptions in SVD's contain a lot of noise and weird formatting. Clean them up.
-    let description_cleanups = [
-        // Fix weird newline spam in descriptions.
-        (Regex::new("[ \n]+").unwrap(), " "),
-        // Fix weird tab and cr spam in descriptions.
-        (Regex::new("[\r\t]+").unwrap(), " "),
-        // Replace double-space (end of sentence) with period.
-        (
-            Regex::new(r"(?<first_sentence>.*?)[\s]{2}(?<next_sentence>.*)").unwrap(),
-            "$first_sentence. $next_sentence",
-        ),
-        // Make sure every description ends with a period.
-        (
-            Regex::new(r"(?<full_description>.*)(?<last_character>[\s'[^\.\s']])$").unwrap(),
-            "$full_description$last_character.",
-        ),
-        // Eliminate space characters between end of description and the closing period.
-        (
-            Regex::new(r"(?<full_description>.*)\s\.$").unwrap(),
-            "$full_description.",
-        ),
-    ];
-    for (re, rep) in description_cleanups.iter() {
-        chiptool::transform::map_descriptions(&mut ir, |d| re.replace_all(d, *rep).into_owned())?;
-    }
+    clean_up_ir(&mut ir)?;
 
     for transform in args.transform {
         apply_transform(&mut ir, transform)?;
@@ -256,32 +251,72 @@ fn extract_all(args: ExtractAll) -> Result<()> {
         let mut ir = IR::new();
         chiptool::svd2ir::convert_peripheral(&mut ir, p)?;
 
-        // Fix weird newline spam in descriptions.
-        let re = Regex::new("[ \n]+").unwrap();
-        chiptool::transform::map_descriptions(&mut ir, |d| re.replace_all(d, " ").into_owned())?;
+        clean_up_ir(&mut ir)?;
+
+        // Apply the transform when specified
+        for transform in args.transform.iter().flatten() {
+            apply_transform(&mut ir, transform).context(format!("{transform}"))?;
+        }
 
         // Ensure consistent sort order in the YAML.
         chiptool::transform::sort::Sort {}.run(&mut ir).unwrap();
 
-        let f = File::create(PathBuf::from(&args.output).join(format!("{}.yaml", p.name)))?;
+        let f = File::create(PathBuf::from(&args.output).join(format!(
+                "{}.yaml",
+                // Take the shortest block name as the file name
+                ir.blocks
+                    .keys()
+                    .reduce(|acc, val| if val.len() < acc.len() { val } else { acc })
+                    .unwrap()
+            )))?;
         serde_yaml::to_writer(f, &ir).unwrap();
     }
 
     Ok(())
 }
 
-fn gen(args: Generate) -> Result<()> {
-    let svd = load_svd(&args.svd)?;
-    let mut ir = svd2ir::convert_svd(&svd)?;
+fn clean_up_ir(ir: &mut IR) -> Result<(), anyhow::Error> {
+    let description_cleanups = [
+        // Fix weird newline spam in descriptions.
+        (Regex::new("[ \n]+").unwrap(), " "),
+        // Fix weird tab and cr spam in descriptions.
+        (Regex::new("[\r\t]+").unwrap(), " "),
+        // Replace double-space (end of sentence) with period.
+        (
+            Regex::new(r"(?<first_sentence>.*?)[\s]{2}(?<next_sentence>.*)").unwrap(),
+            "$first_sentence. $next_sentence",
+        ),
+        // Make sure every description ends with a period.
+        (
+            Regex::new(r"(?<full_description>.*)(?<last_character>[\s'[^\.\s']])$").unwrap(),
+            "$full_description$last_character.",
+        ),
+        // Eliminate space characters between end of description and the closing period.
+        (
+            Regex::new(r"(?<full_description>.*)\s\.$").unwrap(),
+            "$full_description.",
+        ),
+    ];
+    Ok(for (re, rep) in description_cleanups.iter() {
+        chiptool::transform::map_descriptions(ir, |d| re.replace_all(d, *rep).into_owned())?;
+    })
+}
 
-    // Fix weird newline spam in descriptions.
-    let re = Regex::new("[ \n]+").unwrap();
-    chiptool::transform::map_descriptions(&mut ir, |d| re.replace_all(d, " ").into_owned())?;
+fn gen(args: Generate) -> Result<()> {
+    let svd = load_svd(&args.svd).context("loading svd")?;
+    let mut ir = svd2ir::convert_svd(&svd).context("converting svd")?;
+
+    clean_up_ir(&mut ir)?;
 
     for transform in args.transform {
         apply_transform(&mut ir, transform)?;
     }
 
+    if let Some(path) = args.debug_ir_output {
+        let f = File::create(&path)
+            .with_context(|| format!("creating IR output yaml at {}", path.display()))?;
+        serde_yaml::to_writer(f, &ir).context("writing IR output yaml")?;
+    }
     let generate_opts = get_generate_opts(args.gen_shared)?;
     let items = generate::render(&ir, &generate_opts).unwrap();
     fs::write("lib.rs", items.to_string())?;
@@ -410,6 +445,12 @@ fn gen_block(args: GenBlock) -> Result<()> {
     Ok(())
 }
 
+fn gen_common(args: GenCommon) -> Result<()> {
+    fs::write(&args.output, generate::COMMON_MODULE)?;
+
+    Ok(())
+}
+
 #[derive(Default, serde::Serialize, serde::Deserialize)]
 struct Config {
     #[serde(default)]
@@ -490,6 +531,7 @@ fn get_generate_opts(args: GenShared) -> Result<generate::Options> {
 
     let opts = generate::Options::default()
         .with_common_module(common_module)
-        .with_defmt(defmt);
+        .with_defmt(defmt)
+        .with_skip_no_std(args.skip_no_std);
     Ok(opts)
 }
