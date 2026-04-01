@@ -1,3 +1,4 @@
+pub mod commands;
 pub mod generate;
 pub mod ir;
 pub mod svd2ir;

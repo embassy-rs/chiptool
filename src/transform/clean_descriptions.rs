@@ -29,8 +29,11 @@ impl CleanDescriptions {
                 "$full_description.",
             ),
         ];
-        Ok(for (re, rep) in description_cleanups.iter() {
+
+        for (re, rep) in description_cleanups.iter() {
             crate::transform::map_descriptions(ir, |d| re.replace_all(d, *rep).into_owned())?;
-        })
+        }
+
+        Ok(())
     }
 }
