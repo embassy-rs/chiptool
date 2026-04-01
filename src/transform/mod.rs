@@ -270,4 +270,5 @@ transforms!(
     fix_register_bit_sizes::FixRegisterBitSizes,
     rename_interrupts::RenameInterrupts,
     rename_peripherals::RenamePeripherals,
+    clean_descriptions::CleanDescriptions,
 );

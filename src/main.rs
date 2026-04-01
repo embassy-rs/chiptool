@@ -4,7 +4,6 @@ use anyhow::{bail, Context, Result};
 use chiptool::{generate, svd2ir};
 use clap::Parser;
 use log::*;
-use regex::Regex;
 use std::collections::BTreeSet;
 use std::fs;
 use std::io::Read;
@@ -276,30 +275,7 @@ fn extract_all(args: ExtractAll) -> Result<()> {
 }
 
 fn clean_up_ir(ir: &mut IR) -> Result<(), anyhow::Error> {
-    let description_cleanups = [
-        // Fix weird newline spam in descriptions.
-        (Regex::new("[ \n]+").unwrap(), " "),
-        // Fix weird tab and cr spam in descriptions.
-        (Regex::new("[\r\t]+").unwrap(), " "),
-        // Replace double-space (end of sentence) with period.
-        (
-            Regex::new(r"(?<first_sentence>.*?)[\s]{2}(?<next_sentence>.*)").unwrap(),
-            "$first_sentence. $next_sentence",
-        ),
-        // Make sure every description ends with a period.
-        (
-            Regex::new(r"(?<full_description>.*)(?<last_character>[\s'[^\.\s']])$").unwrap(),
-            "$full_description$last_character.",
-        ),
-        // Eliminate space characters between end of description and the closing period.
-        (
-            Regex::new(r"(?<full_description>.*)\s\.$").unwrap(),
-            "$full_description.",
-        ),
-    ];
-    Ok(for (re, rep) in description_cleanups.iter() {
-        chiptool::transform::map_descriptions(ir, |d| re.replace_all(d, *rep).into_owned())?;
-    })
+    chiptool::transform::clean_descriptions::CleanDescriptions {}.run(ir)
 }
 
 fn gen(args: Generate) -> Result<()> {
