@@ -105,18 +105,13 @@ impl Serialize for RegexSet {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone, Copy, Serialize, Deserialize, Default)]
 pub enum CheckLevel {
     NoCheck,
     Layout,
+    #[default]
     Names,
     Descriptions,
-}
-
-impl Default for CheckLevel {
-    fn default() -> Self {
-        Self::Names
-    }
 }
 
 pub(crate) fn check_mergeable_fieldsets(
@@ -341,7 +336,7 @@ pub(crate) fn extract_variant_desc(
 ) -> anyhow::Result<BTreeMap<String, String>> {
     let mut enum_desc_pair: BTreeMap<String, String> = BTreeMap::new();
     for (e_name, e_struct) in ir.enums.iter().filter(|(e_name, e_struct)| {
-        bit_size.map_or(true, |s| s == e_struct.bit_size) && enum_names.is_match(e_name)
+        bit_size.is_none_or(|s| s == e_struct.bit_size) && enum_names.is_match(e_name)
     }) {
         let variant_desc_str = e_struct.variants.iter().fold(String::new(), |mut acc, v| {
             acc.push_str(
@@ -371,7 +366,7 @@ pub(crate) fn append_variant_desc_to_field(
         for f in fs
             .fields
             .iter_mut()
-            .filter(|f| bit_size.map_or(true, |s| s == f.bit_size) && f.enumm.is_some())
+            .filter(|f| bit_size.is_none_or(|s| s == f.bit_size) && f.enumm.is_some())
         {
             for (_, desc_string) in enum_desc_pair
                 .iter()

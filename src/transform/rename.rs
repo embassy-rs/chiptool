@@ -3,19 +3,14 @@ use serde::{Deserialize, Serialize};
 use super::common::*;
 use crate::ir::*;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub enum RenameType {
+    #[default]
     All,
     Device,
     Block,
     Fieldset,
     Enum,
-}
-
-impl Default for RenameType {
-    fn default() -> Self {
-        RenameType::All
-    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]

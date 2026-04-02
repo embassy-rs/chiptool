@@ -198,7 +198,7 @@ pub fn render(opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Resu
             if i > 0 {
                 defmt_format_string.push_str(", ");
             } else {
-                defmt_format_string.push_str(" ");
+                defmt_format_string.push(' ');
             }
             defmt_format_string.push_str(field_name);
 
