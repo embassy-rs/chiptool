@@ -20,3 +20,7 @@ jobs:
       - name: Check
         run: |
           cargo check
+
+      - name: Clippy
+        run: |
+          cargo clippy
