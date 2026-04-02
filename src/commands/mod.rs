@@ -71,9 +71,9 @@ pub fn process_peripheral(
 fn load_svd(path: &str) -> Result<svd_parser::svd::Device> {
     let xml = &mut String::new();
     fs::File::open(path)
-        .context("Cannot open the SVD file")?
+        .with_context(|| format!("Cannot open the SVD file at {path}"))?
         .read_to_string(xml)
-        .context("Cannot read the SVD file")?;
+        .with_context(|| format!("Cannot read the SVD file at {path}"))?;
 
     let config = svd_parser::Config::default()
         .expand_properties(true)
@@ -83,8 +83,9 @@ fn load_svd(path: &str) -> Result<svd_parser::svd::Device> {
 }
 
 fn load_config(path: &str) -> Result<Config> {
-    let config = fs::read(path).with_context(|| format!("Cannot read the config file: {path}"))?;
-    serde_yaml::from_slice(&config).context("cannot deserialize config")
+    let config =
+        fs::read(path).with_context(|| format!("Cannot read the config file at {path}"))?;
+    serde_yaml::from_slice(&config).with_context(|| format!("cannot deserialize config at {path}"))
 }
 
 #[derive(Default, serde::Serialize, serde::Deserialize)]
