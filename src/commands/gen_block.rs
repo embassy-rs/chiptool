@@ -1,20 +1,23 @@
-use crate::commands::{get_generate_opts, GenShared};
-use crate::generate;
+use crate::{
+    commands::{get_generate_opts, GenShared},
+    generate,
+    ir::IR,
+};
+
 use anyhow::Result;
 use clap::Parser;
 use std::fs;
-
-use crate::ir::IR;
+use std::path::PathBuf;
 
 /// Generate Rust code from a YAML register block
 #[derive(Parser)]
 pub struct GenBlock {
     /// Input YAML path
     #[clap(short, long)]
-    pub input: String,
+    pub input: PathBuf,
     /// Output Rust code path
     #[clap(short, long)]
-    pub output: String,
+    pub output: PathBuf,
     #[clap(flatten)]
     pub gen_shared: GenShared,
 }

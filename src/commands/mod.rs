@@ -9,6 +9,7 @@ use clap::Parser;
 use log::*;
 use std::fs;
 use std::io::Read;
+use std::path::{Path, PathBuf};
 use svd_parser::ValidateLevel;
 
 pub mod check;
@@ -54,13 +55,14 @@ fn clean_up_ir(ir: &mut IR) -> Result<(), anyhow::Error> {
 /// Applies final sorting after applying the transform.
 pub fn process_peripheral(
     p: &svd_parser::svd::Peripheral,
-    transform: &[String],
+    transform: &[PathBuf],
 ) -> Result<IR, anyhow::Error> {
     let mut ir = IR::new();
     svd2ir::convert_peripheral(&mut ir, p)?;
     clean_up_ir(&mut ir)?;
     for transform in transform.iter() {
-        crate::commands::apply_transform(&mut ir, transform).context(transform.to_string())?;
+        crate::commands::apply_transform(&mut ir, transform)
+            .with_context(|| format!("Failed to transform {}", transform.display()))?;
     }
 
     // Ensure consistent sort order in the YAML.
@@ -68,12 +70,13 @@ pub fn process_peripheral(
     Ok(ir)
 }
 
-fn load_svd(path: &str) -> Result<svd_parser::svd::Device> {
+fn load_svd(path: impl AsRef<Path>) -> Result<svd_parser::svd::Device> {
+    let path = path.as_ref();
     let xml = &mut String::new();
     fs::File::open(path)
-        .with_context(|| format!("Cannot open the SVD file at {path}"))?
+        .with_context(|| format!("Cannot open the SVD file at {}", path.display()))?
         .read_to_string(xml)
-        .with_context(|| format!("Cannot read the SVD file at {path}"))?;
+        .with_context(|| format!("Cannot read the SVD file at {}", path.display()))?;
 
     let config = svd_parser::Config::default()
         .expand_properties(true)

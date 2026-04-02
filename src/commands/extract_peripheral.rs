@@ -2,19 +2,20 @@ use crate::commands::load_svd;
 use anyhow::Result;
 use clap::Parser;
 use std::io::stdout;
+use std::path::PathBuf;
 
 /// Extract peripheral from SVD to YAML
 #[derive(Parser)]
 pub struct ExtractPeripheral {
     /// SVD file path
     #[clap(long)]
-    pub svd: String,
+    pub svd: PathBuf,
     /// Peripheral from the SVD
     #[clap(long)]
-    pub peripheral: String,
+    pub peripheral: PathBuf,
     /// Transforms file path
     #[clap(long)]
-    pub transform: Vec<String>,
+    pub transform: Vec<PathBuf>,
 }
 
 pub fn extract_peripheral(args: ExtractPeripheral) -> Result<()> {
