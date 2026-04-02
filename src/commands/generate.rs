@@ -23,8 +23,9 @@ pub struct Generate {
 }
 
 pub fn generate(args: Generate) -> Result<()> {
-    let svd = load_svd(&args.svd).context("loading svd")?;
-    let mut ir = svd2ir::convert_svd(&svd).context("converting svd")?;
+    let svd = load_svd(&args.svd).with_context(|| format!("loading svd at {}", args.svd))?;
+    let mut ir =
+        svd2ir::convert_svd(&svd).with_context(|| format!("converting svd at {}", args.svd))?;
 
     clean_up_ir(&mut ir)?;
 
@@ -35,7 +36,8 @@ pub fn generate(args: Generate) -> Result<()> {
     if let Some(path) = args.debug_ir_output {
         let f = File::create(&path)
             .with_context(|| format!("creating IR output yaml at {}", path.display()))?;
-        serde_yaml::to_writer(f, &ir).context("writing IR output yaml")?;
+        serde_yaml::to_writer(f, &ir)
+            .with_context(|| format!("writing IR output yaml at {}", path.display()))?;
     }
     let generate_opts = get_generate_opts(args.gen_shared)?;
     let items = generate::render(&ir, &generate_opts).unwrap();
