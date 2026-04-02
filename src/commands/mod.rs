@@ -83,7 +83,7 @@ fn load_svd(path: &str) -> Result<svd_parser::svd::Device> {
 }
 
 fn load_config(path: &str) -> Result<Config> {
-    let config = fs::read(path).context("Cannot read the config file")?;
+    let config = fs::read(path).with_context(|| format!("Cannot read the config file: {path}"))?;
     serde_yaml::from_slice(&config).context("cannot deserialize config")
 }
 
