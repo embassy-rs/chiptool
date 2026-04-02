@@ -3,12 +3,13 @@ use crate::ir::IR;
 use anyhow::{bail, Result};
 use clap::Parser;
 use std::fs;
+use std::path::PathBuf;
 
 /// Check a YAML for errors.
 #[derive(Parser)]
 pub struct Check {
     /// Peripheral file path
-    pub files: Vec<String>,
+    pub files: Vec<PathBuf>,
 
     #[clap(long)]
     pub allow_register_overlap: bool,
@@ -39,7 +40,7 @@ pub fn check(args: Check) -> Result<()> {
         let errs = crate::validate::validate(&ir, opts.clone());
         fails += errs.len();
         for e in errs {
-            println!("{}: {}", &file, e);
+            println!("{}: {}", file.display(), e);
         }
     }
 

@@ -11,21 +11,25 @@ use std::path::PathBuf;
 pub struct Generate {
     /// SVD file path
     #[clap(long)]
-    pub svd: String,
+    pub svd: PathBuf,
     /// Transforms file path
     #[clap(long)]
-    pub transform: Vec<String>,
+    pub transform: Vec<PathBuf>,
     #[clap(flatten)]
     pub gen_shared: GenShared,
     /// Output YAML path for the whole IR. Useful for debugging
     #[clap(long)]
     pub debug_ir_output: Option<PathBuf>,
+    /// Output directory of the PAC files.
+    #[clap(long)]
+    pub output: Option<PathBuf>,
 }
 
 pub fn generate(args: Generate) -> Result<()> {
-    let svd = load_svd(&args.svd).with_context(|| format!("loading svd at {}", args.svd))?;
-    let mut ir =
-        svd2ir::convert_svd(&svd).with_context(|| format!("converting svd at {}", args.svd))?;
+    let svd =
+        load_svd(&args.svd).with_context(|| format!("loading svd at {}", args.svd.display()))?;
+    let mut ir = svd2ir::convert_svd(&svd)
+        .with_context(|| format!("converting svd at {}", args.svd.display()))?;
 
     clean_up_ir(&mut ir)?;
 
@@ -40,11 +44,18 @@ pub fn generate(args: Generate) -> Result<()> {
             .with_context(|| format!("writing IR output yaml at {}", path.display()))?;
     }
     let generate_opts = get_generate_opts(args.gen_shared)?;
+
+    let output = if let Some(output) = args.output {
+        output
+    } else {
+        std::env::current_dir()?
+    };
+
     let items = generate::render(&ir, &generate_opts).unwrap();
-    fs::write("lib.rs", items.to_string())?;
+    fs::write(output.join("lib.rs"), items.to_string())?;
 
     let device_x = generate::render_device_x(&ir, ir.devices.values().next().unwrap())?;
-    fs::write("device.x", device_x)?;
+    fs::write(output.join("device.x"), device_x)?;
 
     Ok(())
 }

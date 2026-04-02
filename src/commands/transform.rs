@@ -2,6 +2,7 @@ use crate::commands::apply_transform;
 use anyhow::Result;
 use clap::Parser;
 use std::fs;
+use std::path::PathBuf;
 
 use crate::ir::IR;
 
@@ -10,13 +11,13 @@ use crate::ir::IR;
 pub struct Transform {
     /// Input YAML path
     #[clap(short, long)]
-    pub input: String,
+    pub input: PathBuf,
     /// Output YAML path
     #[clap(short, long)]
-    pub output: String,
+    pub output: PathBuf,
     /// Transforms file path
     #[clap(short, long)]
-    pub transform: String,
+    pub transform: PathBuf,
 }
 
 pub fn transform(args: Transform) -> Result<()> {

@@ -9,13 +9,13 @@ use std::path::PathBuf;
 pub struct ExtractAll {
     /// SVD file path
     #[clap(long)]
-    pub svd: String,
+    pub svd: PathBuf,
     /// Output directory. Each peripheral will be created as a YAML file here.
     #[clap(short, long)]
-    pub output: String,
+    pub output: PathBuf,
     /// Transforms file path
     #[clap(long)]
-    pub transform: Option<Vec<String>>,
+    pub transform: Option<Vec<PathBuf>>,
 }
 
 pub fn extract_all(args: ExtractAll) -> Result<()> {

@@ -2,6 +2,7 @@ use anyhow::{bail, Result};
 use clap::Parser;
 use std::collections::BTreeSet;
 use std::fs;
+use std::path::PathBuf;
 
 use crate::ir::IR;
 
@@ -9,7 +10,7 @@ use crate::ir::IR;
 #[derive(Parser)]
 pub struct Fmt {
     /// Peripheral file path
-    pub files: Vec<String>,
+    pub files: Vec<PathBuf>,
     /// Error if incorrectly formatted, instead of fixing.
     #[clap(long)]
     pub check: bool,
@@ -70,7 +71,7 @@ pub fn fmt(args: Fmt) -> Result<()> {
 
         if got_data != want_data.as_bytes() {
             if args.check {
-                bail!("File {} is not correctly formatted", &file);
+                bail!("File {} is not correctly formatted", file.display());
             } else {
                 fs::write(&file, want_data)?;
             }
