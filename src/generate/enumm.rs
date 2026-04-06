@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use anyhow::Result;
+use anyhow::{bail, Result};
 use proc_macro2::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::quote;
@@ -26,7 +26,7 @@ pub fn render(opts: &super::Options, _ir: &IR, e: &Enum, path: &str) -> Result<T
         9..=16 => quote!(u16),
         17..=32 => quote!(u32),
         33..=64 => quote!(u64),
-        _ => panic!("Invalid bit_size {}", e.bit_size),
+        _ => bail!("Invalid bit_size {}", e.bit_size),
     };
 
     let (_, name) = super::split_path(path);
