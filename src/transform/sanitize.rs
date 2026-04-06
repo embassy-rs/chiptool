@@ -18,7 +18,7 @@ impl Sanitize {
             NameKind::Enum => *p = sanitize_path(p),
             NameKind::BlockItem => *p = p.to_sanitized_snake_case().to_string(),
             NameKind::Field => *p = p.to_sanitized_snake_case().to_string(),
-            NameKind::EnumVariant => *p = p.to_sanitized_constant_case().to_string(),
+            NameKind::EnumVariant => *p = p.to_sanitized_pascal_case().to_string(),
         });
 
         // After sanitizing names, merge duplicate enum variants with the same name and value
