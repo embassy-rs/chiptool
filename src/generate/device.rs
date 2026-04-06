@@ -12,7 +12,7 @@ use super::{sorted, with_defmt_cfg_attr};
 pub fn render_device_x(_ir: &IR, d: &Device) -> Result<String> {
     let mut device_x = String::new();
     for i in sorted(&d.interrupts, |i| i.value) {
-        writeln!(&mut device_x, "PROVIDE({} = DefaultHandler);", i.name).unwrap();
+        writeln!(&mut device_x, "PROVIDE({} = DefaultHandler);", i.name)?;
     }
     Ok(device_x)
 }
