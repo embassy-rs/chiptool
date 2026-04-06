@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{anyhow, bail, Result};
 use proc_macro2::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::quote;
@@ -23,7 +23,10 @@ pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<T
         match &i.inner {
             BlockItemInner::Register(r) => {
                 let reg_ty = if let Some(fieldset_path) = &r.fieldset {
-                    let _f = ir.fieldsets.get(fieldset_path).unwrap();
+                    let _f = ir
+                        .fieldsets
+                        .get(fieldset_path)
+                        .ok_or_else(|| anyhow!("Couldn't find fieldset: {fieldset_path}"))?;
                     util::relative_path(fieldset_path, path)
                 } else {
                     match r.bit_size {
@@ -31,7 +34,7 @@ pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<T
                         16 => quote!(u16),
                         32 => quote!(u32),
                         64 => quote!(u64),
-                        _ => panic!("Invalid register bit size {}", r.bit_size),
+                        _ => bail!("Invalid register bit size {}", r.bit_size),
                     }
                 };
 
@@ -64,7 +67,11 @@ pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<T
             }
             BlockItemInner::Block(b) => {
                 let block_path = &b.block;
-                let _b2 = ir.blocks.get(block_path).unwrap();
+                let _b2 = ir
+                    .blocks
+                    .get(block_path)
+                    .ok_or_else(|| anyhow!("Couldn't find block: {block_path}"))?;
+
                 let ty = util::relative_path(block_path, path);
                 if let Some(array) = &i.array {
                     let (len, offs_expr) = super::process_array(array);
