@@ -1,4 +1,4 @@
-use crate::commands::{load_svd, process_peripheral};
+use crate::commands::{extract_peripheral, load_svd, ExtractShared};
 use anyhow::Result;
 use clap::Parser;
 use std::fs::File;
@@ -7,28 +7,33 @@ use std::path::PathBuf;
 /// Extract all peripherals from SVD to YAML
 #[derive(Parser)]
 pub struct ExtractAll {
-    /// SVD file path
-    #[clap(long)]
-    pub svd: PathBuf,
+    #[clap(flatten)]
+    pub extract_shared: ExtractShared,
+
     /// Output directory. Each peripheral will be created as a YAML file here.
     #[clap(short, long)]
     pub output: PathBuf,
-    /// Transforms file path
-    #[clap(long)]
-    pub transform: Option<Vec<PathBuf>>,
 }
 
 pub fn extract_all(args: ExtractAll) -> Result<()> {
     std::fs::create_dir_all(&args.output)?;
 
-    let svd = load_svd(&args.svd)?;
+    let svd = load_svd(&args.extract_shared.svd)?;
 
     for p in &svd.peripherals {
         if p.derived_from.is_some() {
             continue;
         }
 
-        let ir = process_peripheral(p, args.transform.as_deref().unwrap_or(&[]))?;
+        let ir = extract_peripheral(
+            p,
+            &args.extract_shared.transform,
+            args.extract_shared.namespaces,
+        )?;
+
+        if ir.blocks.is_empty() {
+            continue;
+        }
 
         let f = File::create(PathBuf::from(&args.output).join(format!(
                 "{}.yaml",
