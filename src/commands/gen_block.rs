@@ -49,10 +49,6 @@ pub fn gen_block(args: GenBlock) -> Result<()> {
 
     ir.blocks.retain(|name, _block| *name == block_name);
 
-    crate::transform::sanitize::Sanitize {}
-        .run(&mut ir)
-        .unwrap();
-
     // Ensure consistent sort order in the YAML.
     crate::transform::sort::Sort {}.run(&mut ir).unwrap();
 
