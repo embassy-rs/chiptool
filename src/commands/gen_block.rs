@@ -26,10 +26,6 @@ pub fn gen_block(args: GenBlock) -> Result<()> {
     let data = fs::read(&args.input)?;
     let mut ir: IR = serde_yaml::from_slice(&data)?;
 
-    crate::transform::sanitize::Sanitize {}
-        .run(&mut ir)
-        .unwrap();
-
     // Ensure consistent sort order in the YAML.
     crate::transform::sort::Sort {}.run(&mut ir).unwrap();
 
