@@ -1,5 +1,5 @@
 use crate::commands::{load_svd, ExtractShared};
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::Parser;
 use std::io::stdout;
 
@@ -32,11 +32,12 @@ pub fn extract_peripheral(args: ExtractPeripheral) -> Result<()> {
             .expect("derivedFrom peripheral not found");
     }
 
-    let ir = crate::commands::extract_peripheral(
-        p,
-        &args.extract_shared.transform,
-        args.extract_shared.namespaces,
-    )?;
+    let mut ir = crate::commands::extract_peripheral(p, args.extract_shared.namespaces)?;
+
+    for transform in args.extract_shared.transform.iter() {
+        crate::commands::apply_transform(&mut ir, transform)
+            .with_context(|| format!("Failed to transform {}", transform.display()))?;
+    }
 
     serde_yaml::to_writer(stdout(), &ir).unwrap();
     Ok(())
