@@ -25,8 +25,6 @@ pub struct GenBlock {
 pub fn gen_block(args: GenBlock) -> Result<()> {
     let data = fs::read(&args.input)?;
     let mut ir: IR = serde_yaml::from_slice(&data)?;
-    let block_name = args.input.with_extension("");
-    let block_name = block_name.file_name().unwrap().to_string_lossy();
 
     let dependencies = ir
         .blocks
@@ -46,8 +44,6 @@ pub fn gen_block(args: GenBlock) -> Result<()> {
     crate::transform::expand_extends::ExpandExtends {}
         .run(&mut ir)
         .unwrap();
-
-    ir.blocks.retain(|name, _block| *name == block_name);
 
     // Ensure consistent sort order in the YAML.
     crate::transform::sort::Sort {}.run(&mut ir).unwrap();
