@@ -1,9 +1,9 @@
+use clap::ValueEnum;
 use log::*;
 use std::collections::{BTreeMap, BTreeSet};
 use svd_parser::svd::{self, PeripheralInfo};
 
-use crate::util;
-use crate::{ir::*, transform};
+use crate::{ir::*, transform, util};
 
 #[derive(Debug)]
 struct ProtoBlock {
@@ -25,6 +25,13 @@ struct ProtoEnum {
     name: Vec<String>,
     bit_size: u32,
     variants: Vec<svd::EnumeratedValue>,
+}
+
+#[derive(Clone, Copy, ValueEnum)]
+pub enum NamespaceMode {
+    None,
+    Block,
+    BlockWithRegsVals,
 }
 
 pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()> {
@@ -336,9 +343,7 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
 }
 
 /// Convert an entire SVD to IR.
-///
-/// Optionally include the extra "regs" and "vals" namespaces for registers and enums.
-pub fn convert_svd(svd: &svd::Device, include_regs_vals: bool) -> anyhow::Result<IR> {
+pub fn convert_svd(svd: &svd::Device, namespace: NamespaceMode) -> anyhow::Result<IR> {
     let mut ir = IR::new();
 
     let mut device = Device {
@@ -407,7 +412,7 @@ pub fn convert_svd(svd: &svd::Device, include_regs_vals: bool) -> anyhow::Result
         if p.derived_from.is_none() {
             let mut pir = IR::new();
             convert_peripheral(&mut pir, p)?;
-            namespace_names(p, &mut pir, include_regs_vals);
+            namespace_names(p, &mut pir, namespace);
             ir.merge(pir);
         }
     }
@@ -415,7 +420,6 @@ pub fn convert_svd(svd: &svd::Device, include_regs_vals: bool) -> anyhow::Result
     ir.devices.insert("".to_string(), device);
 
     transform::sort::Sort {}.run(&mut ir).unwrap();
-    transform::sanitize::Sanitize {}.run(&mut ir).unwrap();
 
     Ok(ir)
 }
@@ -530,25 +534,24 @@ fn block_name(peripheral: &PeripheralInfo) -> String {
 /// Map all IR objects to a block namespace.
 ///
 /// Optionally add the '::regs' for registers and '::vals' for enums submodules.
-pub fn namespace_names(peripheral: &PeripheralInfo, ir: &mut IR, include_regs_vals: bool) {
+pub fn namespace_names(peripheral: &PeripheralInfo, ir: &mut IR, namespace: NamespaceMode) {
     let block_name = block_name(peripheral);
 
-    transform::map_names(ir, |k, s| match k {
-        transform::NameKind::Block => *s = format!("{}::{}", block_name, s),
-        transform::NameKind::Fieldset => {
-            *s = if include_regs_vals {
-                format!("{}::regs::{}", block_name, s)
-            } else {
-                format!("{}::{}", block_name, s)
+    transform::map_names(ir, |k, s| {
+        // Denotes whether to transform the name, and with which (empty) midfix.
+        let transform_midfix: Option<&str> = match k {
+            transform::NameKind::Block => Some(""),
+            transform::NameKind::Fieldset => Some("::regs"),
+            transform::NameKind::Enum => Some("::vals"),
+            _ => None,
+        };
+
+        if let Some(midfix) = transform_midfix {
+            match namespace {
+                NamespaceMode::None => (), // Do nothing.
+                NamespaceMode::Block => *s = format!("{}::{}", block_name, s),
+                NamespaceMode::BlockWithRegsVals => *s = format!("{}{}::{}", block_name, midfix, s),
             }
         }
-        transform::NameKind::Enum => {
-            *s = if include_regs_vals {
-                format!("{}::vals::{}", block_name, s)
-            } else {
-                format!("{}::{}", block_name, s)
-            }
-        }
-        _ => {}
     });
 }

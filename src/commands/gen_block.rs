@@ -1,5 +1,5 @@
 use crate::{
-    commands::{GenerateShared, get_generate_opts},
+    commands::{get_generate_opts, GenerateShared},
     generate,
     ir::IR,
 };

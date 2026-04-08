@@ -2,11 +2,11 @@
 //!
 //! For when using chiptool as a library, these commands are exposed for ease of use.
 
-use crate::svd2ir::namespace_names;
+use crate::svd2ir::{namespace_names, NamespaceMode};
 use crate::{ir::IR, svd2ir};
 
 use anyhow::{bail, Context, Result};
-use clap::{Parser, ValueEnum};
+use clap::Parser;
 use log::*;
 use std::fs;
 use std::io::Read;
@@ -62,41 +62,22 @@ pub struct ExtractShared {
     pub namespaces: NamespaceMode,
 }
 
-#[derive(Clone, Copy, Debug, ValueEnum, Default)]
-pub enum NamespaceMode {
-    #[default]
-    None,
-    Block,
-    BlockWithRegsVals,
-}
-
 fn clean_up_ir(ir: &mut IR) -> Result<(), anyhow::Error> {
     crate::transform::clean_descriptions::CleanDescriptions {}.run(ir)
 }
 
-/// Extract a peripheral from SVD, clean it up and apply specified transform files.
+/// Extract a peripheral from SVD and clean it up.
 ///
 /// Applies final sorting after applying the transform.
 pub fn extract_peripheral(
     p: &svd_parser::svd::Peripheral,
-    transform: &[PathBuf],
     namespace_mode: NamespaceMode,
 ) -> Result<IR, anyhow::Error> {
     let mut ir = IR::new();
     svd2ir::convert_peripheral(&mut ir, p)?;
     clean_up_ir(&mut ir)?;
 
-    // Prepend the SVD peripheral name as IR namespace.
-    match namespace_mode {
-        NamespaceMode::None => (), // Do nothing,
-        NamespaceMode::Block => namespace_names(p, &mut ir, false),
-        NamespaceMode::BlockWithRegsVals => namespace_names(p, &mut ir, true),
-    }
-
-    for transform in transform.iter() {
-        crate::commands::apply_transform(&mut ir, transform)
-            .with_context(|| format!("Failed to transform {}", transform.display()))?;
-    }
+    namespace_names(p, &mut ir, namespace_mode);
 
     // Ensure consistent sort order in the YAML.
     crate::transform::sort::Sort {}.run(&mut ir).unwrap();

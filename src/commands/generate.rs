@@ -2,7 +2,7 @@ use crate::commands::{
     apply_transform, clean_up_ir, get_generate_opts, load_svd, GenerateShared, NamespaceMode,
 };
 use crate::{generate, svd2ir};
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use clap::Parser;
 use std::fs;
 use std::fs::File;
@@ -35,13 +35,7 @@ pub fn generate(args: Generate) -> Result<()> {
     let svd =
         load_svd(&args.svd).with_context(|| format!("loading svd at {}", args.svd.display()))?;
 
-    let include_regs_vals = match args.namespaces {
-        NamespaceMode::None => bail!("Not allowed to generate code without namespaces"), // TODO perhaps allow
-        NamespaceMode::Block => false,
-        NamespaceMode::BlockWithRegsVals => true,
-    };
-
-    let mut ir = svd2ir::convert_svd(&svd, include_regs_vals)
+    let mut ir = svd2ir::convert_svd(&svd, args.namespaces)
         .with_context(|| format!("converting svd at {}", args.svd.display()))?;
 
     clean_up_ir(&mut ir)?;
