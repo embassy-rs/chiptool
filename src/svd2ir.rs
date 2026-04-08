@@ -407,7 +407,7 @@ pub fn convert_svd(svd: &svd::Device, include_regs_vals: bool) -> anyhow::Result
         if p.derived_from.is_none() {
             let mut pir = IR::new();
             convert_peripheral(&mut pir, p)?;
-            namespace_names(p, &mut ir, include_regs_vals);
+            namespace_names(p, &mut pir, include_regs_vals);
             ir.merge(pir);
         }
     }
