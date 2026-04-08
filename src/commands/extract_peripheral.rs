@@ -2,7 +2,6 @@ use crate::commands::{load_svd, ExtractShared};
 use anyhow::Result;
 use clap::Parser;
 use std::io::stdout;
-use std::path::PathBuf;
 
 /// Extract peripheral from SVD to YAML and print to stdout.
 #[derive(Parser)]
@@ -10,9 +9,9 @@ pub struct ExtractPeripheral {
     #[clap(flatten)]
     pub extract_shared: ExtractShared,
 
-    /// Peripheral from the SVD
+    /// Name of peripheral from the SVD
     #[clap(long)]
-    pub peripheral: PathBuf,
+    pub peripheral: String,
 }
 
 pub fn extract_peripheral(args: ExtractPeripheral) -> Result<()> {
