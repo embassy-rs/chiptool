@@ -1,6 +1,6 @@
 use log::*;
 use std::collections::{BTreeMap, BTreeSet};
-use svd_parser::svd;
+use svd_parser::svd::{self, PeripheralInfo};
 
 use crate::util;
 use crate::{ir::*, transform};
@@ -335,7 +335,10 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
     Ok(())
 }
 
-pub fn convert_svd(svd: &svd::Device) -> anyhow::Result<IR> {
+/// Convert an entire SVD to IR.
+///
+/// Optionally include the extra "regs" and "vals" namespaces for registers and enums.
+pub fn convert_svd(svd: &svd::Device, include_regs_vals: bool) -> anyhow::Result<IR> {
     let mut ir = IR::new();
 
     let mut device = Device {
@@ -404,14 +407,7 @@ pub fn convert_svd(svd: &svd::Device) -> anyhow::Result<IR> {
         if p.derived_from.is_none() {
             let mut pir = IR::new();
             convert_peripheral(&mut pir, p)?;
-
-            transform::map_names(&mut pir, |k, s| match k {
-                transform::NameKind::Block => *s = format!("{}::{}", block_name, s),
-                transform::NameKind::Fieldset => *s = format!("{}::regs::{}", block_name, s),
-                transform::NameKind::Enum => *s = format!("{}::vals::{}", block_name, s),
-                _ => {}
-            });
-
+            namespace_names(p, &mut ir, include_regs_vals);
             ir.merge(pir);
         }
     }
@@ -521,4 +517,38 @@ fn unique_names(names: Vec<Vec<String>>) -> BTreeMap<Vec<String>, String> {
         seen.insert(&n[j..]);
     }
     res
+}
+
+/// Derive a canonical block name from a SVD peripheral.
+fn block_name(peripheral: &PeripheralInfo) -> String {
+    peripheral
+        .header_struct_name
+        .clone()
+        .unwrap_or(peripheral.name.clone())
+}
+
+/// Map all IR objects to a block namespace.
+///
+/// Optionally add the '::regs' for registers and '::vals' for enums submodules.
+pub fn namespace_names(peripheral: &PeripheralInfo, ir: &mut IR, include_regs_vals: bool) {
+    let block_name = block_name(peripheral);
+
+    transform::map_names(ir, |k, s| match k {
+        transform::NameKind::Block => *s = format!("{}::{}", block_name, s),
+        transform::NameKind::Fieldset => {
+            *s = if include_regs_vals {
+                format!("{}::regs::{}", block_name, s)
+            } else {
+                format!("{}::{}", block_name, s)
+            }
+        }
+        transform::NameKind::Enum => {
+            *s = if include_regs_vals {
+                format!("{}::vals::{}", block_name, s)
+            } else {
+                format!("{}::{}", block_name, s)
+            }
+        }
+        _ => {}
+    });
 }

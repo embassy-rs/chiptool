@@ -1,5 +1,5 @@
 use crate::{
-    commands::{get_generate_opts, GenShared},
+    commands::{GenerateShared, get_generate_opts},
     generate,
     ir::IR,
 };
@@ -19,7 +19,7 @@ pub struct GenBlock {
     #[clap(short, long)]
     pub output: PathBuf,
     #[clap(flatten)]
-    pub gen_shared: GenShared,
+    pub gen_shared: GenerateShared,
 }
 
 pub fn gen_block(args: GenBlock) -> Result<()> {
@@ -49,6 +49,7 @@ pub fn gen_block(args: GenBlock) -> Result<()> {
     crate::transform::sort::Sort {}.run(&mut ir).unwrap();
 
     let generate_opts = get_generate_opts(args.gen_shared)?;
+
     let items = generate::render(&ir, &generate_opts).unwrap();
     fs::write(&args.output, items.to_string())?;
 
