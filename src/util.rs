@@ -1,5 +1,4 @@
 use anyhow::{anyhow, Result};
-use inflections::Inflect;
 use proc_macro2::{Ident, Literal, Span, TokenStream};
 use quote::{quote, ToTokens};
 use std::str::FromStr;
@@ -19,7 +18,7 @@ static KEYWORDS: &[&str] = &[
 ];
 
 /// Make `s` a valid identifier, making the minimal changes (no case changes)
-fn sanitize_ident(s: String) -> String {
+pub(crate) fn sanitize_ident(s: String) -> String {
     let mut s = s.replace(INVALID_CHARS, "");
     if KEYWORDS.contains(&&*s) {
         s.push('_');
@@ -28,31 +27,6 @@ fn sanitize_ident(s: String) -> String {
         format!("_{}", s)
     } else {
         s
-    }
-}
-
-pub trait StringExt {
-    fn to_sanitized_pascal_case(&self) -> String;
-    fn to_sanitized_upper_case(&self) -> String;
-    fn to_sanitized_constant_case(&self) -> String;
-    fn to_sanitized_snake_case(&self) -> String;
-}
-
-impl StringExt for str {
-    fn to_sanitized_snake_case(&self) -> String {
-        sanitize_ident(self.to_snake_case())
-    }
-
-    fn to_sanitized_upper_case(&self) -> String {
-        sanitize_ident(self.to_upper_case())
-    }
-
-    fn to_sanitized_constant_case(&self) -> String {
-        sanitize_ident(self.to_constant_case())
-    }
-
-    fn to_sanitized_pascal_case(&self) -> String {
-        sanitize_ident(self.to_pascal_case())
     }
 }
 

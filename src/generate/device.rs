@@ -5,7 +5,7 @@ use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 
 use crate::ir::*;
-use crate::util::{self, StringExt};
+use crate::util;
 
 use super::{sorted, with_defmt_cfg_attr};
 
@@ -34,7 +34,7 @@ pub fn render(opts: &super::Options, ir: &IR, d: &Device, path: &str) -> Result<
         }
         pos += 1;
 
-        let name_uc = Ident::new(&i.name.to_sanitized_upper_case(), span);
+        let name_uc = Ident::new(&i.name, span);
         let description = format!(
             "{} - {}",
             i.value,

@@ -1,6 +1,7 @@
+use inflections::Inflect;
 use serde::{Deserialize, Serialize};
 
-use crate::util::StringExt;
+use crate::util::sanitize_ident;
 
 use super::{map_names, NameKind, IR};
 
@@ -48,7 +49,7 @@ fn sanitize_path(p: &str) -> String {
         .join("::")
 }
 
-fn merge_duplicate_variants(enumm: &mut crate::ir::Enum) {
+pub(crate) fn merge_duplicate_variants(enumm: &mut crate::ir::Enum) {
     use std::collections::BTreeMap;
 
     let mut seen: BTreeMap<(String, u64), crate::ir::EnumVariant> = BTreeMap::new();
@@ -75,7 +76,7 @@ fn merge_duplicate_variants(enumm: &mut crate::ir::Enum) {
     enumm.variants = new_variants;
 }
 
-fn rename_duplicate_variants(enumm: &mut crate::ir::Enum) {
+pub(crate) fn rename_duplicate_variants(enumm: &mut crate::ir::Enum) {
     use std::collections::BTreeMap;
 
     let mut name_counts: BTreeMap<String, usize> = BTreeMap::new();
@@ -90,5 +91,25 @@ fn rename_duplicate_variants(enumm: &mut crate::ir::Enum) {
             // increment new name to catch cascading name collisons
             *name_counts.entry(v.name.clone()).or_insert(0) += 1;
         }
+    }
+}
+
+trait StringExt {
+    fn to_sanitized_pascal_case(&self) -> String;
+    fn to_sanitized_constant_case(&self) -> String;
+    fn to_sanitized_snake_case(&self) -> String;
+}
+
+impl StringExt for str {
+    fn to_sanitized_snake_case(&self) -> String {
+        sanitize_ident(self.to_snake_case())
+    }
+
+    fn to_sanitized_constant_case(&self) -> String {
+        sanitize_ident(self.to_constant_case())
+    }
+
+    fn to_sanitized_pascal_case(&self) -> String {
+        sanitize_ident(self.to_pascal_case())
     }
 }

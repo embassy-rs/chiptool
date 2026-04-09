@@ -235,6 +235,7 @@ macro_rules! transforms {
 
 transforms!(
     sanitize::Sanitize,
+    sanitizev2::SanitizeV2,
     sort::Sort,
     add::Add,
     add_enum_variants::AddEnumVariants,
