@@ -43,15 +43,33 @@ pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<T
 
                 let ty = quote!(#common_path::Reg<#reg_ty, #access>);
                 if let Some(array) = &i.array {
-                    let (len, offs_expr) = super::process_array(array);
-                    items.extend(quote!(
-                        #doc
-                        #[inline(always)]
-                        pub const fn #name(self, n: usize) -> #ty {
-                            assert!(n < #len);
-                            unsafe { #common_path::Reg::from_ptr(self.ptr.wrapping_add(#offset + #offs_expr) as _) }
+                    let (len, offs_expr, indexes) = super::process_array(array);
+
+                    if let Some(indexes) = indexes {
+                        for (array_offset, index) in indexes.iter() {
+                            // TODO don't erase %s so we can position the index in the name as our overlords intended?
+                            let name = Ident::new(&format!("{}_{}", i.name, index), span);
+                            let doc =
+                                util::doc(&i.description.clone().map(|s| s.replace("%s", index)));
+
+                            items.extend(quote!(
+                                #doc
+                                #[inline(always)]
+                                pub const fn #name(self) -> #ty {
+                                    unsafe { #common_path::Reg::from_ptr(self.ptr.wrapping_add(#offset + #array_offset) as _) }
+                                }
+                            ));
                         }
-                    ));
+                    } else {
+                        items.extend(quote!(
+                            #doc
+                            #[inline(always)]
+                            pub const fn #name(self, n: usize) -> #ty {
+                                assert!(n < #len);
+                                unsafe { #common_path::Reg::from_ptr(self.ptr.wrapping_add(#offset + #offs_expr) as _) }
+                            }
+                        ));
+                    }
                 } else {
                     items.extend(quote!(
                         #doc
@@ -71,7 +89,7 @@ pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<T
 
                 let ty = util::relative_path(block_path, path);
                 if let Some(array) = &i.array {
-                    let (len, offs_expr) = super::process_array(array);
+                    let (len, offs_expr, _indexes) = super::process_array(array);
 
                     items.extend(quote!(
                         #doc
