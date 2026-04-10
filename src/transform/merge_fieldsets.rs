@@ -1,3 +1,4 @@
+use anyhow::Context;
 use log::*;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
@@ -30,26 +31,9 @@ impl MergeFieldsets {
             errors.append(&mut current);
         }
 
-        let mut had_breaking_error = false;
-
-        for (main, other, error) in errors {
-            let min_check_level = error.min_check_level();
-
-            if self.check >= min_check_level {
-                error!("merging {main} and {other}: {error}");
-                had_breaking_error = true;
-            } else if min_check_level == CheckLevel::Descriptions {
-                debug!("merging {main} and {other}: {error}");
-            } else {
-                warn!("merging {main} and {other}: {error}");
-            }
-        }
-
-        if had_breaking_error {
-            anyhow::bail!("failed to merge field sets");
-        }
-
-        Ok(())
+        self.check
+            .check("merging fieldsets", &errors)
+            .context("failed to merge fieldsets")
     }
 }
 
@@ -89,7 +73,7 @@ fn merge_fieldsets(
 }
 
 #[derive(Debug)]
-enum MissingFieldReason {
+pub(crate) enum MissingFieldReason {
     NoFieldAtOffset(BitOffset),
     BitsizeMismatch(u32, u32),
 }
@@ -108,7 +92,7 @@ impl std::fmt::Display for MissingFieldReason {
 }
 
 #[derive(Debug)]
-enum FieldSetError {
+pub(crate) enum FieldSetError {
     Bitsize(u32, u32),
     Extends(Option<String>, Option<String>),
     Field {
@@ -122,8 +106,8 @@ enum FieldSetError {
     Description(Option<String>, Option<String>),
 }
 
-impl FieldSetError {
-    pub fn min_check_level(&self) -> CheckLevel {
+impl MinCheckLevel for FieldSetError {
+    fn min_check_level(&self) -> CheckLevel {
         match self {
             FieldSetError::Description(_, _) => CheckLevel::Descriptions,
             FieldSetError::Field { error, .. } => error.min_check_level(),
@@ -163,7 +147,7 @@ impl std::fmt::Display for FieldSetError {
 }
 
 /// Check if fieldset `other` is compatible with `main` to the level of `level`.
-fn fieldset_compat(main: &FieldSet, other: &FieldSet) -> Vec<FieldSetError> {
+pub(crate) fn fieldset_compat(main: &FieldSet, other: &FieldSet) -> Vec<FieldSetError> {
     let mut errors = Vec::new();
 
     let FieldSet {
@@ -249,7 +233,7 @@ fn fieldset_compat(main: &FieldSet, other: &FieldSet) -> Vec<FieldSetError> {
 }
 
 #[derive(Debug)]
-enum FieldError {
+pub(crate) enum FieldError {
     Array(ArrayError),
     ArrayXor(bool, bool),
     Description(Option<String>, Option<String>),
@@ -257,8 +241,8 @@ enum FieldError {
     Name(String, String),
 }
 
-impl FieldError {
-    pub fn min_check_level(&self) -> CheckLevel {
+impl MinCheckLevel for FieldError {
+    fn min_check_level(&self) -> CheckLevel {
         match self {
             FieldError::Array(_) => CheckLevel::Layout,
             FieldError::Name(_, _) => CheckLevel::Names,
@@ -286,7 +270,7 @@ impl core::fmt::Display for FieldError {
     }
 }
 
-fn field_compat(main: &Field, other: &Field) -> Vec<FieldError> {
+pub(crate) fn field_compat(main: &Field, other: &Field) -> Vec<FieldError> {
     let mut errors = Vec::new();
 
     let Field {
@@ -328,7 +312,7 @@ fn field_compat(main: &Field, other: &Field) -> Vec<FieldError> {
 }
 
 #[derive(Debug)]
-enum ArrayError {
+pub(crate) enum ArrayError {
     Xor(Array, Array),
     Len(usize, usize),
     Stride(u32, u32),
@@ -350,7 +334,7 @@ impl core::fmt::Display for ArrayError {
     }
 }
 
-fn array_compat(main: &Array, other: &Array) -> Vec<ArrayError> {
+pub(crate) fn array_compat(main: &Array, other: &Array) -> Vec<ArrayError> {
     let mut errors = Vec::new();
 
     if main.len() != other.len() {

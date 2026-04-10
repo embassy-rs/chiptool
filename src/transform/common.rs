@@ -310,3 +310,35 @@ pub(crate) fn append_variant_desc_to_field(
         }
     }
 }
+
+pub(crate) trait MinCheckLevel {
+    fn min_check_level(&self) -> CheckLevel;
+}
+
+impl CheckLevel {
+    pub(crate) fn check<T>(&self, op: &str, errors: &[(String, String, T)]) -> anyhow::Result<()>
+    where
+        T: core::fmt::Display + MinCheckLevel,
+    {
+        let mut had_breaking_error = false;
+
+        for (main, other, error) in errors {
+            let min_check_level = error.min_check_level();
+
+            if self >= &min_check_level {
+                log::error!("{op} {main} and {other}: {error}");
+                had_breaking_error = true;
+            } else if min_check_level == CheckLevel::Descriptions {
+                log::debug!("{op} {main} and {other}: {error}");
+            } else {
+                log::warn!("{op} {main} and {other}: {error}");
+            }
+        }
+
+        if had_breaking_error {
+            anyhow::bail!("Encountered errors")
+        } else {
+            Ok(())
+        }
+    }
+}
