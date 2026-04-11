@@ -391,3 +391,7 @@ where
 pub(crate) fn get_true() -> bool {
     true
 }
+
+pub(crate) fn layout() -> CheckLevel {
+    CheckLevel::Layout
+}

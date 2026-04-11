@@ -18,10 +18,6 @@ pub struct MakeRegisterArray {
     pub check: CheckLevel,
 }
 
-fn layout() -> CheckLevel {
-    CheckLevel::Layout
-}
-
 impl MakeRegisterArray {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
         for id in match_all(ir.blocks.keys().cloned(), &self.blocks) {

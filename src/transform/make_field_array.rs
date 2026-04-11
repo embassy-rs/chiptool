@@ -1,9 +1,10 @@
-use anyhow::bail;
+use anyhow::{bail, Context};
 use log::*;
 use serde::{Deserialize, Serialize};
 
 use super::common::*;
 use crate::ir::*;
+use crate::transform::merge_fieldsets::field_compat;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MakeFieldArray {
@@ -12,10 +13,14 @@ pub struct MakeFieldArray {
     pub to: String,
     #[serde(default)]
     pub mode: ArrayMode,
+    #[serde(default = "layout")]
+    pub check: CheckLevel,
 }
 
 impl MakeFieldArray {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
+        let mut errors = Vec::new();
+
         for id in match_all(ir.fieldsets.keys().cloned(), &self.fieldsets) {
             let b = ir.fieldsets.get_mut(&id).unwrap();
             let groups = match_groups(
@@ -32,7 +37,16 @@ impl MakeFieldArray {
                     items.push(i);
                 }
 
-                // todo check they're mergeable
+                let mut iter = items.iter();
+                let main = iter.next().unwrap();
+
+                for other in iter {
+                    errors.extend(
+                        field_compat(main, other)
+                            .into_iter()
+                            .map(|v| (main.name.clone(), other.name.clone(), v)),
+                    );
+                }
 
                 // one array shouldn't contain both regular and cursed bit_offset type
                 {
@@ -74,6 +88,11 @@ impl MakeFieldArray {
                 b.fields.push(item);
             }
         }
+
+        self.check
+            .check("making field arrays", &errors)
+            .context("failed to make field array")?;
+
         Ok(())
     }
 }
