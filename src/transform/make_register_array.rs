@@ -20,6 +20,8 @@ pub struct MakeRegisterArray {
 
 impl MakeRegisterArray {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
+        let mut errors = Vec::new();
+
         for id in match_all(ir.blocks.keys().cloned(), &self.blocks) {
             let b = ir.blocks.get_mut(&id).unwrap();
             let groups = match_groups(b.items.iter().map(|f| f.name.clone()), &self.from, &self.to);
@@ -32,7 +34,6 @@ impl MakeRegisterArray {
                     items.push(i);
                 }
 
-                let mut errors = Vec::new();
                 let mut iter = items.iter();
                 let main = iter.next().unwrap();
 
@@ -43,10 +44,6 @@ impl MakeRegisterArray {
                             .map(|v| (main.name.clone(), other.name.clone(), v)),
                     );
                 }
-
-                self.check
-                    .check("making register arrays", &errors)
-                    .context("failed to make register array")?;
 
                 // todo check they're not arrays (arrays of arrays not supported)
 
@@ -71,6 +68,11 @@ impl MakeRegisterArray {
                 b.items.push(item);
             }
         }
+
+        self.check
+            .check("making/merging register arrays", &errors)
+            .context("failed to make register array")?;
+
         Ok(())
     }
 }
