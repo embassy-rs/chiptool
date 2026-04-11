@@ -47,53 +47,34 @@ impl SanitizeCase {
 
 /// Sanitize names and paths of all objects, using proper casing and stripping keywords.
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(default)]
 pub struct Sanitize {
-    #[serde(default = "default_device")]
     pub device: SanitizeCase,
-    #[serde(default = "default_device_peripheral")]
     pub device_peripheral: SanitizeCase,
-    #[serde(default = "default_device_interrupt")]
     pub device_interrupt: SanitizeCase,
-    #[serde(default = "default_block")]
     pub block: SanitizeCase,
-    #[serde(default = "default_fieldset")]
     pub fieldset: SanitizeCase,
-    #[serde(rename = "enum", default = "default_enum")]
+    #[serde(rename = "enum")]
     pub enum_: SanitizeCase,
-    #[serde(default = "default_block_item")]
     pub block_item: SanitizeCase,
-    #[serde(default = "default_field")]
     pub field: SanitizeCase,
-    #[serde(default = "default_enum_variant")]
     pub enum_variant: SanitizeCase,
 }
 
-fn default_device() -> SanitizeCase {
-    SanitizeCase::PathSnakePascal
-}
-fn default_device_peripheral() -> SanitizeCase {
-    SanitizeCase::Constant
-}
-fn default_device_interrupt() -> SanitizeCase {
-    SanitizeCase::Constant
-}
-fn default_block() -> SanitizeCase {
-    SanitizeCase::PathSnakePascal
-}
-fn default_fieldset() -> SanitizeCase {
-    SanitizeCase::PathSnakePascal
-}
-fn default_enum() -> SanitizeCase {
-    SanitizeCase::PathSnakePascal
-}
-fn default_block_item() -> SanitizeCase {
-    SanitizeCase::Snake
-}
-fn default_field() -> SanitizeCase {
-    SanitizeCase::Snake
-}
-fn default_enum_variant() -> SanitizeCase {
-    SanitizeCase::Pascal
+impl Default for Sanitize {
+    fn default() -> Self {
+        Self {
+            device: SanitizeCase::PathSnakePascal,
+            device_peripheral: SanitizeCase::Constant,
+            device_interrupt: SanitizeCase::Constant,
+            block: SanitizeCase::PathSnakePascal,
+            fieldset: SanitizeCase::PathSnakePascal,
+            enum_: SanitizeCase::PathSnakePascal,
+            block_item: SanitizeCase::Snake,
+            field: SanitizeCase::Snake,
+            enum_variant: SanitizeCase::Pascal,
+        }
+    }
 }
 
 impl Sanitize {
