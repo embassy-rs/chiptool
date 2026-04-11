@@ -75,11 +75,12 @@ fn merge_blocks(
     errors
 }
 
-enum BlockError {
+#[derive(Debug)]
+pub(crate) enum BlockError {
     Description(Option<String>, Option<String>),
     Extends(Option<String>, Option<String>),
-    LhsMissingItem(&'static str, String),
-    RhsMissingItem(&'static str, String),
+    LhsMissingItem(&'static str, u32, String),
+    RhsMissingItem(&'static str, u32, String),
     Item(String, u32, BlockItemError),
 }
 
@@ -101,13 +102,17 @@ impl core::fmt::Display for BlockError {
             BlockError::Item(name, offset, error) => {
                 write!(f, "inner item {name} at offset {offset}: {error}")
             }
-            BlockError::LhsMissingItem(ty, i) => write!(f, "lhs is missing {ty} '{i}'"),
-            BlockError::RhsMissingItem(ty, i) => write!(f, "rhs is missing {ty} '{i}'"),
+            BlockError::LhsMissingItem(ty, offset, i) => {
+                write!(f, "lhs is missing {ty} '{i}' at offset {offset}")
+            }
+            BlockError::RhsMissingItem(ty, offset, i) => {
+                write!(f, "rhs is missing {ty} '{i}' at offset {offset}")
+            }
         }
     }
 }
 
-fn block_compat(main: &Block, other: &Block) -> Vec<BlockError> {
+pub(crate) fn block_compat(main: &Block, other: &Block) -> Vec<BlockError> {
     let mut errors = Vec::new();
 
     let Block {
@@ -138,7 +143,11 @@ fn block_compat(main: &Block, other: &Block) -> Vec<BlockError> {
                 BlockItemInner::Register(_) => "register",
             };
 
-            errors.push(BlockError::RhsMissingItem(ty, main.name.clone()));
+            errors.push(BlockError::RhsMissingItem(
+                ty,
+                main.byte_offset,
+                main.name.clone(),
+            ));
             continue;
         };
 
@@ -161,7 +170,11 @@ fn block_compat(main: &Block, other: &Block) -> Vec<BlockError> {
                 BlockItemInner::Register(_) => "register",
             };
 
-            errors.push(BlockError::LhsMissingItem(ty, other.name.clone()));
+            errors.push(BlockError::LhsMissingItem(
+                ty,
+                other.byte_offset,
+                other.name.clone(),
+            ));
             continue;
         };
     }
@@ -177,6 +190,7 @@ fn fmt_access(access: &Access) -> &str {
     }
 }
 
+#[derive(Debug)]
 pub(crate) enum BlockItemError {
     Description(Option<String>, Option<String>),
     ArrayXor(bool, bool),

@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use super::common::*;
 use crate::ir::*;
+use crate::transform::merge_blocks::block_compat;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MakeBlock {
@@ -13,26 +14,31 @@ pub struct MakeBlock {
     pub to_inner: String,
     #[serde(default)]
     pub array_on_outer: bool,
+    #[serde(default = "layout")]
+    pub check: CheckLevel,
 }
 
 impl MakeBlock {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
+        let mut had_breaking_error = false;
+
         for id in match_all(ir.blocks.keys().cloned(), &self.blocks) {
             let b = ir.blocks.get_mut(&id).unwrap();
+
+            // Mapping of new item function to existing item functions
             let groups = match_groups(
                 b.items.iter().map(|f| f.name.clone()),
                 &self.from,
                 &self.to_outer,
             );
+
             for (to, group) in groups {
                 let b = ir.blocks.get_mut(&id).unwrap();
                 info!("blockifizing to {}", to);
 
                 // Grab all items into a vec
-                let mut items = Vec::new();
-                for i in b.items.iter().filter(|i| group.contains(&i.name)) {
-                    items.push(i);
-                }
+                let mut items: Vec<_> =
+                    b.items.iter().filter(|i| group.contains(&i.name)).collect();
 
                 // Sort by offs
                 items.sort_by_key(|i| i.byte_offset);
@@ -40,7 +46,6 @@ impl MakeBlock {
                     info!("    {}", i.name);
                 }
 
-                // todo check they're mergeable
                 // todo check they're not arrays (arrays of arrays not supported)
 
                 let byte_offset = items[0].byte_offset;
@@ -63,9 +68,18 @@ impl MakeBlock {
                         .collect(),
                 };
 
-                // TODO if destination block exists, check mergeable
                 let dest = self.to_block.clone(); // todo regex
-                ir.blocks.insert(dest.clone(), b2);
+                if let Some(prev) = ir.blocks.insert(dest.clone(), b2.clone()) {
+                    let errors: Vec<_> = block_compat(&prev, &b2)
+                        .into_iter()
+                        .map(|v| (dest.clone(), dest.clone(), v))
+                        .collect();
+
+                    had_breaking_error |= self
+                        .check
+                        .check(&format!("making block {dest} from {group:?}"), &errors)
+                        .is_err();
+                }
 
                 // Remove all items
                 let b = ir.blocks.get_mut(&id).unwrap();
@@ -85,6 +99,11 @@ impl MakeBlock {
                 });
             }
         }
+
+        if had_breaking_error {
+            anyhow::bail!("Failed to make block")
+        }
+
         Ok(())
     }
 }
