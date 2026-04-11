@@ -1,9 +1,9 @@
+use convert_case::{Boundary, Casing};
 use serde::{Deserialize, Serialize};
-
-use crate::util::StringExt;
 
 use super::{map_names, NameKind, IR};
 
+/// Sanitize names and paths of all objects, using proper casing and stripping keywords.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Sanitize {}
 
@@ -18,7 +18,7 @@ impl Sanitize {
             NameKind::Enum => *p = sanitize_path(p),
             NameKind::BlockItem => *p = p.to_sanitized_snake_case().to_string(),
             NameKind::Field => *p = p.to_sanitized_snake_case().to_string(),
-            NameKind::EnumVariant => *p = p.to_sanitized_constant_case().to_string(),
+            NameKind::EnumVariant => *p = p.to_sanitized_pascal_case().to_string(),
         });
 
         // After sanitizing names, merge duplicate enum variants with the same name and value
@@ -48,7 +48,14 @@ fn sanitize_path(p: &str) -> String {
         .join("::")
 }
 
-fn merge_duplicate_variants(enumm: &mut crate::ir::Enum) {
+fn sanitize_with_case(str: &str, case: convert_case::Case) -> String {
+    sanitize_ident(
+        str.remove_boundaries(&[Boundary::LowerDigit, Boundary::UpperDigit])
+            .to_case(case),
+    )
+}
+
+pub(crate) fn merge_duplicate_variants(enumm: &mut crate::ir::Enum) {
     use std::collections::BTreeMap;
 
     let mut seen: BTreeMap<(String, u64), crate::ir::EnumVariant> = BTreeMap::new();
@@ -75,7 +82,7 @@ fn merge_duplicate_variants(enumm: &mut crate::ir::Enum) {
     enumm.variants = new_variants;
 }
 
-fn rename_duplicate_variants(enumm: &mut crate::ir::Enum) {
+pub(crate) fn rename_duplicate_variants(enumm: &mut crate::ir::Enum) {
     use std::collections::BTreeMap;
 
     let mut name_counts: BTreeMap<String, usize> = BTreeMap::new();
@@ -90,5 +97,50 @@ fn rename_duplicate_variants(enumm: &mut crate::ir::Enum) {
             // increment new name to catch cascading name collisons
             *name_counts.entry(v.name.clone()).or_insert(0) += 1;
         }
+    }
+}
+
+trait StringExt {
+    fn to_sanitized_pascal_case(&self) -> String;
+    fn to_sanitized_constant_case(&self) -> String;
+    fn to_sanitized_snake_case(&self) -> String;
+}
+
+impl StringExt for str {
+    fn to_sanitized_snake_case(&self) -> String {
+        sanitize_with_case(self, convert_case::Case::Snake)
+    }
+
+    fn to_sanitized_constant_case(&self) -> String {
+        sanitize_with_case(self, convert_case::Case::Constant)
+    }
+
+    fn to_sanitized_pascal_case(&self) -> String {
+        sanitize_with_case(self, convert_case::Case::Pascal)
+    }
+}
+
+/// List of chars that some vendors use in their peripheral/field names but
+/// that are not valid in Rust ident
+const INVALID_CHARS: &[char] = &['(', ')', '[', ']', '/', ' ', '-'];
+
+static KEYWORDS: &[&str] = &[
+    "abstract", "as", "async", "await", "become", "box", "break", "const", "continue", "crate",
+    "do", "dyn", "else", "enum", "extern", "false", "final", "fn", "for", "if", "impl", "in",
+    "let", "loop", "macro", "match", "mod", "move", "mut", "override", "priv", "pub", "ref",
+    "return", "self", "Self", "static", "struct", "super", "trait", "true", "try", "type",
+    "typeof", "unsafe", "unsized", "use", "virtual", "where", "while", "yield",
+];
+
+/// Make `s` a valid identifier, making the minimal changes (no case changes)
+pub(crate) fn sanitize_ident(s: String) -> String {
+    let mut s = s.replace(INVALID_CHARS, "");
+    if KEYWORDS.contains(&&*s) {
+        s.push('_');
+        s
+    } else if s.starts_with(char::is_numeric) {
+        format!("_{}", s)
+    } else {
+        s
     }
 }
