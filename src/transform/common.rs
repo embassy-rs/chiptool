@@ -1,6 +1,7 @@
 use anyhow::bail;
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::hash_map::Entry;
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use crate::ir::*;
 
@@ -341,4 +342,52 @@ impl CheckLevel {
             Ok(())
         }
     }
+}
+/// Return `true` if `old_name` can be renamed to
+/// `new_name` without duplicates.
+///
+/// `renames` should represent the state for `new_name` in
+/// the current scope
+pub(crate) fn can_rename<Fmt>(
+    error_on_duplicate: bool,
+    renames: &mut HashMap<String, Option<String>>,
+    new_name: &str,
+    old_name: &str,
+    fmt: Fmt,
+) -> bool
+where
+    Fmt: Fn(String) -> String,
+{
+    match renames.entry(new_name.to_string()) {
+        // Not duplicate
+        Entry::Vacant(e) => {
+            e.insert(Some(old_name.to_string()));
+            true
+        }
+        Entry::Occupied(mut e) => {
+            let level = error_on_duplicate
+                .then_some(log::Level::Error)
+                .unwrap_or(log::Level::Warn);
+
+            let log = |field: String| {
+                log::log!(
+                    level,
+                    "Renaming {} failed: reused new name {new_name}",
+                    fmt(field)
+                );
+            };
+
+            // Log the name of the first field for good measure, and get rid of it
+            if let Some(prev) = e.get_mut().take() {
+                log(prev)
+            }
+
+            log(old_name.to_string());
+            false
+        }
+    }
+}
+
+pub(crate) fn get_true() -> bool {
+    true
 }
