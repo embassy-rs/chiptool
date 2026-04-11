@@ -1,9 +1,10 @@
 use convert_case::{Boundary, Casing};
+use inflections::Inflect;
 use serde::{Deserialize, Serialize};
 
 use super::{map_names, NameKind, IR};
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub enum SanitizeCase {
     None,
     Snake,
@@ -14,34 +15,52 @@ pub enum SanitizeCase {
     UpperFlat,
     /// Path: `snake::Pascal`
     PathSnakePascal,
+
+    ConstantLegacy,
+    SnakeLegacy,
+    PascalLegacy,
+    PathSnakeLegacy,
 }
 
 impl SanitizeCase {
     fn apply(self, s: &str) -> String {
-        match self {
-            SanitizeCase::None => s.to_string(),
-            SanitizeCase::Snake => sanitize_with_case(s, convert_case::Case::Snake),
-            SanitizeCase::Constant => sanitize_with_case(s, convert_case::Case::Constant),
-            SanitizeCase::Pascal => sanitize_with_case(s, convert_case::Case::Pascal),
-            SanitizeCase::Camel => sanitize_with_case(s, convert_case::Case::Camel),
-            SanitizeCase::Flat => sanitize_with_case(s, convert_case::Case::Flat),
-            SanitizeCase::UpperFlat => sanitize_with_case(s, convert_case::Case::UpperFlat),
-            SanitizeCase::PathSnakePascal => {
+        let case = match self {
+            SanitizeCase::None => return s.to_string(),
+            SanitizeCase::Snake => convert_case::Case::Snake,
+            SanitizeCase::Constant => convert_case::Case::Constant,
+            SanitizeCase::Pascal => convert_case::Case::Pascal,
+            SanitizeCase::Camel => convert_case::Case::Camel,
+            SanitizeCase::Flat => convert_case::Case::Flat,
+            SanitizeCase::UpperFlat => convert_case::Case::UpperFlat,
+            SanitizeCase::PathSnakePascal | SanitizeCase::PathSnakeLegacy => {
+                let (pascal, snake) = if self == SanitizeCase::PathSnakeLegacy {
+                    (SanitizeCase::PascalLegacy, SanitizeCase::SnakeLegacy)
+                } else {
+                    (SanitizeCase::Pascal, SanitizeCase::Snake)
+                };
+
                 let v = s.split("::").collect::<Vec<_>>();
                 let len = v.len();
-                v.into_iter()
+                return v
+                    .into_iter()
                     .enumerate()
                     .map(|(i, seg)| {
                         if i == len - 1 {
-                            sanitize_with_case(seg, convert_case::Case::Pascal)
+                            pascal.apply(seg)
                         } else {
-                            sanitize_with_case(seg, convert_case::Case::Snake)
+                            snake.apply(seg)
                         }
                     })
                     .collect::<Vec<_>>()
-                    .join("::")
+                    .join("::");
             }
-        }
+            SanitizeCase::ConstantLegacy => return sanitize_ident(s.to_constant_case()),
+            SanitizeCase::SnakeLegacy => return sanitize_ident(s.to_snake_case()),
+            SanitizeCase::PascalLegacy => return sanitize_ident(s.to_pascal_case()),
+        };
+
+        let s = s.remove_boundaries(&Boundary::digits()).to_case(case);
+        sanitize_ident(s)
     }
 }
 
@@ -103,10 +122,6 @@ impl Sanitize {
 
         Ok(())
     }
-}
-
-fn sanitize_with_case(str: &str, case: convert_case::Case) -> String {
-    sanitize_ident(str.remove_boundaries(&Boundary::digits()).to_case(case))
 }
 
 pub(crate) fn merge_duplicate_variants(enumm: &mut crate::ir::Enum) {
