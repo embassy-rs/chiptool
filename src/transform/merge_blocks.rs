@@ -242,6 +242,12 @@ impl Display for BlockItemError {
     }
 }
 
+/// Check if two block items are compatible.
+///
+/// byte offset is _not_ validated, as this technically does
+/// not matter for compatibility. Callers of this function
+/// are expected to validate byte offset correctness themselves
+/// when necessary.
 pub(crate) fn block_item_compat(main: &BlockItem, other: &BlockItem) -> Vec<BlockItemError> {
     let mut errors = Vec::new();
 
@@ -249,11 +255,9 @@ pub(crate) fn block_item_compat(main: &BlockItem, other: &BlockItem) -> Vec<Bloc
         name,
         description,
         array,
-        byte_offset,
+        byte_offset: _,
         inner,
     } = main;
-
-    assert_eq!(*byte_offset, other.byte_offset);
 
     if name != &other.name {
         errors.push(BlockItemError::Name(name.clone(), other.name.clone()))
