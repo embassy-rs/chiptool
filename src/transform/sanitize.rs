@@ -125,10 +125,7 @@ impl Sanitize {
 }
 
 fn sanitize_with_case(str: &str, case: convert_case::Case) -> String {
-    sanitize_ident(
-        str.remove_boundaries(&[Boundary::LowerDigit, Boundary::UpperDigit])
-            .to_case(case),
-    )
+    sanitize_ident(str.remove_boundaries(&Boundary::digits()).to_case(case))
 }
 
 pub(crate) fn merge_duplicate_variants(enumm: &mut crate::ir::Enum) {
