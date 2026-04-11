@@ -3,22 +3,114 @@ use serde::{Deserialize, Serialize};
 
 use super::{map_names, NameKind, IR};
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum SanitizeCase {
+    None,
+    Snake,
+    Constant,
+    Pascal,
+    Camel,
+    Flat,
+    UpperFlat,
+    /// Path: `snake::Pascal`
+    PathSnakePascal,
+}
+
+impl SanitizeCase {
+    fn apply(self, s: &str) -> String {
+        match self {
+            SanitizeCase::None => s.to_string(),
+            SanitizeCase::Snake => sanitize_with_case(s, convert_case::Case::Snake),
+            SanitizeCase::Constant => sanitize_with_case(s, convert_case::Case::Constant),
+            SanitizeCase::Pascal => sanitize_with_case(s, convert_case::Case::Pascal),
+            SanitizeCase::Camel => sanitize_with_case(s, convert_case::Case::Camel),
+            SanitizeCase::Flat => sanitize_with_case(s, convert_case::Case::Flat),
+            SanitizeCase::UpperFlat => sanitize_with_case(s, convert_case::Case::UpperFlat),
+            SanitizeCase::PathSnakePascal => {
+                let v = s.split("::").collect::<Vec<_>>();
+                let len = v.len();
+                v.into_iter()
+                    .enumerate()
+                    .map(|(i, seg)| {
+                        if i == len - 1 {
+                            sanitize_with_case(seg, convert_case::Case::Pascal)
+                        } else {
+                            sanitize_with_case(seg, convert_case::Case::Snake)
+                        }
+                    })
+                    .collect::<Vec<_>>()
+                    .join("::")
+            }
+        }
+    }
+}
+
 /// Sanitize names and paths of all objects, using proper casing and stripping keywords.
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Sanitize {}
+pub struct Sanitize {
+    #[serde(default = "default_device")]
+    pub device: SanitizeCase,
+    #[serde(default = "default_device_peripheral")]
+    pub device_peripheral: SanitizeCase,
+    #[serde(default = "default_device_interrupt")]
+    pub device_interrupt: SanitizeCase,
+    #[serde(default = "default_block")]
+    pub block: SanitizeCase,
+    #[serde(default = "default_fieldset")]
+    pub fieldset: SanitizeCase,
+    #[serde(rename = "enum", default = "default_enum")]
+    pub enum_: SanitizeCase,
+    #[serde(default = "default_block_item")]
+    pub block_item: SanitizeCase,
+    #[serde(default = "default_field")]
+    pub field: SanitizeCase,
+    #[serde(default = "default_enum_variant")]
+    pub enum_variant: SanitizeCase,
+}
+
+fn default_device() -> SanitizeCase {
+    SanitizeCase::PathSnakePascal
+}
+fn default_device_peripheral() -> SanitizeCase {
+    SanitizeCase::Constant
+}
+fn default_device_interrupt() -> SanitizeCase {
+    SanitizeCase::Constant
+}
+fn default_block() -> SanitizeCase {
+    SanitizeCase::PathSnakePascal
+}
+fn default_fieldset() -> SanitizeCase {
+    SanitizeCase::PathSnakePascal
+}
+fn default_enum() -> SanitizeCase {
+    SanitizeCase::PathSnakePascal
+}
+fn default_block_item() -> SanitizeCase {
+    SanitizeCase::Snake
+}
+fn default_field() -> SanitizeCase {
+    SanitizeCase::Snake
+}
+fn default_enum_variant() -> SanitizeCase {
+    SanitizeCase::Pascal
+}
 
 impl Sanitize {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
-        map_names(ir, |k, p| match k {
-            NameKind::Device => *p = sanitize_path(p),
-            NameKind::DevicePeripheral => *p = p.to_sanitized_constant_case().to_string(),
-            NameKind::DeviceInterrupt => *p = p.to_sanitized_constant_case().to_string(),
-            NameKind::Block => *p = sanitize_path(p),
-            NameKind::Fieldset => *p = sanitize_path(p),
-            NameKind::Enum => *p = sanitize_path(p),
-            NameKind::BlockItem => *p = p.to_sanitized_snake_case().to_string(),
-            NameKind::Field => *p = p.to_sanitized_snake_case().to_string(),
-            NameKind::EnumVariant => *p = p.to_sanitized_pascal_case().to_string(),
+        map_names(ir, |k, p| {
+            let case = match k {
+                NameKind::Device => self.device,
+                NameKind::DevicePeripheral => self.device_peripheral,
+                NameKind::DeviceInterrupt => self.device_interrupt,
+                NameKind::Block => self.block,
+                NameKind::Fieldset => self.fieldset,
+                NameKind::Enum => self.enum_,
+                NameKind::BlockItem => self.block_item,
+                NameKind::Field => self.field,
+                NameKind::EnumVariant => self.enum_variant,
+            };
+            *p = case.apply(p);
         });
 
         // After sanitizing names, merge duplicate enum variants with the same name and value
@@ -30,22 +122,6 @@ impl Sanitize {
 
         Ok(())
     }
-}
-
-fn sanitize_path(p: &str) -> String {
-    let v = p.split("::").collect::<Vec<_>>();
-    let len = v.len();
-    v.into_iter()
-        .enumerate()
-        .map(|(i, s)| {
-            if i == len - 1 {
-                s.to_sanitized_pascal_case()
-            } else {
-                s.to_sanitized_snake_case()
-            }
-        })
-        .collect::<Vec<_>>()
-        .join("::")
 }
 
 fn sanitize_with_case(str: &str, case: convert_case::Case) -> String {
@@ -97,26 +173,6 @@ pub(crate) fn rename_duplicate_variants(enumm: &mut crate::ir::Enum) {
             // increment new name to catch cascading name collisons
             *name_counts.entry(v.name.clone()).or_insert(0) += 1;
         }
-    }
-}
-
-trait StringExt {
-    fn to_sanitized_pascal_case(&self) -> String;
-    fn to_sanitized_constant_case(&self) -> String;
-    fn to_sanitized_snake_case(&self) -> String;
-}
-
-impl StringExt for str {
-    fn to_sanitized_snake_case(&self) -> String {
-        sanitize_with_case(self, convert_case::Case::Snake)
-    }
-
-    fn to_sanitized_constant_case(&self) -> String {
-        sanitize_with_case(self, convert_case::Case::Constant)
-    }
-
-    fn to_sanitized_pascal_case(&self) -> String {
-        sanitize_with_case(self, convert_case::Case::Pascal)
     }
 }
 
