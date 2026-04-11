@@ -1,60 +1,9 @@
 use anyhow::{anyhow, Result};
-use inflections::Inflect;
 use proc_macro2::{Ident, Literal, Span, TokenStream};
 use quote::{quote, ToTokens};
 use std::str::FromStr;
 
 pub const BITS_PER_BYTE: u32 = 8;
-
-/// List of chars that some vendors use in their peripheral/field names but
-/// that are not valid in Rust ident
-const INVALID_CHARS: &[char] = &['(', ')', '[', ']', '/', ' ', '-'];
-
-static KEYWORDS: &[&str] = &[
-    "abstract", "as", "async", "await", "become", "box", "break", "const", "continue", "crate",
-    "do", "dyn", "else", "enum", "extern", "false", "final", "fn", "for", "if", "impl", "in",
-    "let", "loop", "macro", "match", "mod", "move", "mut", "override", "priv", "pub", "ref",
-    "return", "self", "Self", "static", "struct", "super", "trait", "true", "try", "type",
-    "typeof", "unsafe", "unsized", "use", "virtual", "where", "while", "yield",
-];
-
-/// Make `s` a valid identifier, making the minimal changes (no case changes)
-fn sanitize_ident(s: String) -> String {
-    let mut s = s.replace(INVALID_CHARS, "");
-    if KEYWORDS.contains(&&*s) {
-        s.push('_');
-        s
-    } else if s.starts_with(char::is_numeric) {
-        format!("_{}", s)
-    } else {
-        s
-    }
-}
-
-pub trait StringExt {
-    fn to_sanitized_pascal_case(&self) -> String;
-    fn to_sanitized_upper_case(&self) -> String;
-    fn to_sanitized_constant_case(&self) -> String;
-    fn to_sanitized_snake_case(&self) -> String;
-}
-
-impl StringExt for str {
-    fn to_sanitized_snake_case(&self) -> String {
-        sanitize_ident(self.to_snake_case())
-    }
-
-    fn to_sanitized_upper_case(&self) -> String {
-        sanitize_ident(self.to_upper_case())
-    }
-
-    fn to_sanitized_constant_case(&self) -> String {
-        sanitize_ident(self.to_constant_case())
-    }
-
-    fn to_sanitized_pascal_case(&self) -> String {
-        sanitize_ident(self.to_pascal_case())
-    }
-}
 
 pub fn respace(s: &str) -> String {
     s.split_whitespace().collect::<Vec<_>>().join(" ")
@@ -81,14 +30,6 @@ pub fn escape_brackets(s: &str) -> String {
                 acc + "\\]" + x
             }
         })
-}
-
-pub fn replace_suffix(name: &str, suffix: &str) -> String {
-    if name.contains("[%s]") {
-        name.replace("[%s]", suffix)
-    } else {
-        name.replace("%s", suffix)
-    }
 }
 
 pub fn hex_str(n: u64) -> String {

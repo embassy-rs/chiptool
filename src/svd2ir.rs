@@ -3,7 +3,7 @@ use log::*;
 use std::collections::{BTreeMap, BTreeSet};
 use svd_parser::svd::{self, PeripheralInfo};
 
-use crate::{ir::*, transform, util};
+use crate::{ir::*, transform};
 
 #[derive(Debug)]
 struct ProtoBlock {
@@ -57,7 +57,7 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
 
                 if let Some(fields) = &r.fields {
                     let mut fieldset_name = block.name.clone();
-                    fieldset_name.push(util::replace_suffix(&r.name, ""));
+                    fieldset_name.push(replace_suffix(&r.name, ""));
                     fieldsets.push(ProtoFieldset {
                         name: fieldset_name.clone(),
                         description: r.description.clone(),
@@ -74,7 +74,7 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
                         let mut enum_write = None;
                         let mut enum_readwrite = None;
 
-                        let field_name = util::replace_suffix(&f.name, "");
+                        let field_name = replace_suffix(&f.name, "");
 
                         for e in &f.enumerated_values {
                             let e = if let Some(derived_from) = &e.derived_from {
@@ -193,7 +193,7 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
 
                     let fieldset_name = if r.fields.is_some() {
                         let mut fieldset_name = proto.name.clone();
-                        fieldset_name.push(util::replace_suffix(&r.name, ""));
+                        fieldset_name.push(replace_suffix(&r.name, ""));
                         Some(fieldset_names.get(&fieldset_name).unwrap().clone())
                     } else {
                         None
@@ -218,7 +218,7 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
                     };
 
                     let block_item = BlockItem {
-                        name: util::replace_suffix(&r.name, ""),
+                        name: replace_suffix(&r.name, ""),
                         description: r.description.clone(),
                         array,
                         byte_offset: r.address_offset,
@@ -237,7 +237,7 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
                         continue;
                     }
 
-                    let cname = util::replace_suffix(&c.name, "");
+                    let cname = replace_suffix(&c.name, "");
 
                     let array = if let svd::Cluster::Array(_, dim) = c {
                         Some(Array::Regular(RegularArray {
@@ -249,7 +249,7 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
                     };
 
                     let mut block_name = proto.name.clone();
-                    block_name.push(util::replace_suffix(&c.name, ""));
+                    block_name.push(replace_suffix(&c.name, ""));
                     let block_name = block_names.get(&block_name).unwrap().clone();
 
                     block.items.push(BlockItem {
@@ -290,7 +290,7 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
                 None
             };
 
-            let field_name = util::replace_suffix(&f.name, "");
+            let field_name = replace_suffix(&f.name, "");
 
             let mut field = Field {
                 name: field_name.clone(),
@@ -468,7 +468,7 @@ fn collect_blocks(
             }
 
             let mut block_name = block_name.clone();
-            block_name.push(util::replace_suffix(&c.name, ""));
+            block_name.push(replace_suffix(&c.name, ""));
             collect_blocks(out, block_name, c.description.clone(), &c.children);
         }
     }
@@ -554,4 +554,12 @@ pub fn namespace_names(peripheral: &PeripheralInfo, ir: &mut IR, namespace: Name
             }
         }
     });
+}
+
+pub fn replace_suffix(name: &str, suffix: &str) -> String {
+    if name.contains("[%s]") {
+        name.replace("[%s]", suffix)
+    } else {
+        name.replace("%s", suffix)
+    }
 }
