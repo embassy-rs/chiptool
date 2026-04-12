@@ -148,7 +148,7 @@ pub(crate) fn rename_duplicate_variants(enumm: &mut crate::ir::Enum) {
     for v in &mut enumm.variants {
         if name_counts.get(&v.name).is_some_and(|&c| c > 1) {
             v.name = format!("{}_{:x}", v.name, v.value);
-            // increment new name to catch cascading name collisons
+            // increment new name to catch cascading name collisions
             *name_counts.entry(v.name.clone()).or_insert(0) += 1;
         }
     }

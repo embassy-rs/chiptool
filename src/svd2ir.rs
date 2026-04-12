@@ -58,6 +58,7 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
 
                 if let Some(fields) = &r.fields {
                     let mut fieldset_name = block.name.clone();
+                    let mut field_name_counts: BTreeMap<String, usize> = BTreeMap::new();
                     fieldset_name.push(replace_suffix(&r.name, ""));
                     fieldsets.push(ProtoFieldset {
                         name: fieldset_name.clone(),
@@ -75,7 +76,14 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
                         let mut enum_write = None;
                         let mut enum_readwrite = None;
 
-                        let field_name = replace_suffix(&f.name, "");
+                        let mut field_name = replace_suffix(&f.name, "");
+
+                        let field_name_count =
+                            field_name_counts.entry(field_name.clone()).or_insert(0);
+                        *field_name_count += 1;
+                        if *field_name_count > 1 {
+                            field_name = format!("{}{}", field_name, field_name_count);
+                        }
 
                         for e in &f.enumerated_values {
                             let e = if let Some(derived_from) = &e.derived_from {
