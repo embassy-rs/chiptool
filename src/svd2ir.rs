@@ -81,11 +81,7 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
                             field_name_counts.entry(field_name.clone()).or_insert(0);
                         *field_name_count += 1;
                         if *field_name_count > 1 {
-                            if field_name.contains("eserved") {
-                                field_name = format!("{}{}", field_name, field_name_count);
-                            } else {
-                                error!("Duplicate Field: {}::{}", r.name, field_name);
-                            }
+                            field_name = format!("{}{}", field_name, field_name_count);
                         }
 
                         for e in &f.enumerated_values {

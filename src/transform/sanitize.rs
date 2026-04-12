@@ -101,10 +101,6 @@ impl Sanitize {
             rename_duplicate_variants(enumm);
         }
 
-        for (_, fieldset) in ir.fieldsets.iter_mut() {
-            rename_duplicate_fields(fieldset);
-        }
-
         Ok(())
     }
 }
@@ -154,20 +150,6 @@ pub(crate) fn rename_duplicate_variants(enumm: &mut crate::ir::Enum) {
             v.name = format!("{}_{:x}", v.name, v.value);
             // increment new name to catch cascading name collisions
             *name_counts.entry(v.name.clone()).or_insert(0) += 1;
-        }
-    }
-}
-
-fn rename_duplicate_fields(fieldset: &mut crate::ir::FieldSet) {
-    use std::collections::BTreeMap;
-
-    let mut name_counts: BTreeMap<String, usize> = BTreeMap::new();
-
-    for f in fieldset.fields.iter_mut() {
-        let count = name_counts.entry(f.name.clone()).or_insert(0);
-        *count += 1;
-        if *count > 1 {
-            f.name = format!("{}_{count:x}", f.name);
         }
     }
 }
