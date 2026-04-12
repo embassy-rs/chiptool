@@ -331,6 +331,8 @@ impl CheckLevel {
                 had_breaking_error = true;
             } else if min_check_level == CheckLevel::Descriptions {
                 log::debug!("{op} {main} and {other}: {error}");
+            } else if min_check_level == CheckLevel::Names {
+                log::info!("{op} {main} and {other}: {error}");
             } else {
                 log::warn!("{op} {main} and {other}: {error}");
             }
