@@ -6,7 +6,7 @@ use std::fmt::{Display, Formatter};
 
 use super::common::*;
 use crate::ir::*;
-use crate::transform::merge_fieldsets::{array_compat, ArrayError};
+use crate::transform::merge_fieldsets::{array_compat, fieldset_compat, ArrayError, FieldSetError};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MergeBlocks {
@@ -60,7 +60,7 @@ fn merge_blocks(
     for id in &ids {
         let b2 = ir.blocks.get(id).unwrap();
         errors.extend(
-            block_compat(&b, b2)
+            block_compat(ir, &b, b2)
                 .into_iter()
                 .map(|v| (main_id.clone(), id.clone(), v)),
         );
@@ -112,7 +112,7 @@ impl core::fmt::Display for BlockError {
     }
 }
 
-pub(crate) fn block_compat(main: &Block, other: &Block) -> Vec<BlockError> {
+pub(crate) fn block_compat(ir: &IR, main: &Block, other: &Block) -> Vec<BlockError> {
     let mut errors = Vec::new();
 
     let Block {
@@ -152,7 +152,7 @@ pub(crate) fn block_compat(main: &Block, other: &Block) -> Vec<BlockError> {
         };
 
         errors.extend(
-            block_item_compat(main, other)
+            block_item_compat(ir, main, other)
                 .into_iter()
                 .map(|v| BlockError::Item(main.name.clone(), main.byte_offset, v)),
         );
@@ -199,8 +199,8 @@ pub(crate) enum BlockItemError {
     RegisterAccessMismatch(Access, Access),
     RegisterSizeMismatch(u32, u32),
     FieldSetXor(bool, bool),
-    FieldSet(String, String),
-    Block(String, String),
+    FieldSet(String, String, FieldSetError),
+    InnerBlock(String, String, Box<BlockError>),
     Name(String, String),
 }
 
@@ -211,7 +211,8 @@ impl MinCheckLevel for BlockItemError {
             BlockItemError::Name(..) => CheckLevel::Names,
             BlockItemError::Array(_) => CheckLevel::Layout,
             BlockItemError::RegisterAccessMismatch(..) => CheckLevel::Layout,
-            BlockItemError::FieldSet(..) => CheckLevel::Layout,
+            BlockItemError::FieldSet(_, _, e) => e.min_check_level(),
+            BlockItemError::InnerBlock(_, _, e) => e.min_check_level(),
             _ => CheckLevel::Layout,
         }
     }
@@ -249,8 +250,8 @@ impl Display for BlockItemError {
             FieldSetXor(false, _b) => {
                 write!(f, "fieldset mismatch: lhs doesn't have fieldset, rhs does")
             }
-            FieldSet(l, r) => write!(f, "field set mismatch: {l} != {r}"),
-            Block(l, r) => write!(f, "inner block mismatch: {l} != {r}"),
+            FieldSet(l, r, e) => write!(f, "field set {l} and {r} mismatch: {e}"),
+            InnerBlock(l, r, e) => write!(f, "inner blocks {l} and {r} mismatch: {e}"),
             Name(l, r) => write!(f, "name mismatch: {l} != {r}"),
         }
     }
@@ -262,7 +263,11 @@ impl Display for BlockItemError {
 /// not matter for compatibility. Callers of this function
 /// are expected to validate byte offset correctness themselves
 /// when necessary.
-pub(crate) fn block_item_compat(main: &BlockItem, other: &BlockItem) -> Vec<BlockItemError> {
+pub(crate) fn block_item_compat(
+    ir: &IR,
+    main: &BlockItem,
+    other: &BlockItem,
+) -> Vec<BlockItemError> {
     let mut errors = Vec::new();
 
     let BlockItem {
@@ -294,13 +299,20 @@ pub(crate) fn block_item_compat(main: &BlockItem, other: &BlockItem) -> Vec<Bloc
 
     use crate::ir::BlockItemInner::*;
     match (&inner, &other.inner) {
-        (Block(main), Block(other)) => {
-            if main != other {
-                errors.push(BlockItemError::Block(
-                    main.block.clone(),
-                    other.block.clone(),
-                ));
-            }
+        (Block(main_name), Block(other_name)) => {
+            let main = ir
+                .blocks
+                .get(&main_name.block)
+                .expect("main inner block exists");
+            let other = ir.blocks.get(&other_name.block).expect("other name exists");
+
+            errors.extend(block_compat(ir, main, other).into_iter().map(|v| {
+                BlockItemError::InnerBlock(
+                    main_name.block.clone(),
+                    other_name.block.clone(),
+                    Box::new(v),
+                )
+            }));
         }
         (Register(main), Register(other)) => {
             let crate::ir::Register {
@@ -324,10 +336,12 @@ pub(crate) fn block_item_compat(main: &BlockItem, other: &BlockItem) -> Vec<Bloc
             }
 
             match (fieldset.as_ref(), other.fieldset.as_ref()) {
-                (Some(main), Some(other)) => {
-                    if main != other {
-                        errors.push(BlockItemError::FieldSet(main.clone(), other.clone()));
-                    }
+                (Some(main_name), Some(other_name)) => {
+                    let main = ir.fieldsets.get(main_name).expect("main fieldset exists");
+                    let other = ir.fieldsets.get(other_name).expect("other fieldset exists");
+                    errors.extend(fieldset_compat(main, other).into_iter().map(|v| {
+                        BlockItemError::FieldSet(main_name.clone(), other_name.clone(), v)
+                    }));
                 }
                 (None, None) => {}
                 (main, other) => {

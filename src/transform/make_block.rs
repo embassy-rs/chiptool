@@ -70,7 +70,7 @@ impl MakeBlock {
 
                 let dest = self.to_block.clone(); // todo regex
                 if let Some(prev) = ir.blocks.insert(dest.clone(), b2.clone()) {
-                    let errors: Vec<_> = block_compat(&prev, &b2)
+                    let errors: Vec<_> = block_compat(ir, &prev, &b2)
                         .into_iter()
                         .map(|v| (dest.clone(), dest.clone(), v))
                         .collect();
