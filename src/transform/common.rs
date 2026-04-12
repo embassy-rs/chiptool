@@ -317,25 +317,33 @@ pub(crate) trait MinCheckLevel {
 }
 
 impl CheckLevel {
-    pub(crate) fn check<T>(&self, op: &str, errors: &[(String, String, T)]) -> anyhow::Result<()>
+    pub(crate) fn check<'a, T>(
+        &self,
+        target: impl Into<Option<&'a str>>,
+        op: &str,
+        errors: &[(String, String, T)],
+    ) -> anyhow::Result<()>
     where
         T: core::fmt::Display + MinCheckLevel,
     {
         let mut had_breaking_error = false;
+        let target = target.into().unwrap_or(module_path!());
 
         for (main, other, error) in errors {
             let min_check_level = error.min_check_level();
 
-            if self >= &min_check_level {
-                log::error!("{op} {main} and {other}: {error}");
+            let level = if self >= &min_check_level {
                 had_breaking_error = true;
+                log::Level::Error
             } else if min_check_level == CheckLevel::Descriptions {
-                log::debug!("{op} {main} and {other}: {error}");
+                log::Level::Debug
             } else if min_check_level == CheckLevel::Names {
-                log::info!("{op} {main} and {other}: {error}");
+                log::Level::Info
             } else {
-                log::warn!("{op} {main} and {other}: {error}");
-            }
+                log::Level::Warn
+            };
+
+            log::log!(target: target, level, "{op} {main} and {other}: {error}");
         }
 
         if had_breaking_error {

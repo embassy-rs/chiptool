@@ -77,7 +77,11 @@ impl MakeBlock {
 
                     had_breaking_error |= self
                         .check
-                        .check(&format!("making block {dest} from {group:?}"), &errors)
+                        .check(
+                            module_path!(),
+                            &format!("making block {dest} from {group:?}"),
+                            &errors,
+                        )
                         .is_err();
                 }
 

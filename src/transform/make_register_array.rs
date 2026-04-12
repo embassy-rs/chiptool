@@ -72,7 +72,7 @@ impl MakeRegisterArray {
         }
 
         self.check
-            .check("making/merging register arrays", &errors)
+            .check(module_path!(), "making/merging register arrays", &errors)
             .context("failed to make register array")?;
 
         Ok(())

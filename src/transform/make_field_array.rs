@@ -90,7 +90,7 @@ impl MakeFieldArray {
         }
 
         self.check
-            .check("making field arrays", &errors)
+            .check(module_path!(), "making field arrays", &errors)
             .context("failed to make field array")?;
 
         Ok(())

@@ -32,7 +32,7 @@ impl MergeFieldsets {
         }
 
         self.check
-            .check("merging fieldsets", &errors)
+            .check(module_path!(), "merging fieldsets", &errors)
             .context("failed to merge fieldsets")
     }
 }

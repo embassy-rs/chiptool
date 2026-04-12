@@ -34,7 +34,7 @@ impl MergeBlocks {
         }
 
         self.check
-            .check("merging blocks", &errors)
+            .check(module_path!(), "merging blocks", &errors)
             .context("failed to merge blocks")
     }
 }
