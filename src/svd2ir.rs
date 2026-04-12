@@ -505,38 +505,23 @@ fn unique_names(names: Vec<Vec<String>>) -> BTreeMap<Vec<String>, String> {
     let mut seen = BTreeSet::new();
 
     for (i, n) in names2.iter().enumerate() {
-        // For `n` of length 0 to `n.len()`,
-        // find the first one that does not exist in `names2`
+        // An iterator yielding successively longer suffixes
+        let mut suffixes = (0..n.len()).rev().map(|v| &n[v..]);
 
-        let mut new_prefix_len = None;
-        for prefix_len in (0..n.len()).rev() {
-            let suffix = &n[prefix_len..];
+        let shortest_unique_suffix = suffixes.clone().find(|suffix| {
+            !names2
+                .iter()
+                .enumerate()
+                .filter_map(|(idx, v)| (idx != i).then_some(v))
+                .any(|n2| n2.ends_with(suffix))
+        });
 
-            let mut suffix_exists = false;
-
-            for (idx, n2) in names2.iter().enumerate() {
-                if idx == i {
-                    continue;
-                }
-
-                if n2.ends_with(suffix) {
-                    suffix_exists = true;
-                    break;
-                }
-            }
-
-            if !suffix_exists {
-                new_prefix_len = Some(prefix_len);
-                break;
-            }
-        }
-
-        let j = new_prefix_len
-            .or_else(|| (0..n.len()).rev().find(|&j| !seen.contains(&n[j..])))
+        let suffix = shortest_unique_suffix
+            .or_else(|| suffixes.find(|suffix| !seen.contains(suffix)))
             .unwrap();
 
-        assert!(res.insert(names[i].clone(), n[j..].join("_")).is_none());
-        seen.insert(&n[j..]);
+        assert!(res.insert(names[i].clone(), suffix.join("_")).is_none());
+        seen.insert(suffix);
     }
     res
 }
