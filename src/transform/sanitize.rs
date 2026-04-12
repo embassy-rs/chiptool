@@ -158,6 +158,20 @@ pub(crate) fn rename_duplicate_variants(enumm: &mut crate::ir::Enum) {
     }
 }
 
+fn rename_duplicate_fields(fieldset: &mut crate::ir::FieldSet) {
+    use std::collections::BTreeMap;
+
+    let mut name_counts: BTreeMap<String, usize> = BTreeMap::new();
+
+    for f in fieldset.fields.iter_mut() {
+        let count = name_counts.entry(f.name.clone()).or_insert(0);
+        *count += 1;
+        if *count > 1 {
+            f.name = format!("{}_{count:x}", f.name);
+        }
+    }
+}
+
 /// List of chars that some vendors use in their peripheral/field names but
 /// that are not valid in Rust ident
 const INVALID_CHARS: &[char] = &['(', ')', '[', ']', '/', ' ', '-'];
