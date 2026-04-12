@@ -5,15 +5,15 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-clap = { version = "4.5.0", features = ["derive"] }
-env_logger = "0.11.1"
-inflections = "1.1"
+clap = { version = "4.6.0", features = ["derive"] }
+env_logger = "0.11.10"
+convert_case = "0.11"
 log = { version = "~0.4", features = ["std"] }
 quote = "1.0"
 proc-macro2 = "1.0"
-anyhow = "1.0.79"
-regex = "1.10.3"
-serde = { version = "1.0.196", features = [ "derive" ]}
+anyhow = "1.0.102"
+regex = "1.12.3"
+serde = { version = "1.0.228", features = [ "derive" ]}
 svd-parser = { git = "https://github.com/embassy-rs/svd.git", rev = "f4f192d083946fc6227db7ac17eba8aa58bb9d4c", features = ["derive-from", "expand"] }
 #svd-parser = { path = "./svd/svd-parser", features = ["derive-from", "expand"] }
 # Development has stopped for `serde_yaml`

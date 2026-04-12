@@ -1,0 +1,32 @@
+use crate::commands::apply_transform;
+use anyhow::Result;
+use clap::Parser;
+use std::fs;
+use std::path::PathBuf;
+
+use crate::ir::IR;
+
+/// Apply transform to YAML
+#[derive(Parser)]
+pub struct Transform {
+    /// Input YAML path
+    #[clap(short, long)]
+    pub input: PathBuf,
+    /// Output YAML path
+    #[clap(short, long)]
+    pub output: PathBuf,
+    /// Transforms file path
+    #[clap(short, long)]
+    pub transform: PathBuf,
+}
+
+pub fn transform(args: Transform) -> Result<()> {
+    let data = fs::read(&args.input)?;
+    let mut ir: IR = serde_yaml::from_slice(&data)?;
+    apply_transform(&mut ir, args.transform)?;
+
+    let data = serde_yaml::to_string(&ir)?;
+    fs::write(&args.output, data.as_bytes())?;
+
+    Ok(())
+}

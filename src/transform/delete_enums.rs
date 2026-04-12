@@ -23,7 +23,7 @@ impl DeleteEnums {
 
         let mut ids: BTreeSet<String> = BTreeSet::new();
         for (id, e) in ir.enums.iter() {
-            let bit_size_matches = self.bit_size.map_or(true, |s| s == e.bit_size);
+            let bit_size_matches = self.bit_size.is_none_or(|s| s == e.bit_size);
             if self.from.is_match(id) && bit_size_matches {
                 info!("deleting enum {}", id);
                 ids.insert(id.clone());

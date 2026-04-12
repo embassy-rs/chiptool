@@ -1,0 +1,44 @@
+use crate::commands::{load_svd, ExtractShared};
+use anyhow::{Context, Result};
+use clap::Parser;
+use std::io::stdout;
+
+/// Extract peripheral from SVD to YAML and print to stdout.
+#[derive(Parser)]
+pub struct ExtractPeripheral {
+    #[clap(flatten)]
+    pub extract_shared: ExtractShared,
+
+    /// Name of peripheral from the SVD
+    #[clap(long)]
+    pub peripheral: String,
+}
+
+pub fn extract_peripheral(args: ExtractPeripheral) -> Result<()> {
+    let svd = load_svd(&args.extract_shared.svd)?;
+
+    let peri = args.peripheral;
+    let mut p = svd
+        .peripherals
+        .iter()
+        .find(|p| p.name == peri)
+        .expect("peripheral not found");
+
+    if let Some(f) = &p.derived_from {
+        p = svd
+            .peripherals
+            .iter()
+            .find(|p| p.name == *f)
+            .expect("derivedFrom peripheral not found");
+    }
+
+    let mut ir = crate::commands::extract_peripheral(p, args.extract_shared.namespaces)?;
+
+    for transform in args.extract_shared.transform.iter() {
+        crate::commands::apply_transform(&mut ir, transform)
+            .with_context(|| format!("Failed to transform {}", transform.display()))?;
+    }
+
+    serde_yaml::to_writer(stdout(), &ir).unwrap();
+    Ok(())
+}

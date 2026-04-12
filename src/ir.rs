@@ -107,6 +107,11 @@ impl Array {
             Self::Cursed(x) => x.offsets.len(),
         }
     }
+
+    /// Returns `true` if the array has a length of 0.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

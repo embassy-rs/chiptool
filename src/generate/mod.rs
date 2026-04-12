@@ -13,7 +13,7 @@ use crate::ir::*;
 
 pub use device::render_device_x;
 
-pub const COMMON_MODULE: &[u8] = include_bytes!("common.rs");
+pub const COMMON_MODULE: &str = include_str!("common.rs");
 
 struct Module {
     items: TokenStream,
@@ -73,6 +73,7 @@ pub enum CommonModule {
 pub struct Options {
     common_module: CommonModule,
     defmt: DefmtOption,
+    no_std: bool,
 }
 
 /// Option for generating code for `defmt` support.
@@ -101,6 +102,7 @@ impl Options {
         Self {
             common_module: CommonModule::Builtin,
             defmt: DefmtOption::Feature("defmt".to_owned()),
+            no_std: true,
         }
     }
 
@@ -136,6 +138,12 @@ impl Options {
     pub fn defmt(&self) -> &DefmtOption {
         &self.defmt
     }
+
+    /// Don't generate a `#[no_std]` attribute
+    pub fn with_skip_no_std(mut self, skip: bool) -> Self {
+        self.no_std = !skip;
+        self
+    }
 }
 
 pub fn render(ir: &IR, opts: &Options) -> Result<TokenStream> {
@@ -161,9 +169,15 @@ pub fn render(ir: &IR, opts: &Options) -> Result<TokenStream> {
     root.items.extend(quote!(
         #![allow(non_camel_case_types)]
         #![allow(non_snake_case)]
-        #![no_std]
+        #![allow(non_upper_case_globals)]
         #![doc=#doc]
     ));
+
+    if opts.no_std {
+        root.items.extend(quote!(
+            #![no_std]
+        ));
+    }
 
     for (p, d) in sorted_map(&ir.devices, |name, _| name.clone()) {
         let (mods, _) = split_path(p);
@@ -195,8 +209,7 @@ pub fn render(ir: &IR, opts: &Options) -> Result<TokenStream> {
 
     match &opts.common_module {
         CommonModule::Builtin => {
-            let tokens =
-                TokenStream::from_str(std::str::from_utf8(COMMON_MODULE).unwrap()).unwrap();
+            let tokens = TokenStream::from_str(COMMON_MODULE).unwrap();
 
             let module = root.get_by_path(&["common"]);
             module.items = TokenStream::new(); // Remove default contents

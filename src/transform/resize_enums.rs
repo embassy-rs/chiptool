@@ -1,5 +1,3 @@
-
-
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
 
@@ -42,8 +40,9 @@ impl ResizeEnums {
 /// Verify all enum variants fit within the bit size of the enum after resize.
 fn verify_variants(ir: &IR, enumm: &str) -> anyhow::Result<()> {
     let e = ir.enums.get(enumm).unwrap();
-    let max_value = 2_u64.checked_pow(e.bit_size)
-        .with_context(|| format!("Bit size is too large"))?
+    let max_value = 2_u64
+        .checked_pow(e.bit_size)
+        .context("Bit size is too large")?
         .checked_sub(1)
         .with_context(|| format!("New bit size is invalid: {}", e.bit_size))?;
     let mut error = false;
@@ -52,7 +51,10 @@ fn verify_variants(ir: &IR, enumm: &str) -> anyhow::Result<()> {
         if variant.value > max_value {
             log::error!(
                 "{}::{} (value: {}) is out of range as a result of resize to {} bits",
-                enumm, variant.name, variant.value, e.bit_size
+                enumm,
+                variant.name,
+                variant.value,
+                e.bit_size
             );
             error |= true;
         }
@@ -98,7 +100,9 @@ fn update_uses(ir: &mut IR, enumm: &str) -> anyhow::Result<()> {
                     if i2_range.end() > i1_range.start() && i1_range.end() > i2_range.start() {
                         log::error!(
                             "fieldset {}: fields overlap: {} {}",
-                            fs_name, i1.name, i2.name
+                            fs_name,
+                            i1.name,
+                            i2.name
                         );
                         error |= true;
                         break 'COMPARE;
