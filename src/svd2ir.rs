@@ -504,23 +504,25 @@ fn unique_names(names: Vec<Vec<String>>) -> BTreeMap<Vec<String>, String> {
     let mut res = BTreeMap::new();
     let mut seen = BTreeSet::new();
 
-    for (i, n) in names2.iter().enumerate() {
+    for (i, (original, n)) in names.iter().zip(names2.iter()).enumerate() {
         // An iterator yielding successively longer suffixes
         let mut suffixes = (0..n.len()).rev().map(|v| &n[v..]);
 
         let shortest_unique_suffix = suffixes.clone().find(|suffix| {
-            !names2
+            let suffix_is_unique = !names2
                 .iter()
                 .enumerate()
                 .filter_map(|(idx, v)| (idx != i).then_some(v))
-                .any(|n2| n2.ends_with(suffix))
+                .any(|n2| n2.ends_with(suffix));
+
+            suffix_is_unique
         });
 
         let suffix = shortest_unique_suffix
             .or_else(|| suffixes.find(|suffix| !seen.contains(suffix)))
             .unwrap();
 
-        assert!(res.insert(names[i].clone(), suffix.join("_")).is_none());
+        assert!(res.insert(original.clone(), suffix.join("_")).is_none());
         seen.insert(suffix);
     }
     res
