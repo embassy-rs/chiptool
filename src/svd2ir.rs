@@ -1,3 +1,4 @@
+use anyhow::Context;
 use clap::ValueEnum;
 use log::*;
 use std::collections::{BTreeMap, BTreeSet};
@@ -171,9 +172,9 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
     }
 
     // Make all collected names unique by prefixing with parents' names if needed.
-    let block_names = unique_names(blocks.iter().map(|x| x.name.clone()).collect());
-    let fieldset_names = unique_names(fieldsets.iter().map(|x| x.name.clone()).collect());
-    let enum_names = unique_names(enums.iter().map(|x| x.name.clone()).collect());
+    let block_names = unique_names(blocks.iter().map(|x| x.name.clone()).collect())?;
+    let fieldset_names = unique_names(fieldsets.iter().map(|x| x.name.clone()).collect())?;
+    let enum_names = unique_names(enums.iter().map(|x| x.name.clone()).collect())?;
 
     // Convert blocks
     for proto in &blocks {
@@ -474,7 +475,12 @@ fn collect_blocks(
     }
 }
 
-fn unique_names(names: Vec<Vec<String>>) -> BTreeMap<Vec<String>, String> {
+/// An iterator yielding successively longer suffixes
+fn suffixes(n: &[String]) -> impl Iterator<Item = &[String]> {
+    (0..n.len()).rev().map(|v| &n[v..])
+}
+
+fn unique_names(names: Vec<Vec<String>>) -> anyhow::Result<BTreeMap<Vec<String>, String>> {
     let names2 = names
         .iter()
         .map(|n| {
@@ -502,25 +508,28 @@ fn unique_names(names: Vec<Vec<String>>) -> BTreeMap<Vec<String>, String> {
         .collect::<Vec<_>>();
 
     let mut res = BTreeMap::new();
-    let mut seen = BTreeSet::new();
+    let mut suffix_occurrences = BTreeMap::new();
 
-    let suffix_exists = |n: &[String], i: usize| {
-        names2
-            .iter()
-            .enumerate()
-            .filter(|(j, _)| *j != i)
-            .any(|(_, n2)| n2.ends_with(n))
-    };
-    for (i, n) in names2.iter().enumerate() {
-        let j = (0..n.len())
-            .rev()
-            .find(|&j| !suffix_exists(&n[j..], i))
-            .or_else(|| (0..n.len()).rev().find(|&j| !seen.contains(&n[j..])))
-            .unwrap();
-        assert!(res.insert(names[i].clone(), n[j..].join("_")).is_none());
-        seen.insert(&n[j..]);
+    for name in names2.iter() {
+        for suffix in suffixes(&name) {
+            let entry = suffix_occurrences.entry(suffix).or_insert(0);
+            *entry += 1;
+        }
     }
-    res
+
+    for (original, n) in names.iter().zip(names2.iter()) {
+        let shortest_unique_suffix = suffixes(n).find(|suffix| {
+            let suffix_is_unique = *suffix_occurrences.get(suffix).unwrap() == 1;
+            suffix_is_unique
+        });
+
+        let suffix = shortest_unique_suffix.with_context(|| {
+            format!("Failed to find unique name for {:?}. n: {:?}", original, n)
+        })?;
+
+        assert!(res.insert(original.clone(), suffix.join("_")).is_none());
+    }
+    Ok(res)
 }
 
 /// Derive a canonical block name from a SVD peripheral.
