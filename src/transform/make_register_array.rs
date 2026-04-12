@@ -18,14 +18,12 @@ pub struct MakeRegisterArray {
     pub check: CheckLevel,
 }
 
-fn layout() -> CheckLevel {
-    CheckLevel::Layout
-}
-
 impl MakeRegisterArray {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
+        let mut errors = Vec::new();
+
         for id in match_all(ir.blocks.keys().cloned(), &self.blocks) {
-            let b = ir.blocks.get_mut(&id).unwrap();
+            let mut b = ir.blocks.get(&id).unwrap().clone();
             let groups = match_groups(b.items.iter().map(|f| f.name.clone()), &self.from, &self.to);
             for (to, group) in groups {
                 info!("arrayizing to {}", to);
@@ -36,21 +34,16 @@ impl MakeRegisterArray {
                     items.push(i);
                 }
 
-                let mut errors = Vec::new();
                 let mut iter = items.iter();
                 let main = iter.next().unwrap();
 
                 for other in iter {
                     errors.extend(
-                        block_item_compat(main, other)
+                        block_item_compat(ir, main, other)
                             .into_iter()
                             .map(|v| (main.name.clone(), other.name.clone(), v)),
                     );
                 }
-
-                self.check
-                    .check("making register arrays", &errors)
-                    .context("failed to make register array")?;
 
                 // todo check they're not arrays (arrays of arrays not supported)
 
@@ -74,7 +67,14 @@ impl MakeRegisterArray {
                 item.byte_offset = offset;
                 b.items.push(item);
             }
+
+            ir.blocks.insert(id.clone(), b);
         }
+
+        self.check
+            .check(module_path!(), "making/merging register arrays", &errors)
+            .context("failed to make register array")?;
+
         Ok(())
     }
 }

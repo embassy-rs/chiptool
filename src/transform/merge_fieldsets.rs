@@ -32,7 +32,7 @@ impl MergeFieldsets {
         }
 
         self.check
-            .check("merging fieldsets", &errors)
+            .check(module_path!(), "merging fieldsets", &errors)
             .context("failed to merge fieldsets")
     }
 }
@@ -270,19 +270,24 @@ impl core::fmt::Display for FieldError {
     }
 }
 
+/// Check if two fields are compatible.
+///
+/// bit offset is _not_ validated, as this technically does
+/// not matter for compatibility. Callers of this function
+/// are expected to validate bit offset correctness themselves
+/// when necessary.
 pub(crate) fn field_compat(main: &Field, other: &Field) -> Vec<FieldError> {
     let mut errors = Vec::new();
 
     let Field {
         name,
         description,
-        bit_offset,
+        bit_offset: _,
         bit_size,
         array,
         enumm,
     } = main;
 
-    assert_eq!(bit_offset, &other.bit_offset);
     assert_eq!(bit_size, &other.bit_size);
 
     match (array.as_ref(), other.array.as_ref()) {
