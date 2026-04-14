@@ -285,6 +285,7 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
             fields: Vec::new(),
         };
 
+        let mut field_name_counts: BTreeMap<String, usize> = BTreeMap::new();
         for f in &proto.fields {
             if f.derived_from.is_some() {
                 warn!("unsupported derived_from in fieldset");
@@ -299,7 +300,13 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
                 None
             };
 
-            let field_name = replace_suffix(&f.name, "");
+            let mut field_name = replace_suffix(&f.name, "");
+
+            let field_name_count = field_name_counts.entry(field_name.clone()).or_insert(0);
+            *field_name_count += 1;
+            if *field_name_count > 1 {
+                field_name = format!("{}{}", field_name, field_name_count);
+            }
 
             let mut field = Field {
                 name: field_name.clone(),
