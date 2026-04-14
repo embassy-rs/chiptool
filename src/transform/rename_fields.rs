@@ -20,7 +20,7 @@ impl RenameFields {
         let mut had_duplicate = false;
 
         for id in match_all(ir.fieldsets.keys().cloned(), &self.fieldset) {
-            let fs = ir.fieldsets.get_mut(&id).unwrap();
+            let fs = get_mut!(ir, fieldsets, &id)?;
             let renames = renames.entry(id.clone()).or_default();
 
             let fmt = |field| format!("field {field} in fieldset {id}");

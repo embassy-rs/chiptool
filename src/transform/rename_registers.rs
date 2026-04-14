@@ -20,7 +20,7 @@ impl RenameRegisters {
         let mut had_duplicate = false;
 
         for id in match_all(ir.blocks.keys().cloned(), &self.block) {
-            let b = ir.blocks.get_mut(&id).unwrap();
+            let b = get_mut!(ir, blocks, &id)?;
             let renames = renames.entry(id.clone()).or_default();
 
             let fmt = |field| format!("register {field} in block {id}");

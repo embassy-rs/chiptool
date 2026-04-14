@@ -17,12 +17,12 @@ impl ExpandExtends {
             .map(|(k, v)| (k.clone(), v.extends.clone()))
             .collect();
         for name in topological_sort(deps)? {
-            let block = ir.blocks.get(&name).unwrap();
+            let block = get_ref!(ir, blocks, &name)?;
             if let Some(parent_name) = &block.extends {
-                let parent = ir.blocks.get(parent_name).unwrap();
+                let parent = get_ref!(ir, blocks, parent_name)?;
 
                 let items = parent.items.clone();
-                let block = ir.blocks.get_mut(&name).unwrap();
+                let block = get_mut!(ir, blocks, &name)?;
 
                 for i in items {
                     if !block.items.iter().any(|j| j.name == i.name) {
@@ -38,12 +38,12 @@ impl ExpandExtends {
             .map(|(k, v)| (k.clone(), v.extends.clone()))
             .collect();
         for name in topological_sort(deps)? {
-            let fieldset = ir.fieldsets.get(&name).unwrap();
+            let fieldset = get_ref!(ir, fieldsets, &name)?;
             if let Some(parent_name) = &fieldset.extends {
-                let parent = ir.fieldsets.get(parent_name).unwrap();
+                let parent = get_ref!(ir, fieldsets, parent_name)?;
 
                 let items = parent.fields.clone();
-                let fieldset = ir.fieldsets.get_mut(&name).unwrap();
+                let fieldset = get_mut!(ir, fieldsets, &name)?;
 
                 for i in items {
                     if !fieldset.fields.iter().any(|j| j.name == i.name) {

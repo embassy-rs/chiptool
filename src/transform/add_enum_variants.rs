@@ -13,7 +13,7 @@ pub struct AddEnumVariants {
 impl AddEnumVariants {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
         for id in match_all(ir.enums.keys().cloned(), &self.enumm) {
-            let d = ir.enums.get_mut(&id).unwrap();
+            let d = get_mut!(ir, enums, &id)?;
             d.variants.extend(self.variants.clone());
         }
 

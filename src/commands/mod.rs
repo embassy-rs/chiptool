@@ -80,7 +80,7 @@ pub fn extract_peripheral(
     namespace_names(p, &mut ir, namespace_mode);
 
     // Ensure consistent sort order in the YAML.
-    crate::transform::sort::Sort {}.run(&mut ir).unwrap();
+    crate::transform::sort::Sort {}.run(&mut ir)?;
 
     Ok(ir)
 }
