@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use proc_macro2::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::quote;
@@ -31,7 +31,7 @@ pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<T
                         16 => quote!(u16),
                         32 => quote!(u32),
                         64 => quote!(u64),
-                        _ => panic!("Invalid register bit size {}", r.bit_size),
+                        _ => bail!("Invalid register bit size {}", r.bit_size),
                     }
                 };
 

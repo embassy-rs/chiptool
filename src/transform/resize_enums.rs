@@ -1,4 +1,4 @@
-use anyhow::Context;
+use anyhow::{bail, Context};
 use serde::{Deserialize, Serialize};
 
 use crate::ir::*;
@@ -17,7 +17,7 @@ impl ResizeEnums {
         let ids = match_all(ir.enums.keys().cloned(), &self.emumm);
 
         if self.bit_size == 0 {
-            panic!("Cannot resize an enum to 0 bits (delete the enum?)");
+            bail!("Cannot resize an enum to 0 bits (delete the enum?)");
         }
 
         // Resize the enums
@@ -61,7 +61,7 @@ fn verify_variants(ir: &IR, enumm: &str) -> anyhow::Result<()> {
     }
 
     if error {
-        panic!();
+        bail!("Failed to verify variant {enumm}");
     }
 
     Ok(())
@@ -112,7 +112,7 @@ fn update_uses(ir: &mut IR, enumm: &str) -> anyhow::Result<()> {
         }
 
         if error {
-            panic!();
+            bail!("Fields overlap in {enumm}");
         }
     }
 

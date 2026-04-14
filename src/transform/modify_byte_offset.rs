@@ -1,3 +1,4 @@
+use anyhow::bail;
 use serde::{Deserialize, Serialize};
 
 use super::common::*;
@@ -44,7 +45,7 @@ impl ModifyByteOffset {
                 ));
             }
 
-            panic!("{err_msg}")
+            bail!("{err_msg}")
         }
 
         Ok(())

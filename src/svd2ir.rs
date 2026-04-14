@@ -1,4 +1,4 @@
-use anyhow::Context;
+use anyhow::{Context, bail};
 use clap::ValueEnum;
 use log::*;
 use std::collections::{BTreeMap, BTreeSet};
@@ -127,9 +127,9 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
                             (Some(r), Some(w), None) => Some(EnumSet::ReadWrite(r, w)),
                             (Some(r), None, Some(w)) => Some(EnumSet::ReadWrite(r, w)),
                             (None, Some(w), Some(r)) => Some(EnumSet::ReadWrite(r, w)),
-                            (Some(_), Some(_), Some(_)) => panic!(
-                                "cannot have enumeratedvalues for read, write and readwrite!"
-                            ),
+                            (Some(_), Some(_), Some(_)) => {
+                                bail!("cannot have enumeratedvalues for read, write and readwrite!")
+                            }
                         };
 
                         if let Some(set) = set {

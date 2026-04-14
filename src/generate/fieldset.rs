@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{bail, Result};
 use proc_macro2::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::quote;
@@ -20,7 +20,7 @@ pub fn render(opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Resu
         9..=16 => quote!(u16),
         17..=32 => quote!(u32),
         33..=64 => quote!(u64),
-        _ => panic!("Invalid bit_size {}", fs.bit_size),
+        _ => bail!("Invalid bit_size {}", fs.bit_size),
     };
 
     for f in sorted(&fs.fields, |f| (f.bit_offset.clone(), f.name.clone())) {
@@ -36,7 +36,7 @@ pub fn render(opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Resu
 
         if let Some(e_path) = &f.enumm {
             let Some(e) = ir.enums.get(e_path) else {
-                panic!("missing enum {}", e_path);
+                bail!("missing enum {}", e_path);
             };
 
             let enum_ty = match e.bit_size {
@@ -44,7 +44,7 @@ pub fn render(opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Resu
                 9..=16 => quote!(u16),
                 17..=32 => quote!(u32),
                 33..=64 => quote!(u64),
-                _ => panic!("Invalid bit_size {}", e.bit_size),
+                _ => bail!("Invalid bit_size {}", e.bit_size),
             };
 
             field_ty = util::relative_path(e_path, path);
@@ -57,7 +57,7 @@ pub fn render(opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Resu
                 9..=16 => quote!(u16),
                 17..=32 => quote!(u32),
                 33..=64 => quote!(u64),
-                _ => panic!("Invalid bit_size {}", f.bit_size),
+                _ => bail!("Invalid bit_size {}", f.bit_size),
             };
             to_bits = quote!(val as #ty);
             from_bits = if f.bit_size == 1 {
