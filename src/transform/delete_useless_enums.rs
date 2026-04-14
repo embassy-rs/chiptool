@@ -35,6 +35,7 @@ impl DeleteUselessEnums {
 }
 
 const USELESS_ZERO_NAMES: &[&str] = &[
+    "_0",
     "dis",
     "disable",
     "disabled",
@@ -52,6 +53,7 @@ const USELESS_ZERO_NAMES: &[&str] = &[
     "passthru",
 ];
 const USELESS_ONE_NAMES: &[&str] = &[
+    "_1",
     "en",
     "enable",
     "enabled",
