@@ -24,7 +24,7 @@ impl ResizeEnums {
         for enumm in ids.iter() {
             log::info!("Resizing enum {} to {} bits", enumm, self.bit_size);
 
-            let enumm = ir.enums.get_mut(enumm).unwrap();
+            let enumm = get_mut!(ir, enums, enumm)?;
             enumm.bit_size = self.bit_size;
         }
 
@@ -39,7 +39,7 @@ impl ResizeEnums {
 
 /// Verify all enum variants fit within the bit size of the enum after resize.
 fn verify_variants(ir: &IR, enumm: &str) -> anyhow::Result<()> {
-    let e = ir.enums.get(enumm).unwrap();
+    let e = get_ref!(ir, enums, enumm)?;
     let max_value = 2_u64
         .checked_pow(e.bit_size)
         .context("Bit size is too large")?

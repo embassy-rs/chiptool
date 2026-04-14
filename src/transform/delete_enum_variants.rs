@@ -14,7 +14,7 @@ pub struct DeleteEnumVariants {
 impl DeleteEnumVariants {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
         for id in match_all(ir.enums.keys().cloned(), &self.enumm) {
-            let e = ir.enums.get_mut(&id).unwrap();
+            let e = get_mut!(ir, enums, &id)?;
 
             e.variants.retain(|variant| {
                 if self.from.is_match(&variant.name) {

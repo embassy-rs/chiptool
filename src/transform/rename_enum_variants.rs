@@ -14,7 +14,7 @@ pub struct RenameEnumVariants {
 impl RenameEnumVariants {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
         for id in match_all(ir.enums.keys().cloned(), &self.enumm) {
-            let e = ir.enums.get_mut(&id).unwrap();
+            let e = get_mut!(ir, enums, &id)?;
             for i in &mut e.variants {
                 if let Some(name) = match_expand(&i.name, &self.from, &self.to) {
                     i.name = name;

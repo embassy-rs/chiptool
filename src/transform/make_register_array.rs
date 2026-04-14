@@ -25,7 +25,7 @@ fn layout() -> CheckLevel {
 impl MakeRegisterArray {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
         for id in match_all(ir.blocks.keys().cloned(), &self.blocks) {
-            let b = ir.blocks.get_mut(&id).unwrap();
+            let b = get_mut!(ir, blocks, &id)?;
             let groups = match_groups(b.items.iter().map(|f| f.name.clone()), &self.from, &self.to);
             for (to, group) in groups {
                 info!("arrayizing to {}", to);

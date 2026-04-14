@@ -13,7 +13,7 @@ pub struct ModifyRegisters {
 impl ModifyRegisters {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
         for id in match_all(ir.blocks.keys().cloned(), &self.blocks) {
-            let block = ir.blocks.get_mut(&id).unwrap();
+            let block = get_mut!(ir, blocks, &id)?;
 
             for item in block
                 .items

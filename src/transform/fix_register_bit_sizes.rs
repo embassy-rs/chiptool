@@ -48,7 +48,7 @@ impl FixRegisterBitSizes {
                             }
                             Some(fs) => {
                                 // expand the size of the existing fieldset.
-                                let fs = ir.fieldsets.get_mut(fs).unwrap();
+                                let fs = get_mut!(ir, fieldsets, fs)?;
                                 fs.bit_size = good_bit_size;
                             }
                         }

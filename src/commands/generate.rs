@@ -2,7 +2,7 @@ use crate::commands::{
     apply_transform, clean_up_ir, get_generate_opts, load_svd, GenerateShared, NamespaceMode,
 };
 use crate::{generate, svd2ir};
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use clap::Parser;
 use std::fs;
 use std::fs::File;
@@ -58,10 +58,16 @@ pub fn generate(args: Generate) -> Result<()> {
         std::env::current_dir()?
     };
 
-    let items = generate::render(&ir, &generate_opts).unwrap();
+    let items = generate::render(&ir, &generate_opts)?;
     fs::write(output.join("lib.rs"), items.to_string())?;
 
-    let device_x = generate::render_device_x(&ir, ir.devices.values().next().unwrap())?;
+    let device_x = generate::render_device_x(
+        &ir,
+        ir.devices
+            .values()
+            .next()
+            .ok_or_else(|| anyhow!("Expected at least one device to be defined"))?,
+    )?;
     fs::write(output.join("device.x"), device_x)?;
 
     Ok(())

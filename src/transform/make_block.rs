@@ -18,14 +18,14 @@ pub struct MakeBlock {
 impl MakeBlock {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
         for id in match_all(ir.blocks.keys().cloned(), &self.blocks) {
-            let b = ir.blocks.get_mut(&id).unwrap();
+            let b = get_mut!(ir, blocks, &id)?;
             let groups = match_groups(
                 b.items.iter().map(|f| f.name.clone()),
                 &self.from,
                 &self.to_outer,
             );
             for (to, group) in groups {
-                let b = ir.blocks.get_mut(&id).unwrap();
+                let b = get_mut!(ir, blocks, &id)?;
                 info!("blockifizing to {}", to);
 
                 // Grab all items into a vec
@@ -68,7 +68,7 @@ impl MakeBlock {
                 ir.blocks.insert(dest.clone(), b2);
 
                 // Remove all items
-                let b = ir.blocks.get_mut(&id).unwrap();
+                let b = get_mut!(ir, blocks, &id)?;
                 b.items.retain(|i| !group.contains(&i.name));
 
                 // Create the new block item

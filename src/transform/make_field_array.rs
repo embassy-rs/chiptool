@@ -17,7 +17,7 @@ pub struct MakeFieldArray {
 impl MakeFieldArray {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
         for id in match_all(ir.fieldsets.keys().cloned(), &self.fieldsets) {
-            let b = ir.fieldsets.get_mut(&id).unwrap();
+            let b = get_mut!(ir, fieldsets, &id)?;
             let groups = match_groups(
                 b.fields.iter().map(|f| f.name.clone()),
                 &self.from,

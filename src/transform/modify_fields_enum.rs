@@ -30,7 +30,7 @@ impl ModifyFieldsEnum {
                 }
             };
 
-            let fs = ir.fieldsets.get_mut(&id).unwrap();
+            let fs = get_mut!(ir, fieldsets, &id)?;
             fs.fields
                 .iter_mut()
                 .filter(|f| self.field.is_match(&f.name))

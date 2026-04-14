@@ -13,7 +13,7 @@ pub struct DeletePeripherals {
 impl DeletePeripherals {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
         for id in match_all(ir.devices.keys().cloned(), &self.devices) {
-            let d = ir.devices.get_mut(&id).unwrap();
+            let d = get_mut!(ir, devices, &id)?;
             d.peripherals.retain(|i| {
                 info!("deleting peripheral {}", &i.name);
                 !self.from.is_match(&i.name)

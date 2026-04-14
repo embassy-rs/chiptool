@@ -12,7 +12,7 @@ pub struct AddRegisters {
 impl AddRegisters {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
         for id in match_all(ir.blocks.keys().cloned(), &self.block) {
-            let d = ir.blocks.get_mut(&id).unwrap();
+            let d = get_mut!(ir, blocks, &id)?;
             d.items.extend(self.registers.clone());
         }
 

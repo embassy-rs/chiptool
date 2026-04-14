@@ -19,7 +19,7 @@ impl ModifyByteOffset {
         let mut err_names = Vec::new();
 
         for id in match_all(ir.blocks.keys().cloned(), &self.blocks) {
-            let b = ir.blocks.get_mut(&id).unwrap();
+            let b = get_mut!(ir, blocks, &id)?;
             for i in &mut b.items {
                 if let Some(exclude) = &self.exclude_items {
                     if exclude.is_match(&i.name) {

@@ -41,16 +41,14 @@ pub fn gen_block(args: GenBlock) -> Result<()> {
         }
     }
 
-    crate::transform::expand_extends::ExpandExtends {}
-        .run(&mut ir)
-        .unwrap();
+    crate::transform::expand_extends::ExpandExtends {}.run(&mut ir)?;
 
     // Ensure consistent sort order in the YAML.
-    crate::transform::sort::Sort {}.run(&mut ir).unwrap();
+    crate::transform::sort::Sort {}.run(&mut ir)?;
 
     let generate_opts = get_generate_opts(args.gen_shared)?;
 
-    let items = generate::render(&ir, &generate_opts).unwrap();
+    let items = generate::render(&ir, &generate_opts)?;
     fs::write(&args.output, items.to_string())?;
 
     Ok(())
