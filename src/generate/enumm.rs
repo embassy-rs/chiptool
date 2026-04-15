@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use anyhow::{bail, Result};
+use anyhow::{anyhow, bail, Result};
 use proc_macro2::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::quote;
@@ -18,7 +18,15 @@ pub fn render(opts: &super::Options, _ir: &IR, e: &Enum, path: &str) -> Result<T
     // - there'd be 100 or more "reserved" cases, AND
     // - there'd be 50% or more "reserved" cases.
     let variant_count = e.variants.len() as u64;
-    let reserved_count = (1u64 << e.bit_size) - variant_count;
+    let reserved_count = (1u64 << e.bit_size)
+        .checked_sub(variant_count)
+        .ok_or_else(|| {
+            anyhow!(
+                "In enum {} the {variant_count} enum variants do not fit within {} bits",
+                path,
+                e.bit_size,
+            )
+        })?;
     let newtype = reserved_count >= 100 && reserved_count >= variant_count;
 
     let ty = match e.bit_size {
