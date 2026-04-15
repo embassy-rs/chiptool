@@ -1,8 +1,10 @@
+use anyhow::Context;
 use log::*;
 use serde::{Deserialize, Serialize};
 
 use super::common::*;
 use crate::ir::*;
+use crate::transform::merge_blocks::block_item_compat;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MakeRegisterArray {
@@ -11,12 +13,19 @@ pub struct MakeRegisterArray {
     pub to: String,
     #[serde(default)]
     pub mode: ArrayMode,
+    // Arrays are often numbered, so we generally care less about the naming
+    #[serde(default = "layout")]
+    pub check: CheckLevel,
+}
+
+fn layout() -> CheckLevel {
+    CheckLevel::Layout
 }
 
 impl MakeRegisterArray {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
         for id in match_all(ir.blocks.keys().cloned(), &self.blocks) {
-            let b = ir.blocks.get_mut(&id).unwrap();
+            let b = get_mut!(ir, blocks, &id)?;
             let groups = match_groups(b.items.iter().map(|f| f.name.clone()), &self.from, &self.to);
             for (to, group) in groups {
                 info!("arrayizing to {}", to);
@@ -27,7 +36,22 @@ impl MakeRegisterArray {
                     items.push(i);
                 }
 
-                // todo check they're mergeable
+                let mut errors = Vec::new();
+                let mut iter = items.iter();
+                let main = iter.next().unwrap();
+
+                for other in iter {
+                    errors.extend(
+                        block_item_compat(main, other)
+                            .into_iter()
+                            .map(|v| (main.name.clone(), other.name.clone(), v)),
+                    );
+                }
+
+                self.check
+                    .check("making register arrays", &errors)
+                    .context("failed to make register array")?;
+
                 // todo check they're not arrays (arrays of arrays not supported)
 
                 // Sort by offs

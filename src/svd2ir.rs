@@ -1,8 +1,9 @@
+use anyhow::{Context, bail};
+use clap::ValueEnum;
 use log::*;
 use std::collections::{BTreeMap, BTreeSet};
-use svd_parser::svd;
+use svd_parser::svd::{self, PeripheralInfo};
 
-use crate::util;
 use crate::{ir::*, transform};
 
 #[derive(Debug)]
@@ -25,6 +26,13 @@ struct ProtoEnum {
     name: Vec<String>,
     bit_size: u32,
     variants: Vec<svd::EnumeratedValue>,
+}
+
+#[derive(Clone, Copy, ValueEnum)]
+pub enum NamespaceMode {
+    None,
+    Block,
+    BlockWithRegsVals,
 }
 
 pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()> {
@@ -50,7 +58,8 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
 
                 if let Some(fields) = &r.fields {
                     let mut fieldset_name = block.name.clone();
-                    fieldset_name.push(util::replace_suffix(&r.name, ""));
+                    let mut field_name_counts: BTreeMap<String, usize> = BTreeMap::new();
+                    fieldset_name.push(replace_suffix(&r.name, ""));
                     fieldsets.push(ProtoFieldset {
                         name: fieldset_name.clone(),
                         description: r.description.clone(),
@@ -67,7 +76,14 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
                         let mut enum_write = None;
                         let mut enum_readwrite = None;
 
-                        let field_name = util::replace_suffix(&f.name, "");
+                        let mut field_name = replace_suffix(&f.name, "");
+
+                        let field_name_count =
+                            field_name_counts.entry(field_name.clone()).or_insert(0);
+                        *field_name_count += 1;
+                        if *field_name_count > 1 {
+                            field_name = format!("{}{}", field_name, field_name_count);
+                        }
 
                         for e in &f.enumerated_values {
                             let e = if let Some(derived_from) = &e.derived_from {
@@ -111,9 +127,9 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
                             (Some(r), Some(w), None) => Some(EnumSet::ReadWrite(r, w)),
                             (Some(r), None, Some(w)) => Some(EnumSet::ReadWrite(r, w)),
                             (None, Some(w), Some(r)) => Some(EnumSet::ReadWrite(r, w)),
-                            (Some(_), Some(_), Some(_)) => panic!(
-                                "cannot have enumeratedvalues for read, write and readwrite!"
-                            ),
+                            (Some(_), Some(_), Some(_)) => {
+                                bail!("cannot have enumeratedvalues for read, write and readwrite!")
+                            }
                         };
 
                         if let Some(set) = set {
@@ -164,9 +180,9 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
     }
 
     // Make all collected names unique by prefixing with parents' names if needed.
-    let block_names = unique_names(blocks.iter().map(|x| x.name.clone()).collect());
-    let fieldset_names = unique_names(fieldsets.iter().map(|x| x.name.clone()).collect());
-    let enum_names = unique_names(enums.iter().map(|x| x.name.clone()).collect());
+    let block_names = unique_names(blocks.iter().map(|x| x.name.clone()).collect())?;
+    let fieldset_names = unique_names(fieldsets.iter().map(|x| x.name.clone()).collect())?;
+    let enum_names = unique_names(enums.iter().map(|x| x.name.clone()).collect())?;
 
     // Convert blocks
     for proto in &blocks {
@@ -186,7 +202,7 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
 
                     let fieldset_name = if r.fields.is_some() {
                         let mut fieldset_name = proto.name.clone();
-                        fieldset_name.push(util::replace_suffix(&r.name, ""));
+                        fieldset_name.push(replace_suffix(&r.name, ""));
                         Some(fieldset_names.get(&fieldset_name).unwrap().clone())
                     } else {
                         None
@@ -211,7 +227,7 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
                     };
 
                     let block_item = BlockItem {
-                        name: util::replace_suffix(&r.name, ""),
+                        name: replace_suffix(&r.name, ""),
                         description: r.description.clone(),
                         array,
                         byte_offset: r.address_offset,
@@ -230,7 +246,7 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
                         continue;
                     }
 
-                    let cname = util::replace_suffix(&c.name, "");
+                    let cname = replace_suffix(&c.name, "");
 
                     let array = if let svd::Cluster::Array(_, dim) = c {
                         Some(Array::Regular(RegularArray {
@@ -242,7 +258,7 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
                     };
 
                     let mut block_name = proto.name.clone();
-                    block_name.push(util::replace_suffix(&c.name, ""));
+                    block_name.push(replace_suffix(&c.name, ""));
                     let block_name = block_names.get(&block_name).unwrap().clone();
 
                     block.items.push(BlockItem {
@@ -283,7 +299,7 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
                 None
             };
 
-            let field_name = util::replace_suffix(&f.name, "");
+            let field_name = replace_suffix(&f.name, "");
 
             let mut field = Field {
                 name: field_name.clone(),
@@ -335,7 +351,8 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
     Ok(())
 }
 
-pub fn convert_svd(svd: &svd::Device) -> anyhow::Result<IR> {
+/// Convert an entire SVD to IR.
+pub fn convert_svd(svd: &svd::Device, namespace: NamespaceMode) -> anyhow::Result<IR> {
     let mut ir = IR::new();
 
     let mut device = Device {
@@ -404,14 +421,7 @@ pub fn convert_svd(svd: &svd::Device) -> anyhow::Result<IR> {
         if p.derived_from.is_none() {
             let mut pir = IR::new();
             convert_peripheral(&mut pir, p)?;
-
-            transform::map_names(&mut pir, |k, s| match k {
-                transform::NameKind::Block => *s = format!("{}::{}", block_name, s),
-                transform::NameKind::Fieldset => *s = format!("{}::regs::{}", block_name, s),
-                transform::NameKind::Enum => *s = format!("{}::vals::{}", block_name, s),
-                _ => {}
-            });
-
+            namespace_names(p, &mut pir, namespace);
             ir.merge(pir);
         }
     }
@@ -419,7 +429,6 @@ pub fn convert_svd(svd: &svd::Device) -> anyhow::Result<IR> {
     ir.devices.insert("".to_string(), device);
 
     transform::sort::Sort {}.run(&mut ir).unwrap();
-    transform::sanitize::Sanitize {}.run(&mut ir).unwrap();
 
     Ok(ir)
 }
@@ -468,13 +477,18 @@ fn collect_blocks(
             }
 
             let mut block_name = block_name.clone();
-            block_name.push(util::replace_suffix(&c.name, ""));
+            block_name.push(replace_suffix(&c.name, ""));
             collect_blocks(out, block_name, c.description.clone(), &c.children);
         }
     }
 }
 
-fn unique_names(names: Vec<Vec<String>>) -> BTreeMap<Vec<String>, String> {
+/// An iterator yielding successively longer suffixes
+fn suffixes(n: &[String]) -> impl Iterator<Item = &[String]> {
+    (0..n.len()).rev().map(|v| &n[v..])
+}
+
+fn unique_names(names: Vec<Vec<String>>) -> anyhow::Result<BTreeMap<Vec<String>, String>> {
     let names2 = names
         .iter()
         .map(|n| {
@@ -502,23 +516,67 @@ fn unique_names(names: Vec<Vec<String>>) -> BTreeMap<Vec<String>, String> {
         .collect::<Vec<_>>();
 
     let mut res = BTreeMap::new();
-    let mut seen = BTreeSet::new();
+    let mut suffix_occurrences = BTreeMap::new();
 
-    let suffix_exists = |n: &[String], i: usize| {
-        names2
-            .iter()
-            .enumerate()
-            .filter(|(j, _)| *j != i)
-            .any(|(_, n2)| n2.ends_with(n))
-    };
-    for (i, n) in names2.iter().enumerate() {
-        let j = (0..n.len())
-            .rev()
-            .find(|&j| !suffix_exists(&n[j..], i))
-            .or_else(|| (0..n.len()).rev().find(|&j| !seen.contains(&n[j..])))
-            .unwrap();
-        assert!(res.insert(names[i].clone(), n[j..].join("_")).is_none());
-        seen.insert(&n[j..]);
+    for name in names2.iter() {
+        for suffix in suffixes(&name) {
+            let entry = suffix_occurrences.entry(suffix).or_insert(0);
+            *entry += 1;
+        }
     }
-    res
+
+    for (original, n) in names.iter().zip(names2.iter()) {
+        let shortest_unique_suffix = suffixes(n).find(|suffix| {
+            let suffix_is_unique = *suffix_occurrences.get(suffix).unwrap() == 1;
+            suffix_is_unique
+        });
+
+        let suffix = shortest_unique_suffix.with_context(|| {
+            format!("Failed to find unique name for {:?}. n: {:?}", original, n)
+        })?;
+
+        assert!(res.insert(original.clone(), suffix.join("_")).is_none());
+    }
+    Ok(res)
+}
+
+/// Derive a canonical block name from a SVD peripheral.
+fn block_name(peripheral: &PeripheralInfo) -> String {
+    peripheral
+        .header_struct_name
+        .clone()
+        .unwrap_or(peripheral.name.clone())
+}
+
+/// Map all IR objects to a block namespace.
+///
+/// Optionally add the '::regs' for registers and '::vals' for enums submodules.
+pub fn namespace_names(peripheral: &PeripheralInfo, ir: &mut IR, namespace: NamespaceMode) {
+    let block_name = block_name(peripheral);
+
+    transform::map_names(ir, |k, s| {
+        // Denotes whether to transform the name, and with which (empty) midfix.
+        let transform_midfix: Option<&str> = match k {
+            transform::NameKind::Block => Some(""),
+            transform::NameKind::Fieldset => Some("::regs"),
+            transform::NameKind::Enum => Some("::vals"),
+            _ => None,
+        };
+
+        if let Some(midfix) = transform_midfix {
+            match namespace {
+                NamespaceMode::None => (), // Do nothing.
+                NamespaceMode::Block => *s = format!("{}::{}", block_name, s),
+                NamespaceMode::BlockWithRegsVals => *s = format!("{}{}::{}", block_name, midfix, s),
+            }
+        }
+    });
+}
+
+pub fn replace_suffix(name: &str, suffix: &str) -> String {
+    if name.contains("[%s]") {
+        name.replace("[%s]", suffix)
+    } else {
+        name.replace("%s", suffix)
+    }
 }

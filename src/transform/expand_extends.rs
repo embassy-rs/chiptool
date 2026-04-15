@@ -1,3 +1,4 @@
+use anyhow::{bail, Result};
 use log::*;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -15,13 +16,13 @@ impl ExpandExtends {
             .iter()
             .map(|(k, v)| (k.clone(), v.extends.clone()))
             .collect();
-        for name in topological_sort(deps) {
-            let block = ir.blocks.get(&name).unwrap();
+        for name in topological_sort(deps)? {
+            let block = get_ref!(ir, blocks, &name)?;
             if let Some(parent_name) = &block.extends {
-                let parent = ir.blocks.get(parent_name).unwrap();
+                let parent = get_ref!(ir, blocks, parent_name)?;
 
                 let items = parent.items.clone();
-                let block = ir.blocks.get_mut(&name).unwrap();
+                let block = get_mut!(ir, blocks, &name)?;
 
                 for i in items {
                     if !block.items.iter().any(|j| j.name == i.name) {
@@ -36,13 +37,13 @@ impl ExpandExtends {
             .iter()
             .map(|(k, v)| (k.clone(), v.extends.clone()))
             .collect();
-        for name in topological_sort(deps) {
-            let fieldset = ir.fieldsets.get(&name).unwrap();
+        for name in topological_sort(deps)? {
+            let fieldset = get_ref!(ir, fieldsets, &name)?;
             if let Some(parent_name) = &fieldset.extends {
-                let parent = ir.fieldsets.get(parent_name).unwrap();
+                let parent = get_ref!(ir, fieldsets, parent_name)?;
 
                 let items = parent.fields.clone();
-                let fieldset = ir.fieldsets.get_mut(&name).unwrap();
+                let fieldset = get_mut!(ir, fieldsets, &name)?;
 
                 for i in items {
                     if !fieldset.fields.iter().any(|j| j.name == i.name) {
@@ -56,19 +57,23 @@ impl ExpandExtends {
     }
 }
 
-fn topological_sort(vals: BTreeMap<String, Option<String>>) -> Vec<String> {
+fn topological_sort(vals: BTreeMap<String, Option<String>>) -> Result<Vec<String>> {
     for (name, dep) in &vals {
-        info!("{:?} => {:?}", name, dep);
+        info!("{:?} → {:?}", name, dep);
     }
 
     let mut done = BTreeSet::new();
     let mut res = Vec::new();
+
     while done.len() != vals.len() {
         for (name, dep) in &vals {
             if done.contains(name) {
                 continue;
             }
             if let Some(dep) = dep {
+                if !vals.contains_key(dep) {
+                    bail!("Couldn't resolve dependency for {name} → {dep}");
+                }
                 if !done.contains(dep) {
                     continue;
                 }
@@ -78,5 +83,6 @@ fn topological_sort(vals: BTreeMap<String, Option<String>>) -> Vec<String> {
             res.push(name.clone());
         }
     }
-    res
+
+    Ok(res)
 }

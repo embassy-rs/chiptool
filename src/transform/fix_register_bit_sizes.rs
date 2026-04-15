@@ -1,3 +1,4 @@
+use anyhow::bail;
 use serde::{Deserialize, Serialize};
 
 use crate::ir::*;
@@ -18,7 +19,7 @@ impl FixRegisterBitSizes {
                         9..=16 => 16,
                         17..=32 => 32,
                         33..=64 => 64,
-                        65.. => panic!("Invalid register bit size {}", r.bit_size),
+                        65.. => bail!("Invalid register bit size {}", r.bit_size),
                     };
                     if r.bit_size != good_bit_size {
                         r.bit_size = good_bit_size;
@@ -41,13 +42,13 @@ impl FixRegisterBitSizes {
                                         extends: None,
                                     };
                                     if ir.fieldsets.insert(i.name.clone(), fs).is_some() {
-                                        panic!("dup fieldset {}", i.name);
+                                        bail!("dup fieldset {}", i.name);
                                     }
                                 }
                             }
                             Some(fs) => {
                                 // expand the size of the existing fieldset.
-                                let fs = ir.fieldsets.get_mut(fs).unwrap();
+                                let fs = get_mut!(ir, fieldsets, fs)?;
                                 fs.bit_size = good_bit_size;
                             }
                         }

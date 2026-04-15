@@ -1,4 +1,4 @@
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use proc_macro2::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::quote;
@@ -70,7 +70,7 @@ pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<T
                 let _b2 = ir
                     .blocks
                     .get(block_path)
-                    .ok_or_else(|| anyhow!("Couldn't find block: {block_path}"))?;
+                    .with_context(|| format!("Failed to find block {}", block_path))?;
 
                 let ty = util::relative_path(block_path, path);
                 if let Some(array) = &i.array {

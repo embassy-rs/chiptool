@@ -212,7 +212,7 @@ fn remap_names<T>(
     Ok(())
 }
 
-mod common;
+pub mod common;
 
 macro_rules! transforms {
     ($($mod:ident::$struct:ident,)*) => {

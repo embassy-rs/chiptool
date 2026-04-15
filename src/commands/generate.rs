@@ -1,6 +1,8 @@
-use crate::commands::{apply_transform, clean_up_ir, get_generate_opts, load_svd, GenShared};
+use crate::commands::{
+    apply_transform, clean_up_ir, get_generate_opts, load_svd, GenerateShared, NamespaceMode,
+};
 use crate::{generate, svd2ir};
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use clap::Parser;
 use std::fs;
 use std::fs::File;
@@ -9,14 +11,18 @@ use std::path::PathBuf;
 /// Generate a PAC directly from a SVD
 #[derive(Parser)]
 pub struct Generate {
-    /// SVD file path
+    /// SVD file path.
     #[clap(long)]
     pub svd: PathBuf,
-    /// Transforms file path
+    /// Transforms file paths.
     #[clap(long)]
     pub transform: Vec<PathBuf>,
+    /// Namespaces added to each extracted peripheral.
+    #[clap(long, value_enum, default_value = "block-with-regs-vals")]
+    pub namespaces: NamespaceMode,
     #[clap(flatten)]
-    pub gen_shared: GenShared,
+    pub gen_shared: GenerateShared,
+
     /// Output YAML path for the whole IR. Useful for debugging
     #[clap(long)]
     pub debug_ir_output: Option<PathBuf>,
@@ -28,7 +34,8 @@ pub struct Generate {
 pub fn generate(args: Generate) -> Result<()> {
     let svd =
         load_svd(&args.svd).with_context(|| format!("loading svd at {}", args.svd.display()))?;
-    let mut ir = svd2ir::convert_svd(&svd)
+
+    let mut ir = svd2ir::convert_svd(&svd, args.namespaces)
         .with_context(|| format!("converting svd at {}", args.svd.display()))?;
 
     clean_up_ir(&mut ir)?;
@@ -51,10 +58,16 @@ pub fn generate(args: Generate) -> Result<()> {
         std::env::current_dir()?
     };
 
-    let items = generate::render(&ir, &generate_opts).unwrap();
+    let items = generate::render(&ir, &generate_opts)?;
     fs::write(output.join("lib.rs"), items.to_string())?;
 
-    let device_x = generate::render_device_x(&ir, ir.devices.values().next().unwrap())?;
+    let device_x = generate::render_device_x(
+        &ir,
+        ir.devices
+            .values()
+            .next()
+            .ok_or_else(|| anyhow!("Expected at least one device to be defined"))?,
+    )?;
     fs::write(output.join("device.x"), device_x)?;
 
     Ok(())

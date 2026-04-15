@@ -1,3 +1,4 @@
+use anyhow::Result;
 use de::MapAccess;
 use serde::{de, de::Visitor, ser::SerializeMap, Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::BTreeMap;
@@ -23,6 +24,22 @@ impl IR {
         self.fieldsets.extend(other.fieldsets);
         self.enums.extend(other.enums);
     }
+}
+
+macro_rules! get_ref {
+    ($ir:expr, $type:ident, $name:expr) => {
+        $ir.$type.get($name).ok_or_else(|| {
+            anyhow::anyhow!("Failed to find element {} in {}", $name, stringify!($type))
+        })
+    };
+}
+
+macro_rules! get_mut {
+    ($ir:expr, $type:ident, $name:expr) => {
+        $ir.$type.get_mut($name).ok_or_else(|| {
+            anyhow::anyhow!("Failed to find element {} in {}", $name, stringify!($type))
+        })
+    };
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

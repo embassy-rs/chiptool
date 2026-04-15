@@ -2,6 +2,7 @@
 //!
 //! For when using chiptool as a library, these commands are exposed for ease of use.
 
+use crate::svd2ir::{namespace_names, NamespaceMode};
 use crate::{ir::IR, svd2ir};
 
 use anyhow::{bail, Context, Result};
@@ -21,8 +22,9 @@ pub mod gen_common;
 pub mod generate;
 pub mod transform;
 
+/// Common arguments for all commands that perform code generation.
 #[derive(Parser)]
-pub struct GenShared {
+pub struct GenerateShared {
     /// Use an external `common` module.
     #[clap(long)]
     #[clap(value_name = "MODULE_PATH")]
@@ -46,27 +48,40 @@ pub struct GenShared {
     pub skip_no_std: bool,
 }
 
+/// Common arguments for all commands that perform extraction from SVD.
+#[derive(Parser)]
+pub struct ExtractShared {
+    /// SVD file path.
+    #[clap(long)]
+    pub svd: PathBuf,
+    /// Transforms file paths.
+    #[clap(long)]
+    pub transform: Vec<PathBuf>,
+    /// Namespaces added to each extracted peripheral.
+    #[clap(long, value_enum, default_value = "none")]
+    pub namespaces: NamespaceMode,
+}
+
 fn clean_up_ir(ir: &mut IR) -> Result<(), anyhow::Error> {
     crate::transform::clean_descriptions::CleanDescriptions {}.run(ir)
 }
 
-/// Extract a peripheral from SVD, clean it up and apply specified transform files.
+/// Extract a peripheral from SVD and clean it up.
 ///
 /// Applies final sorting after applying the transform.
-pub fn process_peripheral(
+pub fn extract_peripheral(
     p: &svd_parser::svd::Peripheral,
-    transform: &[PathBuf],
+    namespace_mode: NamespaceMode,
 ) -> Result<IR, anyhow::Error> {
     let mut ir = IR::new();
     svd2ir::convert_peripheral(&mut ir, p)?;
     clean_up_ir(&mut ir)?;
-    for transform in transform.iter() {
-        crate::commands::apply_transform(&mut ir, transform)
-            .with_context(|| format!("Failed to transform {}", transform.display()))?;
-    }
+
+    namespace_names(p, &mut ir, namespace_mode);
 
     // Ensure consistent sort order in the YAML.
-    crate::transform::sort::Sort {}.run(&mut ir).unwrap();
+    crate::transform::sort::Sort {}.run(&mut ir)?;
+
     Ok(ir)
 }
 
@@ -156,7 +171,7 @@ impl std::str::FromStr for ModulePath {
     }
 }
 
-fn get_generate_opts(args: GenShared) -> Result<crate::generate::Options> {
+fn get_generate_opts(args: GenerateShared) -> Result<crate::generate::Options> {
     let common_module = match args.common_module {
         None => crate::generate::CommonModule::Builtin,
         Some(module) => crate::generate::CommonModule::External(module.tokens()),

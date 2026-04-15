@@ -12,7 +12,7 @@ pub struct AddFields {
 impl AddFields {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
         for id in match_all(ir.fieldsets.keys().cloned(), &self.fieldset) {
-            let d = ir.fieldsets.get_mut(&id).unwrap();
+            let d = get_mut!(ir, fieldsets, &id)?;
             d.fields.extend(self.fields.clone());
         }
 

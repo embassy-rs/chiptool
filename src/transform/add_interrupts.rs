@@ -12,7 +12,7 @@ pub struct AddInterrupts {
 impl AddInterrupts {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
         for id in match_all(ir.devices.keys().cloned(), &self.devices) {
-            let d = ir.devices.get_mut(&id).unwrap();
+            let d = get_mut!(ir, devices, &id)?;
             d.interrupts.extend(self.interrupts.clone());
         }
         Ok(())

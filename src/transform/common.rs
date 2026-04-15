@@ -1,6 +1,7 @@
 use anyhow::bail;
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::hash_map::Entry;
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use crate::ir::*;
 
@@ -112,78 +113,6 @@ pub enum CheckLevel {
     #[default]
     Names,
     Descriptions,
-}
-
-pub(crate) fn check_mergeable_fieldsets(
-    a_name: &str,
-    a: &FieldSet,
-    b_name: &str,
-    b: &FieldSet,
-    level: CheckLevel,
-) -> anyhow::Result<()> {
-    if let Err(e) = check_mergeable_fieldsets_inner(a, b, level) {
-        bail!(
-            "Cannot merge fieldsets.\nfirst: {} {:#?}\nsecond: {} {:#?}\ncause: {:?}",
-            a_name,
-            a,
-            b_name,
-            b,
-            e
-        )
-    }
-    Ok(())
-}
-
-pub(crate) fn mergeable_fields(a: &Field, b: &Field, level: CheckLevel) -> bool {
-    let mut res = true;
-    if level >= CheckLevel::Layout {
-        res &= a.bit_size == b.bit_size
-            && a.bit_offset == b.bit_offset
-            && a.enumm == b.enumm
-            && a.array == b.array;
-    }
-    if level >= CheckLevel::Names {
-        res &= a.name == b.name;
-    }
-    if level >= CheckLevel::Descriptions {
-        res &= a.description == b.description;
-    }
-    res
-}
-
-pub(crate) fn check_mergeable_fieldsets_inner(
-    a: &FieldSet,
-    b: &FieldSet,
-    level: CheckLevel,
-) -> anyhow::Result<()> {
-    if a.bit_size != b.bit_size {
-        bail!("Different bit size: {} vs {}", a.bit_size, b.bit_size)
-    }
-
-    if level >= CheckLevel::Layout {
-        if a.fields.len() != b.fields.len() {
-            bail!("Different field count")
-        }
-
-        let mut aok = [false; 128];
-        let mut bok = [false; 128];
-
-        for (ia, fa) in a.fields.iter().enumerate() {
-            if let Some((ib, _fb)) = b
-                .fields
-                .iter()
-                .enumerate()
-                .find(|(ib, fb)| !bok[*ib] && mergeable_fields(fa, fb, level))
-            {
-                aok[ia] = true;
-                bok[ib] = true;
-            } else {
-                bail!("Field in first fieldset has no match: {:?}", fa);
-            }
-        }
-    }
-
-    Ok(())
 }
 
 pub(crate) fn match_all(set: impl Iterator<Item = String>, re: &RegexSet) -> BTreeSet<String> {
@@ -381,4 +310,84 @@ pub(crate) fn append_variant_desc_to_field(
             }
         }
     }
+}
+
+pub(crate) trait MinCheckLevel {
+    fn min_check_level(&self) -> CheckLevel;
+}
+
+impl CheckLevel {
+    pub(crate) fn check<T>(&self, op: &str, errors: &[(String, String, T)]) -> anyhow::Result<()>
+    where
+        T: core::fmt::Display + MinCheckLevel,
+    {
+        let mut had_breaking_error = false;
+
+        for (main, other, error) in errors {
+            let min_check_level = error.min_check_level();
+
+            if self >= &min_check_level {
+                log::error!("{op} {main} and {other}: {error}");
+                had_breaking_error = true;
+            } else if min_check_level == CheckLevel::Descriptions {
+                log::debug!("{op} {main} and {other}: {error}");
+            } else {
+                log::warn!("{op} {main} and {other}: {error}");
+            }
+        }
+
+        if had_breaking_error {
+            anyhow::bail!("Encountered errors")
+        } else {
+            Ok(())
+        }
+    }
+}
+/// Return `true` if `old_name` can be renamed to
+/// `new_name` without duplicates.
+///
+/// `renames` should represent the state for `new_name` in
+/// the current scope
+pub(crate) fn can_rename<Fmt>(
+    error_on_duplicate: bool,
+    renames: &mut HashMap<String, Option<String>>,
+    new_name: &str,
+    old_name: &str,
+    fmt: Fmt,
+) -> bool
+where
+    Fmt: Fn(String) -> String,
+{
+    match renames.entry(new_name.to_string()) {
+        // Not duplicate
+        Entry::Vacant(e) => {
+            e.insert(Some(old_name.to_string()));
+            true
+        }
+        Entry::Occupied(mut e) => {
+            let level = error_on_duplicate
+                .then_some(log::Level::Error)
+                .unwrap_or(log::Level::Warn);
+
+            let log = |field: String| {
+                log::log!(
+                    level,
+                    "Renaming {} failed: reused new name {new_name}",
+                    fmt(field)
+                );
+            };
+
+            // Log the name of the first field for good measure, and get rid of it
+            if let Some(prev) = e.get_mut().take() {
+                log(prev)
+            }
+
+            log(old_name.to_string());
+            false
+        }
+    }
+}
+
+pub(crate) fn get_true() -> bool {
+    true
 }

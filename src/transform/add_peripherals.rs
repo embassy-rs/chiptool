@@ -12,7 +12,7 @@ pub struct AddPeripherals {
 impl AddPeripherals {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
         for id in match_all(ir.devices.keys().cloned(), &self.devices) {
-            let d = ir.devices.get_mut(&id).unwrap();
+            let d = get_mut!(ir, devices, &id)?;
             d.peripherals.extend(self.peripherals.clone());
         }
         Ok(())
