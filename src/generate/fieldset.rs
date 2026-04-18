@@ -6,14 +6,14 @@ use quote::quote;
 use crate::ir::*;
 use crate::util;
 
-use super::{sorted, with_defmt_cfg};
+use super::with_defmt_cfg;
 
 pub fn render(opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Result<TokenStream> {
     let span = Span::call_site();
     let mut items = TokenStream::new();
-    let mut field_names = Vec::with_capacity(fs.fields.len());
-    let mut field_getters = Vec::with_capacity(fs.fields.len());
-    let mut field_types = Vec::with_capacity(fs.fields.len());
+    let mut field_names = Vec::with_capacity(fs.fields().len());
+    let mut field_getters = Vec::with_capacity(fs.fields().len());
+    let mut field_types = Vec::with_capacity(fs.fields().len());
 
     let ty = match fs.bit_size {
         1..=8 => quote!(u8),
@@ -23,18 +23,18 @@ pub fn render(opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Resu
         _ => bail!("Invalid bit_size {}", fs.bit_size),
     };
 
-    for f in sorted(&fs.fields, |f| (f.bit_offset.clone(), f.name.clone())) {
-        let name = Ident::new(&f.name, span);
-        let name_set = Ident::new(&format!("set_{}", f.name), span);
-        let off_in_reg = f.bit_offset.clone();
-        let _bit_size = f.bit_size as usize;
-        let mask = util::hex(1u64.wrapping_shl(f.bit_size).wrapping_sub(1));
-        let doc = util::doc(&f.description);
+    for f in fs.fields() {
+        let name = Ident::new(f.name(), span);
+        let name_set = Ident::new(&format!("set_{}", f.name()), span);
+        let off_in_reg = f.bit_offset().clone();
+        let _bit_size = f.bit_size() as usize;
+        let mask = util::hex(1u64.wrapping_shl(f.bit_size()).wrapping_sub(1));
+        let doc = util::doc(f.description());
         let field_ty: TokenStream;
         let to_bits: TokenStream;
         let from_bits: TokenStream;
 
-        if let Some(e_path) = &f.enumm {
+        if let Some(e_path) = f.enumm() {
             let e = get_ref!(ir, enums, e_path)?;
 
             let enum_ty = match e.bit_size {
@@ -49,32 +49,32 @@ pub fn render(opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Resu
             to_bits = quote!(val.to_bits() as #ty);
             from_bits = quote!(#field_ty::from_bits(val as #enum_ty));
         } else {
-            field_ty = match f.bit_size {
+            field_ty = match f.bit_size() {
                 1 => quote!(bool),
                 2..=8 => quote!(u8),
                 9..=16 => quote!(u16),
                 17..=32 => quote!(u32),
                 33..=64 => quote!(u64),
-                _ => bail!("Invalid bit_size {}", f.bit_size),
+                _ => bail!("Invalid bit_size {}", f.bit_size()),
             };
             to_bits = quote!(val as #ty);
-            from_bits = if f.bit_size == 1 {
+            from_bits = if f.bit_size() == 1 {
                 quote!(val != 0)
             } else {
                 quote!(val as #field_ty)
             }
         }
 
-        if let Some(array) = &f.array {
+        if let Some(array) = f.array() {
             // Print array fields using array indexing: "field[0]"
             for i in 0..array.len() {
-                let debug_name = format!("{}[{i}]", f.name);
+                let debug_name = format!("{}[{i}]", f.name());
                 field_names.push(debug_name);
                 field_types.push(field_ty.clone());
                 field_getters.push(quote!(self.#name(#i)));
             }
         } else {
-            field_names.push(f.name.clone());
+            field_names.push(f.name().clone());
             field_types.push(field_ty.clone());
             field_getters.push(quote!(self.#name()));
         }
@@ -82,7 +82,7 @@ pub fn render(opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Resu
         match off_in_reg {
             BitOffset::Regular(off_in_reg) => {
                 let off_in_reg = off_in_reg as usize;
-                if let Some(array) = &f.array {
+                if let Some(array) = f.array() {
                     let (len, offs_expr) = super::process_array(array);
                     items.extend(quote!(
                         #doc
@@ -141,7 +141,7 @@ pub fn render(opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Resu
                     }
                 }
 
-                if let Some(array) = &f.array {
+                if let Some(array) = f.array() {
                     let (len, offs_expr) = super::process_array(array);
                     items.extend(quote!(
                         #doc

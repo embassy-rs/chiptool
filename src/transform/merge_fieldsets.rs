@@ -150,81 +150,66 @@ impl std::fmt::Display for FieldSetError {
 pub(crate) fn fieldset_compat(main: &FieldSet, other: &FieldSet) -> Vec<FieldSetError> {
     let mut errors = Vec::new();
 
-    let FieldSet {
-        extends,
-        description,
-        bit_size,
-        fields,
-    } = main;
-
-    if extends.as_ref() != other.extends.as_ref() {
+    if main.extends != other.extends {
         errors.push(FieldSetError::Extends(
-            extends.clone(),
+            main.extends.clone(),
             other.extends.clone(),
         ));
     }
 
-    if *bit_size != other.bit_size {
-        errors.push(FieldSetError::Bitsize(*bit_size, other.bit_size));
+    if main.bit_size != other.bit_size {
+        errors.push(FieldSetError::Bitsize(main.bit_size, other.bit_size));
     }
 
-    if description.as_ref() != other.description.as_ref() {
+    if main.description != other.description {
         errors.push(FieldSetError::Description(
-            description.clone(),
+            main.description.clone(),
             other.description.clone(),
         ));
     }
 
-    for main in fields {
-        let Some(other) = other
-            .fields
-            .iter()
-            .find(|f| f.bit_offset == main.bit_offset)
-        else {
+    for main in main.fields() {
+        let Some(other) = other.fields().find(|f| f.bit_offset() == main.bit_offset()) else {
             errors.push(FieldSetError::RhsMissingField(
-                main.name.clone(),
-                MissingFieldReason::NoFieldAtOffset(main.bit_offset.clone()),
+                main.name().clone(),
+                MissingFieldReason::NoFieldAtOffset(main.bit_offset().clone()),
             ));
             continue;
         };
 
-        if main.bit_size != other.bit_size {
+        if main.bit_size() != other.bit_size() {
             errors.push(FieldSetError::RhsMissingField(
-                main.name.clone(),
-                MissingFieldReason::BitsizeMismatch(main.bit_size, other.bit_size),
+                main.name().clone(),
+                MissingFieldReason::BitsizeMismatch(main.bit_size(), other.bit_size()),
             ));
             continue;
         };
 
         errors.extend(
-            field_compat(&main, &other)
+            field_compat(main.as_ref(), other.as_ref())
                 .into_iter()
                 .map(|error| FieldSetError::Field {
-                    lhs_name: main.name.clone(),
-                    bit_offset: main.bit_offset.clone(),
-                    bit_size: main.bit_size,
+                    lhs_name: main.name().clone(),
+                    bit_offset: main.bit_offset().clone(),
+                    bit_size: main.bit_size(),
                     error,
                 }),
         );
     }
 
-    for other in other.fields.iter() {
-        let Some(main) = main
-            .fields
-            .iter()
-            .find(|f| f.bit_offset == other.bit_offset)
-        else {
+    for other in other.fields() {
+        let Some(main) = main.fields().find(|f| f.bit_offset() == other.bit_offset()) else {
             errors.push(FieldSetError::LhsMissingfield(
-                other.name.clone(),
-                MissingFieldReason::NoFieldAtOffset(other.bit_offset.clone()),
+                other.name().clone(),
+                MissingFieldReason::NoFieldAtOffset(other.bit_offset().clone()),
             ));
             continue;
         };
 
-        if main.bit_size != other.bit_size {
+        if main.bit_size() != other.bit_size() {
             errors.push(FieldSetError::LhsMissingfield(
-                other.name.clone(),
-                MissingFieldReason::BitsizeMismatch(main.bit_size, other.bit_size),
+                other.name().clone(),
+                MissingFieldReason::BitsizeMismatch(main.bit_size(), other.bit_size()),
             ));
         }
     }

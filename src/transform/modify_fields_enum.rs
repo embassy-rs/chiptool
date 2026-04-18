@@ -31,10 +31,9 @@ impl ModifyFieldsEnum {
             };
 
             let fs = get_mut!(ir, fieldsets, &id)?;
-            fs.fields
-                .iter_mut()
-                .filter(|f| self.field.is_match(&f.name))
-                .for_each(|f| f.enumm = Some(enum_id.clone()));
+            fs.fields_mut()
+                .filter(|f| self.field.is_match(f.name()))
+                .for_each(|f| f.set_enumm(Some(enum_id.clone())));
         }
 
         Ok(())

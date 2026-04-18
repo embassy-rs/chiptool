@@ -1,3 +1,6 @@
+mod fieldset;
+pub use fieldset::{FieldSet, UnorderedFieldSet};
+
 use anyhow::Result;
 use de::MapAccess;
 use serde::{de, de::Visitor, ser::SerializeMap, Deserialize, Deserializer, Serialize, Serializer};
@@ -161,18 +164,6 @@ pub enum Access {
     ReadWrite,
     Read,
     Write,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct FieldSet {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub extends: Option<String>,
-
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub description: Option<String>,
-    #[serde(default = "default_32", skip_serializing_if = "is_32")]
-    pub bit_size: u32,
-    pub fields: Vec<Field>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Eq)]

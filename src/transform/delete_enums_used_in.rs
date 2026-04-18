@@ -20,8 +20,8 @@ impl DeleteEnumsUsedIn {
         for (id, fs) in ir.fieldsets.iter() {
             if self.fieldsets.is_match(id) {
                 info!("matched fieldset {}", id);
-                for f in &fs.fields {
-                    if let Some(id) = &f.enumm {
+                for f in fs.fields() {
+                    if let Some(id) = f.enumm() {
                         info!("deleting enum {}", id);
                         ids.insert(id.clone());
                     }

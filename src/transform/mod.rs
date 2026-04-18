@@ -97,8 +97,8 @@ pub fn map_enum_names(ir: &mut IR, f: impl Fn(&mut String)) {
     remap_names(NameKind::Enum, &mut ir.enums, &f).unwrap();
 
     for (_, fs) in ir.fieldsets.iter_mut() {
-        for ff in fs.fields.iter_mut() {
-            rename_opt(&mut ff.enumm, &f);
+        for ff in fs.fields_mut() {
+            rename_opt(ff.enumm_opt_mut(), &f);
         }
     }
 }
@@ -133,9 +133,13 @@ pub fn map_block_item_names(ir: &mut IR, f: impl Fn(&mut String)) {
 
 pub fn map_field_names(ir: &mut IR, f: impl Fn(&mut String)) {
     for (_, fs) in ir.fieldsets.iter_mut() {
-        for ff in fs.fields.iter_mut() {
-            f(&mut ff.name)
+        let mut fields = fs.take_fields();
+
+        for ff in fields.iter_mut() {
+            f(&mut ff.name);
         }
+
+        fs.extend(fields);
     }
 }
 
@@ -173,8 +177,8 @@ pub fn map_descriptions(ir: &mut IR, mut ff: impl FnMut(&str) -> String) -> anyh
 
     for (_, fs) in ir.fieldsets.iter_mut() {
         mapit(&mut fs.description);
-        for f in fs.fields.iter_mut() {
-            mapit(&mut f.description);
+        for f in fs.fields_mut() {
+            mapit(f.description_opt_mut());
         }
     }
 

@@ -25,13 +25,17 @@ impl RenameFields {
 
             let fmt = |field| format!("field {field} in fieldset {id}");
 
-            for f in &mut fs.fields {
+            let mut fields = fs.take_fields();
+
+            for f in fields.iter_mut() {
                 if let Some(name) = match_expand(&f.name, &self.from, &self.to) {
                     had_duplicate |=
                         !can_rename(self.error_on_duplicate, renames, &name, &f.name, fmt);
                     f.name = name;
                 }
             }
+
+            fs.extend(fields);
         }
 
         if had_duplicate && self.error_on_duplicate {

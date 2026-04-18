@@ -42,12 +42,12 @@ impl ExpandExtends {
             if let Some(parent_name) = &fieldset.extends {
                 let parent = get_ref!(ir, fieldsets, parent_name)?;
 
-                let items = parent.fields.clone();
+                let items: Vec<_> = parent.fields().cloned().collect();
                 let fieldset = get_mut!(ir, fieldsets, &name)?;
 
                 for i in items {
-                    if !fieldset.fields.iter().any(|j| j.name == i.name) {
-                        fieldset.fields.push(i);
+                    if !fieldset.fields().any(|j| j.name() == i.name()) {
+                        fieldset.push(i.into());
                     }
                 }
             }

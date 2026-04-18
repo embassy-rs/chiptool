@@ -71,7 +71,10 @@ fn update_uses(ir: &mut IR, enumm: &str) -> anyhow::Result<()> {
     let fieldsets = ir
         .fieldsets
         .iter()
-        .filter(|(_, fs)| fs.fields.iter().any(|f| f.enumm.as_deref() == Some(enumm)))
+        .filter(|(_, fs)| {
+            fs.fields()
+                .any(|f| f.enumm().map(|v| v.as_str()) == Some(enumm))
+        })
         .map(|(name, _)| name)
         .cloned()
         .collect::<Vec<_>>();
@@ -82,27 +85,26 @@ fn update_uses(ir: &mut IR, enumm: &str) -> anyhow::Result<()> {
         let fs = ir.fieldsets.get_mut(&fs_name).unwrap();
 
         for field in fs
-            .fields
-            .iter_mut()
-            .filter(|f| f.enumm.as_deref() == Some(enumm))
+            .fields_mut()
+            .filter(|f| f.enumm().map(|v| v.as_str()) == Some(enumm))
         {
-            field.bit_size = bit_size;
+            field.set_bit_size(bit_size);
         }
 
         let mut error = false;
 
         // Verify there are no overlapping fields after resizing enums.
-        for (i1, i2) in Pairs::new(fs.fields.iter()) {
+        for (i1, i2) in Pairs::new(fs.fields()) {
             // expand every BitOffset to a Vec<RangeInclusive>,
             // and compare at that level
-            'COMPARE: for i1_range in i1.bit_offset.clone().into_ranges(i1.bit_size) {
-                for i2_range in i2.bit_offset.clone().into_ranges(i2.bit_size) {
+            'COMPARE: for i1_range in i1.bit_offset().clone().into_ranges(i1.bit_size()) {
+                for i2_range in i2.bit_offset().clone().into_ranges(i2.bit_size()) {
                     if i2_range.end() > i1_range.start() && i1_range.end() > i2_range.start() {
                         log::error!(
                             "fieldset {}: fields overlap: {} {}",
                             fs_name,
-                            i1.name,
-                            i2.name
+                            i1.name(),
+                            i2.name()
                         );
                         error |= true;
                         break 'COMPARE;

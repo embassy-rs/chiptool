@@ -28,20 +28,20 @@ impl FixRegisterBitSizes {
                                 if self.create_fieldsets {
                                     // create a new fieldset, with a single field with the original bit size.
                                     r.fieldset = Some(i.name.clone());
-                                    let fs = FieldSet {
+                                    let fs = UnorderedFieldSet {
                                         bit_size: good_bit_size,
                                         fields: vec![Field {
                                             name: "val".to_string(),
+                                            description: None,
                                             bit_offset: BitOffset::Regular(0),
                                             bit_size: orig_bit_size,
-                                            description: None,
-                                            enumm: None,
                                             array: None,
+                                            enumm: None,
                                         }],
                                         description: None,
                                         extends: None,
                                     };
-                                    if ir.fieldsets.insert(i.name.clone(), fs).is_some() {
+                                    if ir.fieldsets.insert(i.name.clone(), fs.into()).is_some() {
                                         bail!("dup fieldset {}", i.name);
                                     }
                                 }

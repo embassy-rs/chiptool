@@ -177,8 +177,8 @@ fn extract_relevant(block_name: &str, ir: &IR) -> Result<IR> {
             state.fieldsets.schedule(extends)?;
         }
 
-        for item in fieldset.fields.iter() {
-            if let Some(enumm) = &item.enumm {
+        for item in fieldset.fields() {
+            if let Some(enumm) = item.enumm() {
                 state.enums.schedule(enumm)?;
             }
         }

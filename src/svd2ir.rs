@@ -1,4 +1,4 @@
-use anyhow::{Context, bail};
+use anyhow::{bail, Context};
 use clap::ValueEnum;
 use log::*;
 use std::collections::{BTreeMap, BTreeSet};
@@ -278,7 +278,7 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
 
     // Convert fieldsets
     for proto in &fieldsets {
-        let mut fieldset = FieldSet {
+        let mut fieldset = UnorderedFieldSet {
             extends: None,
             description: proto.description.clone(),
             bit_size: proto.bit_size,
@@ -324,7 +324,10 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
         }
 
         let fieldset_name = fieldset_names.get(&proto.name).unwrap().clone();
-        assert!(ir.fieldsets.insert(fieldset_name, fieldset).is_none())
+        assert!(ir
+            .fieldsets
+            .insert(fieldset_name, fieldset.into())
+            .is_none())
     }
 
     for proto in &enums {

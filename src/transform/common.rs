@@ -154,10 +154,10 @@ pub(crate) fn match_expand(s: &str, regex: &RegexSet, res: &str) -> Option<Strin
 
 pub(crate) fn replace_enum_ids(ir: &mut IR, from: &BTreeSet<String>, to: String) {
     for (_, fs) in ir.fieldsets.iter_mut() {
-        for f in fs.fields.iter_mut() {
-            if let Some(id) = &mut f.enumm {
+        for f in fs.fields_mut() {
+            if let Some(id) = f.enumm() {
                 if from.contains(id) {
-                    *id = to.clone()
+                    f.set_enumm(Some(to.clone()));
                 }
             }
         }
@@ -293,19 +293,19 @@ pub(crate) fn append_variant_desc_to_field(
 ) {
     for fs in ir.fieldsets.values_mut() {
         for f in fs
-            .fields
-            .iter_mut()
-            .filter(|f| bit_size.is_none_or(|s| s == f.bit_size) && f.enumm.is_some())
+            .fields_mut()
+            .filter(|f| bit_size.is_none_or(|s| s == f.bit_size()) && f.enumm().is_some())
         {
+            let enumm = f.enumm().cloned().unwrap();
             for (_, desc_string) in enum_desc_pair
                 .iter()
-                .filter(|(e_name, _)| **e_name == f.enumm.clone().unwrap())
+                .filter(|(e_name, _)| *e_name == &enumm)
             {
-                match &f.description {
+                match f.description() {
                     Some(desc) => {
-                        f.description = Some(format!("{}\n{}", desc.clone(), desc_string.clone()))
+                        f.set_description(Some(format!("{}\n{}", desc, desc_string)));
                     }
-                    None => f.description = Some(desc_string.clone()),
+                    None => f.set_description(Some(desc_string.clone())),
                 }
             }
         }

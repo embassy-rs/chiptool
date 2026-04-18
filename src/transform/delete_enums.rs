@@ -44,10 +44,10 @@ impl DeleteEnums {
 
 pub(crate) fn remove_enum_ids(ir: &mut IR, from: &BTreeSet<String>) {
     for (_, fs) in ir.fieldsets.iter_mut() {
-        for f in fs.fields.iter_mut() {
-            if let Some(id) = &mut f.enumm {
+        for f in fs.fields_mut() {
+            if let Some(id) = f.enumm() {
                 if from.contains(id) {
-                    f.enumm = None
+                    f.set_enumm(None);
                 }
             }
         }

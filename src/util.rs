@@ -175,7 +175,8 @@ pub fn relative_path(a: &str, b: &str) -> TokenStream {
     res
 }
 
-pub fn doc(doc: &Option<String>) -> TokenStream {
+pub fn doc<'a>(doc: impl Into<Option<&'a String>>) -> TokenStream {
+    let doc = doc.into();
     if let Some(doc) = doc {
         let doc = doc.replace("\\n", "\n");
         let doc = respace(&doc);

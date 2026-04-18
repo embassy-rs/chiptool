@@ -27,8 +27,8 @@ pub fn fmt(args: Fmt) -> Result<()> {
         if args.remove_unused {
             let mut used_enums = BTreeSet::new();
             for fs in ir.fieldsets.values_mut() {
-                for f in fs.fields.iter_mut().filter(|f| f.enumm.is_some()) {
-                    used_enums.insert(f.enumm.as_ref().unwrap().clone());
+                for enumm in fs.fields().filter_map(|f| f.enumm()) {
+                    used_enums.insert(enumm.clone());
                 }
             }
 
@@ -55,8 +55,8 @@ pub fn fmt(args: Fmt) -> Result<()> {
 
         for b in ir.fieldsets.values_mut() {
             cleanup(&mut b.description);
-            for i in b.fields.iter_mut() {
-                cleanup(&mut i.description);
+            for i in b.fields_mut() {
+                cleanup(i.description_opt_mut());
             }
         }
 
