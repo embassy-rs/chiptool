@@ -38,6 +38,107 @@ pub enum NamespaceMode {
     BlockWithRegsVals,
 }
 
+fn remove_placeholder(str: &str) -> String {
+    str.replace("[%s]", "").replace("%s", "")
+}
+
+fn names<T, F>(array: &MaybeArray<T>, f: F) -> ExpandedMaybeArray
+where
+    F: Fn(&T) -> &str,
+{
+    fn is_numeric(str: &String) -> bool {
+        str.chars().all(|v| v.is_numeric())
+    }
+
+    fn replace_placeholder(str: &str, replacement: &str) -> String {
+        str.replace("%s", replacement)
+    }
+
+    fn as_array_name<'a>(
+        r: &str,
+        mut dim_element: impl Iterator<Item = &'a String>,
+    ) -> Option<&str> {
+        if let Some(array) = r.strip_suffix("[%s]") {
+            Some(array)
+        } else if let Some(missed_array) = r.strip_suffix("%s") {
+            // If all dimensions are numeric, the element is an IR
+            // array because accessing with a number offset makes
+            // sense.
+            if dim_element.all(is_numeric) {
+                Some(missed_array)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    match array {
+        MaybeArray::Single(r) => ExpandedMaybeArray::Single(f(r).to_string()),
+        MaybeArray::Array(r, dim_element) => {
+            if let Some(array_name) = as_array_name(f(r), dim_element.dim_index.iter().flatten()) {
+                ExpandedMaybeArray::Array {
+                    name: array_name.to_string(),
+                    array: Array::Regular(RegularArray {
+                        len: dim_element.dim,
+                        stride: dim_element.dim_increment,
+                    }),
+                }
+            } else {
+                let offsets = (0..).step_by(dim_element.dim_increment as _);
+
+                let values = offsets
+                    .zip(
+                        dim_element
+                            .dim_index
+                            .iter()
+                            .flat_map(|v| v.iter())
+                            .map(|dim| replace_placeholder(f(r), dim)),
+                    )
+                    .collect();
+
+                ExpandedMaybeArray::Many(values)
+            }
+        }
+    }
+}
+
+#[derive(Clone)]
+enum ExpandedMaybeArray {
+    Single(String),
+    Array { name: String, array: Array },
+    Many(Vec<(u32, String)>),
+}
+
+impl ExpandedMaybeArray {
+    pub fn array(&self) -> Option<Array> {
+        match self {
+            ExpandedMaybeArray::Array { array, .. } => Some(array.clone()),
+            _ => None,
+        }
+    }
+}
+
+impl IntoIterator for ExpandedMaybeArray {
+    type Item = (u32, String);
+
+    type IntoIter = std::vec::IntoIter<(u32, String)>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        match self {
+            ExpandedMaybeArray::Single(s) => vec![(0, s)].into_iter(),
+            ExpandedMaybeArray::Array { name, .. } => vec![(0, name)].into_iter(),
+            ExpandedMaybeArray::Many(items) => items.into_iter(),
+        }
+    }
+}
+
+fn fieldset_name(mut block_name: Vec<String>, reg_name: String) -> Vec<String> {
+    block_name.push(reg_name);
+    block_name
+}
+
 pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()> {
     let mut blocks = Vec::new();
     let pname = p.header_struct_name.clone().unwrap_or(p.name.clone());
@@ -49,8 +150,15 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
     );
 
     let enum_from_name = enum_map(&blocks);
+
     let mut fieldsets: Vec<ProtoFieldset> = Vec::new();
     let mut enums: Vec<ProtoEnum> = Vec::new();
+    // A map mapping fully expanded fieldset names to their unique
+    // equivalent. E.g. `blocka::REG%s` with dimensions `A`, `B`, `C` would
+    // add `blocka::REGA -> blocka::REG`, `blocka::REGB -> blocka::REG` and
+    // `blocka::REGC -> REG` to this map.
+    let mut fieldset_mapping = BTreeMap::new();
+    let mut used_fieldset_names = BTreeSet::new();
 
     let usable_register_clusters = blocks
         .iter()
@@ -68,14 +176,39 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
                 return None;
             };
 
-            Some((b, r.deref().clone(), fields))
+            let without_placeholder = remove_placeholder(&r.name);
+            let mut unique_fs_name = fieldset_name(b.clone(), without_placeholder.clone());
+
+            let mut counter = 0;
+            loop {
+                if counter != 0 {
+                    let last = unique_fs_name.last_mut().unwrap();
+                    if last.ends_with('_') {
+                        *last = format!("{}{}", last, counter);
+                    } else {
+                        *last = format!("{}_{}", without_placeholder, counter);
+                    }
+                }
+
+                counter += 1;
+
+                if !used_fieldset_names.contains(&unique_fs_name) {
+                    break;
+                }
+            }
+
+            used_fieldset_names.insert(unique_fs_name.clone());
+
+            for (_, full_name) in names(r, |r| &r.name) {
+                let full_name: Vec<_> = fieldset_name(b.clone(), full_name);
+                fieldset_mapping.insert(full_name, unique_fs_name.clone());
+            }
+
+            Some((unique_fs_name, r.deref(), fields))
         });
 
-    for (block_name, r, fields) in usable_register_clusters {
-        let mut fieldset_name = block_name.clone();
+    for (fieldset_name, r, fields) in usable_register_clusters {
         let mut field_name_counts: BTreeMap<String, usize> = BTreeMap::new();
-        fieldset_name.push(remove_placeholder(&r.name));
-
         let mut out_fields = Vec::with_capacity(fields.len());
 
         for f in fields {
@@ -88,7 +221,6 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
             let mut enum_readwrite = None;
 
             let mut field_name = remove_placeholder(&f.name);
-
             let field_name_count = field_name_counts.entry(field_name.clone()).or_insert(0);
             *field_name_count += 1;
             if *field_name_count > 1 {
@@ -219,8 +351,21 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
                         continue;
                     }
 
-                    let block_item = create_block_item(proto, &fieldset_names, r);
-                    block.items.push(block_item)
+                    let names = crate::svd2ir::names(&r, |r| &r.name);
+                    let array = names.array();
+
+                    for (offset, name) in names {
+                        let block_item = create_block_item(
+                            name,
+                            offset,
+                            proto,
+                            &fieldset_mapping,
+                            &fieldset_names,
+                            array.as_ref(),
+                            r,
+                        );
+                        block.items.push(block_item)
+                    }
                 }
                 svd::RegisterCluster::Cluster(c) => {
                     if c.derived_from.is_some() {
@@ -228,28 +373,22 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
                         continue;
                     }
 
-                    let cname = remove_placeholder(&c.name);
+                    let names = names(c, |c| &c.name);
+                    let array = names.array();
 
-                    let array = if let svd::Cluster::Array(_, dim) = c {
-                        Some(Array::Regular(RegularArray {
-                            len: dim.dim,
-                            stride: dim.dim_increment,
-                        }))
-                    } else {
-                        None
-                    };
+                    for (offset, cname) in names {
+                        let mut block_name = proto.name.clone();
+                        block_name.push(cname.clone());
+                        let block_name = block_names.get(&block_name).unwrap().clone();
 
-                    let mut block_name = proto.name.clone();
-                    block_name.push(remove_placeholder(&c.name));
-                    let block_name = block_names.get(&block_name).unwrap().clone();
-
-                    block.items.push(BlockItem {
-                        name: cname.clone(),
-                        description: c.description.clone(),
-                        array,
-                        byte_offset: c.address_offset,
-                        inner: BlockItemInner::Block(BlockItemBlock { block: block_name }),
-                    });
+                        block.items.push(BlockItem {
+                            name: cname.clone(),
+                            description: c.description.clone(),
+                            array: array.clone(),
+                            byte_offset: c.address_offset + offset,
+                            inner: BlockItemInner::Block(BlockItemBlock { block: block_name }),
+                        });
+                    }
                 }
             }
         }
@@ -272,32 +411,26 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
                 warn!("unsupported derived_from in fieldset");
             }
 
-            let array = if let svd::Field::Array(_, dim) = f {
-                Some(Array::Regular(RegularArray {
-                    len: dim.dim,
-                    stride: dim.dim_increment,
-                }))
-            } else {
-                None
-            };
+            let names = names(f, |f| &f.name);
+            let array = names.array();
 
-            let field_name = remove_placeholder(&f.name);
+            for (offset, field_name) in names {
+                let field = Field {
+                    name: field_name.clone(),
+                    description: f.description.clone(),
+                    bit_offset: BitOffset::Regular(f.bit_range.offset + offset),
+                    bit_size: f.bit_range.width,
+                    array: array.clone(),
+                    enumm: enumm.as_ref().map(|v| {
+                        enum_names
+                            .get(v)
+                            .cloned()
+                            .expect("All enums have a unique-name mapping")
+                    }),
+                };
 
-            let field = Field {
-                name: field_name.clone(),
-                description: f.description.clone(),
-                bit_offset: BitOffset::Regular(f.bit_range.offset),
-                bit_size: f.bit_range.width,
-                array,
-                enumm: enumm.as_ref().map(|v| {
-                    enum_names
-                        .get(v)
-                        .cloned()
-                        .expect("All enums have a unique-name mapping")
-                }),
-            };
-
-            fieldset.fields.push(field)
+                fieldset.fields.push(field)
+            }
         }
 
         let fieldset_name = fieldset_names.get(&proto.name).unwrap().clone();
@@ -336,23 +469,18 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
 }
 
 fn create_block_item(
+    name: String,
+    offset: u32,
     proto: &ProtoBlock,
+    inner_block_to_fieldset: &BTreeMap<Vec<String>, Vec<String>>,
     fieldset_names: &BTreeMap<Vec<String>, String>,
+    array: Option<&Array>,
     r: &MaybeArray<RegisterInfo>,
 ) -> BlockItem {
     let fieldset_name = if r.fields.is_some() {
-        let mut fieldset_name = proto.name.clone();
-        fieldset_name.push(remove_placeholder(&r.name));
-        Some(fieldset_names.get(&fieldset_name).unwrap().clone())
-    } else {
-        None
-    };
-
-    let array = if let svd::Register::Array(_, dim) = r {
-        Some(Array::Regular(RegularArray {
-            len: dim.dim,
-            stride: dim.dim_increment,
-        }))
+        let fieldset_full_name = fieldset_name(proto.name.clone(), name.clone());
+        let fieldset_name = inner_block_to_fieldset.get(&fieldset_full_name).unwrap();
+        Some(fieldset_names.get(fieldset_name).unwrap().clone())
     } else {
         None
     };
@@ -367,10 +495,10 @@ fn create_block_item(
     };
 
     BlockItem {
-        name: remove_placeholder(&r.name),
+        name: name,
         description: r.description.clone(),
-        array,
-        byte_offset: r.address_offset,
+        array: array.cloned(),
+        byte_offset: r.address_offset + offset,
         inner: BlockItemInner::Register(Register {
             access, // todo
             bit_size: r.properties.size.unwrap_or(32),
@@ -504,9 +632,11 @@ fn collect_blocks(
                 continue;
             }
 
-            let mut block_name = block_name.clone();
-            block_name.push(remove_placeholder(&c.name));
-            collect_blocks(out, block_name, c.description.clone(), &c.children);
+            for (_, block) in names(c, |c| &c.name) {
+                let mut block_name = block_name.clone();
+                block_name.push(block);
+                collect_blocks(out, block_name, c.description.clone(), &c.children);
+            }
         }
     }
 }
@@ -599,8 +729,4 @@ pub fn namespace_names(peripheral: &PeripheralInfo, ir: &mut IR, namespace: Name
             }
         }
     });
-}
-
-pub fn remove_placeholder(name: &str) -> String {
-    name.replace("[%s]", "").replace("%s", "")
 }
