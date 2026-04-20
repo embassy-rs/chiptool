@@ -11,7 +11,7 @@ pub struct Options {
     pub allow_unused_fieldsets: bool,
 }
 
-pub fn validate(ir: &IR, options: Options) -> Vec<String> {
+pub fn validate(ir: &mut IR, options: Options) -> Vec<String> {
     let mut errs = Vec::new();
 
     let mut used_fieldsets = BTreeSet::new();
@@ -75,7 +75,7 @@ pub fn validate(ir: &IR, options: Options) -> Vec<String> {
         }
     }
 
-    for (fsname, fs) in &ir.fieldsets {
+    for (fsname, fs) in &mut ir.fieldsets {
         if !options.allow_unused_fieldsets && !used_fieldsets.contains(fsname) {
             errs.push(format!("fieldset {} is unused", fsname));
         }
@@ -149,21 +149,12 @@ pub fn validate(ir: &IR, options: Options) -> Vec<String> {
         }
 
         if !options.allow_field_overlap {
-            for (i1, i2) in Pairs::new(fs.fields.iter()) {
-                // expand every BitOffset to a Vec<RangeInclusive>,
-                // and compare at that level
-                'COMPARE: for i1_range in i1.bit_offset.clone().into_ranges(i1.bit_size) {
-                    for i2_range in i2.bit_offset.clone().into_ranges(i2.bit_size) {
-                        if i2_range.end() > i1_range.start() && i1_range.end() > i2_range.start() {
-                            errs.push(format!(
-                                "fieldset {}: fields overlap: {} {}",
-                                fsname, i1.name, i2.name
-                            ));
-                            break 'COMPARE;
-                        }
-                    }
-                }
-            }
+            fs.overlapping_fields().for_each(|(i1, i2)| {
+                errs.push(format!(
+                    "fieldset {}: fields overlap: {} {}",
+                    fsname, i1.name, i2.name
+                ));
+            });
         }
     }
 
@@ -199,14 +190,14 @@ pub fn validate(ir: &IR, options: Options) -> Vec<String> {
 
 // ==============
 
-struct Pairs<U: Iterator + Clone> {
+pub(crate) struct Pairs<U: Iterator + Clone> {
     head: Option<U::Item>,
     tail: U,
     next: U,
 }
 
 impl<U: Iterator + Clone> Pairs<U> {
-    fn new(mut iter: U) -> Self {
+    pub fn new(mut iter: U) -> Self {
         let head = iter.next();
         Pairs {
             head,

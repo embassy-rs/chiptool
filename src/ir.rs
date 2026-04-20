@@ -175,6 +175,34 @@ pub struct FieldSet {
     pub fields: Vec<Field>,
 }
 
+impl FieldSet {
+    pub fn sort_fields(&mut self) {
+        self.fields
+            .sort_by(|a, b| a.bit_offset.cmp(&b.bit_offset).then(a.name.cmp(&b.name)))
+    }
+
+    pub fn overlapping_fields(&mut self) -> impl Iterator<Item = (&Field, &Field)> {
+        self.sort_fields();
+
+        self.fields.array_windows().flat_map(move |[i1, i2]| {
+            // expand every BitOffset to a Vec<RangeInclusive>,
+            // and compare at that level
+            let mut i1_ranges = i1.bit_offset.clone().into_ranges(i1.bit_size).into_iter();
+            i1_ranges.find_map(move |i1_range| {
+                let i2_ranges = i2.bit_offset.clone().into_ranges(i2.bit_size).into_iter();
+
+                i2_ranges.clone().find_map(move |i2_range| {
+                    if i2_range.end() > i1_range.start() && i1_range.end() > i2_range.start() {
+                        Some((i1, i2))
+                    } else {
+                        None
+                    }
+                })
+            })
+        })
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Eq)]
 #[serde(untagged)]
 pub enum BitOffset {

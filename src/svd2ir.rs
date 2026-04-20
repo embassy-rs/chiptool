@@ -1,4 +1,4 @@
-use anyhow::{Context, bail};
+use anyhow::{bail, Context};
 use clap::ValueEnum;
 use log::*;
 use std::collections::{BTreeMap, BTreeSet};

@@ -36,8 +36,8 @@ pub fn check(args: Check) -> Result<()> {
 
     for file in args.files {
         let got_data = fs::read(&file)?;
-        let ir: IR = serde_yaml::from_slice(&got_data)?;
-        let errs = crate::validate::validate(&ir, opts.clone());
+        let mut ir: IR = serde_yaml::from_slice(&got_data)?;
+        let errs = crate::validate::validate(&mut ir, opts.clone());
         fails += errs.len();
         for e in errs {
             println!("{}: {}", file.display(), e);
