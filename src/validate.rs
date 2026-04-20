@@ -1,6 +1,6 @@
 use std::{cmp::Ordering, collections::BTreeSet};
 
-use crate::ir::{BitOffset, BlockItemInner, IR};
+use crate::ir::{BitOffset, BlockItemInner, Field, IR};
 
 #[derive(Debug, Clone)]
 pub struct Options {
@@ -149,21 +149,12 @@ pub fn validate(ir: &IR, options: Options) -> Vec<String> {
         }
 
         if !options.allow_field_overlap {
-            for (i1, i2) in Pairs::new(fs.fields.iter()) {
-                // expand every BitOffset to a Vec<RangeInclusive>,
-                // and compare at that level
-                'COMPARE: for i1_range in i1.bit_offset.clone().into_ranges(i1.bit_size) {
-                    for i2_range in i2.bit_offset.clone().into_ranges(i2.bit_size) {
-                        if i2_range.end() > i1_range.start() && i1_range.end() > i2_range.start() {
-                            errs.push(format!(
-                                "fieldset {}: fields overlap: {} {}",
-                                fsname, i1.name, i2.name
-                            ));
-                            break 'COMPARE;
-                        }
-                    }
-                }
-            }
+            overlapping_fields(&fs.fields).for_each(|(i1, i2)| {
+                errs.push(format!(
+                    "fieldset {}: fields overlap: {} {}",
+                    fsname, i1.name, i2.name
+                ));
+            });
         }
     }
 
@@ -197,8 +188,9 @@ pub fn validate(ir: &IR, options: Options) -> Vec<String> {
     errs
 }
 
-// ==============
-
+/// An iterator over all possible pairs in U.
+///
+/// This returns an iterator with `U.len() choose 2` elements.
 struct Pairs<U: Iterator + Clone> {
     head: Option<U::Item>,
     tail: U,
@@ -206,7 +198,7 @@ struct Pairs<U: Iterator + Clone> {
 }
 
 impl<U: Iterator + Clone> Pairs<U> {
-    fn new(mut iter: U) -> Self {
+    pub fn new(mut iter: U) -> Self {
         let head = iter.next();
         Pairs {
             head,
@@ -238,4 +230,59 @@ where
             None => None,
         }
     }
+}
+
+pub(crate) fn overlapping_fields(fields: &[Field]) -> impl Iterator<Item = (&Field, &Field)> {
+    Pairs::new(fields.iter()).flat_map(move |(i1, i2)| {
+        // expand every BitOffset to a Vec<RangeInclusive>,
+        // and compare at that level
+        let mut i1_ranges = i1.bit_offset.clone().into_ranges(i1.bit_size).into_iter();
+        i1_ranges.find_map(move |i1_range| {
+            let i2_ranges = i2.bit_offset.clone().into_ranges(i2.bit_size).into_iter();
+
+            i2_ranges.clone().find_map(move |i2_range| {
+                if i2_range.end() > i1_range.start() && i1_range.end() > i2_range.start() {
+                    Some((i1, i2))
+                } else {
+                    None
+                }
+            })
+        })
+    })
+}
+
+#[cfg(test)]
+fn field(offset: u32, size: u32) -> Field {
+    Field {
+        name: format!("{}@{}", size, offset),
+        description: Default::default(),
+        bit_offset: BitOffset::Regular(offset),
+        bit_size: size,
+        array: None,
+        enumm: None,
+    }
+}
+
+#[test]
+fn ordered_overlapping_fields_overlap() {
+    let fields = [field(2, 4), field(2, 3), field(6, 6)];
+    assert_eq!(overlapping_fields(&fields).count(), 1)
+}
+
+#[test]
+fn unordered_overlapping_fields_overlap() {
+    let fields = [field(2, 3), field(6, 6), field(2, 4)];
+    assert_eq!(overlapping_fields(&fields).count(), 1)
+}
+
+#[test]
+fn ordered_nonoverlapping_fields_dont_overlap() {
+    let fields = [field(0, 3), field(3, 4), field(7, 4)];
+    assert_eq!(overlapping_fields(&fields).count(), 0)
+}
+
+#[test]
+fn unordered_nonoverlapping_fields_dont_overlap() {
+    let fields = [field(0, 3), field(7, 4), field(3, 4)];
+    assert_eq!(overlapping_fields(&fields).count(), 0)
 }
