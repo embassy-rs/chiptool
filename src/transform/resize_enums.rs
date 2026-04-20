@@ -89,17 +89,15 @@ fn update_uses(ir: &mut IR, enumm: &str) -> anyhow::Result<()> {
             field.bit_size = bit_size;
         }
 
-        let mut error = false;
-
         // Verify there are no overlapping fields after resizing enums.
-        fs.overlapping_fields().for_each(|(i1, i2)| {
+        let error = fs.overlapping_fields().fold(false, |_, (i1, i2)| {
             log::error!(
                 "fieldset {}: fields overlap: {} {}",
                 fs_name,
                 i1.name,
                 i2.name
             );
-            error |= true;
+            true
         });
 
         if error {
