@@ -1,4 +1,4 @@
-use anyhow::{Context, bail};
+use anyhow::{bail, Context};
 use clap::ValueEnum;
 use log::*;
 use std::collections::{BTreeMap, BTreeSet};
@@ -18,7 +18,9 @@ struct ProtoFieldset {
     name: Vec<String>,
     description: Option<String>,
     bit_size: u32,
-    fields: Vec<svd::Field>,
+    // The fields of this proto, and the name of
+    // the enum that makes up this field, if it has one.
+    fields: Vec<(svd::Field, Option<Vec<String>>)>,
 }
 
 #[derive(Debug)]
@@ -60,12 +62,8 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
                     let mut fieldset_name = block.name.clone();
                     let mut field_name_counts: BTreeMap<String, usize> = BTreeMap::new();
                     fieldset_name.push(replace_suffix(&r.name, ""));
-                    fieldsets.push(ProtoFieldset {
-                        name: fieldset_name.clone(),
-                        description: r.description.clone(),
-                        bit_size: r.properties.size.unwrap_or(32),
-                        fields: fields.clone(),
-                    });
+
+                    let mut out_fields = Vec::with_capacity(fields.len());
 
                     for f in fields {
                         if f.derived_from.is_some() {
@@ -132,7 +130,7 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
                             }
                         };
 
-                        if let Some(set) = set {
+                        let enumm = if let Some(set) = set {
                             let variants = match set {
                                 EnumSet::Single(e) => e.values.clone(),
                                 EnumSet::ReadWrite(r, w) => {
@@ -168,12 +166,24 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
                             let mut name = fieldset_name.clone();
                             name.push(field_name);
                             enums.push(ProtoEnum {
-                                name,
+                                name: name.clone(),
                                 bit_size: f.bit_range.width,
                                 variants,
                             });
-                        }
+                            Some(name)
+                        } else {
+                            None
+                        };
+
+                        out_fields.push((f.clone(), enumm));
                     }
+
+                    fieldsets.push(ProtoFieldset {
+                        name: fieldset_name.clone(),
+                        description: r.description.clone(),
+                        bit_size: r.properties.size.unwrap_or(32),
+                        fields: out_fields,
+                    });
                 };
             }
         }
@@ -285,7 +295,7 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
             fields: Vec::new(),
         };
 
-        for f in &proto.fields {
+        for (f, enumm) in &proto.fields {
             if f.derived_from.is_some() {
                 warn!("unsupported derived_from in fieldset");
             }
@@ -301,24 +311,19 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
 
             let field_name = replace_suffix(&f.name, "");
 
-            let mut field = Field {
+            let field = Field {
                 name: field_name.clone(),
                 description: f.description.clone(),
                 bit_offset: BitOffset::Regular(f.bit_range.offset),
                 bit_size: f.bit_range.width,
                 array,
-                enumm: None,
+                enumm: enumm.as_ref().map(|v| {
+                    enum_names
+                        .get(v)
+                        .cloned()
+                        .expect("All enums have a unique-name mapping")
+                }),
             };
-
-            if !f.enumerated_values.is_empty() {
-                let mut enum_name = proto.name.clone();
-                enum_name.push(field_name);
-
-                trace!("finding enum {:?}", enum_name);
-                let enum_name = enum_names.get(&enum_name).unwrap().clone();
-                trace!("found {:?}", enum_name);
-                field.enumm = Some(enum_name.clone())
-            }
 
             fieldset.fields.push(field)
         }
