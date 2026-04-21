@@ -2,6 +2,7 @@ use anyhow::{bail, Context};
 use clap::ValueEnum;
 use log::*;
 use std::collections::{BTreeMap, BTreeSet};
+use std::ops::Deref;
 use svd_parser::svd::{self, PeripheralInfo};
 
 use crate::{ir::*, transform};
@@ -51,142 +52,150 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
     let mut fieldsets: Vec<ProtoFieldset> = Vec::new();
     let mut enums: Vec<ProtoEnum> = Vec::new();
 
-    for block in &blocks {
-        for r in &block.registers {
-            if let svd::RegisterCluster::Register(r) = r {
-                if r.derived_from.is_some() {
+    let usable_register_clusters = blocks
+        .iter()
+        .flat_map(|b| std::iter::repeat(&b.name).zip(b.registers.iter()))
+        .filter_map(|(b, r)| {
+            let svd::RegisterCluster::Register(r) = r else {
+                return None;
+            };
+
+            if r.derived_from.is_some() {
+                return None;
+            }
+
+            let Some(fields) = r.fields.as_ref() else {
+                return None;
+            };
+
+            Some((b, r.deref().clone(), fields))
+        });
+
+    for (block_name, r, fields) in usable_register_clusters {
+        let mut fieldset_name = block_name.clone();
+        let mut field_name_counts: BTreeMap<String, usize> = BTreeMap::new();
+        fieldset_name.push(replace_suffix(&r.name, ""));
+
+        let mut out_fields = Vec::with_capacity(fields.len());
+
+        for f in fields {
+            if f.derived_from.is_some() {
+                continue;
+            }
+
+            let mut enum_read = None;
+            let mut enum_write = None;
+            let mut enum_readwrite = None;
+
+            let mut field_name = replace_suffix(&f.name, "");
+
+            let field_name_count = field_name_counts.entry(field_name.clone()).or_insert(0);
+            *field_name_count += 1;
+            if *field_name_count > 1 {
+                field_name = format!("{}{}", field_name, field_name_count);
+            }
+
+            for e in &f.enumerated_values {
+                let e = if let Some(derived_from) = &e.derived_from {
+                    let Some(e) = enum_from_name.get(derived_from.as_str()) else {
+                        warn!(
+                            "unknown enum to derive from ({} -> {})",
+                            field_name, derived_from
+                        );
+                        continue;
+                    };
+                    e
+                } else {
+                    e
+                };
+
+                let usage = e.usage.unwrap_or(svd::Usage::ReadWrite);
+                let target = match usage {
+                    svd::Usage::Read => &mut enum_read,
+                    svd::Usage::Write => &mut enum_write,
+                    svd::Usage::ReadWrite => &mut enum_readwrite,
+                };
+
+                if target.is_some() {
+                    warn!("ignoring enum with dup usage {:?}", usage);
                     continue;
                 }
 
-                if let Some(fields) = &r.fields {
-                    let mut fieldset_name = block.name.clone();
-                    let mut field_name_counts: BTreeMap<String, usize> = BTreeMap::new();
-                    fieldset_name.push(replace_suffix(&r.name, ""));
-
-                    let mut out_fields = Vec::with_capacity(fields.len());
-
-                    for f in fields {
-                        if f.derived_from.is_some() {
-                            continue;
-                        }
-
-                        let mut enum_read = None;
-                        let mut enum_write = None;
-                        let mut enum_readwrite = None;
-
-                        let mut field_name = replace_suffix(&f.name, "");
-
-                        let field_name_count =
-                            field_name_counts.entry(field_name.clone()).or_insert(0);
-                        *field_name_count += 1;
-                        if *field_name_count > 1 {
-                            field_name = format!("{}{}", field_name, field_name_count);
-                        }
-
-                        for e in &f.enumerated_values {
-                            let e = if let Some(derived_from) = &e.derived_from {
-                                let Some(e) = enum_from_name.get(derived_from.as_str()) else {
-                                    warn!(
-                                        "unknown enum to derive from ({} -> {})",
-                                        field_name, derived_from
-                                    );
-                                    continue;
-                                };
-                                e
-                            } else {
-                                e
-                            };
-
-                            let usage = e.usage.unwrap_or(svd::Usage::ReadWrite);
-                            let target = match usage {
-                                svd::Usage::Read => &mut enum_read,
-                                svd::Usage::Write => &mut enum_write,
-                                svd::Usage::ReadWrite => &mut enum_readwrite,
-                            };
-
-                            if target.is_some() {
-                                warn!("ignoring enum with dup usage {:?}", usage);
-                                continue;
-                            }
-
-                            *target = Some(e)
-                        }
-
-                        enum EnumSet<'a> {
-                            Single(&'a svd::EnumeratedValues),
-                            ReadWrite(&'a svd::EnumeratedValues, &'a svd::EnumeratedValues),
-                        }
-
-                        let set = match (enum_read, enum_write, enum_readwrite) {
-                            (None, None, None) => None,
-                            (Some(e), None, None) => Some(EnumSet::Single(e)),
-                            (None, Some(e), None) => Some(EnumSet::Single(e)),
-                            (None, None, Some(e)) => Some(EnumSet::Single(e)),
-                            (Some(r), Some(w), None) => Some(EnumSet::ReadWrite(r, w)),
-                            (Some(r), None, Some(w)) => Some(EnumSet::ReadWrite(r, w)),
-                            (None, Some(w), Some(r)) => Some(EnumSet::ReadWrite(r, w)),
-                            (Some(_), Some(_), Some(_)) => {
-                                bail!("cannot have enumeratedvalues for read, write and readwrite!")
-                            }
-                        };
-
-                        let enumm = if let Some(set) = set {
-                            let variants = match set {
-                                EnumSet::Single(e) => e.values.clone(),
-                                EnumSet::ReadWrite(r, w) => {
-                                    let r_values = r.values.iter().map(|v| v.value.unwrap());
-                                    let w_values = w.values.iter().map(|v| v.value.unwrap());
-                                    let values: BTreeSet<_> = r_values.chain(w_values).collect();
-                                    let mut values: Vec<_> = values.iter().collect();
-                                    values.sort();
-
-                                    let r_values: BTreeMap<_, _> =
-                                        r.values.iter().map(|v| (v.value.unwrap(), v)).collect();
-                                    let w_values: BTreeMap<_, _> =
-                                        w.values.iter().map(|v| (v.value.unwrap(), v)).collect();
-
-                                    values
-                                        .into_iter()
-                                        .map(|&v| match (r_values.get(&v), w_values.get(&v)) {
-                                            (None, None) => unreachable!(),
-                                            (Some(&r), None) => r.clone(),
-                                            (None, Some(&w)) => w.clone(),
-                                            (Some(&r), Some(&w)) => {
-                                                let mut m = r.clone();
-                                                if r.name != w.name {
-                                                    m.name = format!("R_{}_W_{}", r.name, w.name);
-                                                }
-                                                m
-                                            }
-                                        })
-                                        .collect()
-                                }
-                            };
-
-                            let mut name = fieldset_name.clone();
-                            name.push(field_name);
-                            enums.push(ProtoEnum {
-                                name: name.clone(),
-                                bit_size: f.bit_range.width,
-                                variants,
-                            });
-                            Some(name)
-                        } else {
-                            None
-                        };
-
-                        out_fields.push((f.clone(), enumm));
-                    }
-
-                    fieldsets.push(ProtoFieldset {
-                        name: fieldset_name.clone(),
-                        description: r.description.clone(),
-                        bit_size: r.properties.size.unwrap_or(32),
-                        fields: out_fields,
-                    });
-                };
+                *target = Some(e)
             }
+
+            enum EnumSet<'a> {
+                Single(&'a svd::EnumeratedValues),
+                ReadWrite(&'a svd::EnumeratedValues, &'a svd::EnumeratedValues),
+            }
+
+            let set = match (enum_read, enum_write, enum_readwrite) {
+                (None, None, None) => None,
+                (Some(e), None, None) => Some(EnumSet::Single(e)),
+                (None, Some(e), None) => Some(EnumSet::Single(e)),
+                (None, None, Some(e)) => Some(EnumSet::Single(e)),
+                (Some(r), Some(w), None) => Some(EnumSet::ReadWrite(r, w)),
+                (Some(r), None, Some(w)) => Some(EnumSet::ReadWrite(r, w)),
+                (None, Some(w), Some(r)) => Some(EnumSet::ReadWrite(r, w)),
+                (Some(_), Some(_), Some(_)) => {
+                    bail!("cannot have enumeratedvalues for read, write and readwrite!")
+                }
+            };
+
+            let enumm = if let Some(set) = set {
+                let variants = match set {
+                    EnumSet::Single(e) => e.values.clone(),
+                    EnumSet::ReadWrite(r, w) => {
+                        let r_values = r.values.iter().map(|v| v.value.unwrap());
+                        let w_values = w.values.iter().map(|v| v.value.unwrap());
+                        let values: BTreeSet<_> = r_values.chain(w_values).collect();
+                        let mut values: Vec<_> = values.iter().collect();
+                        values.sort();
+
+                        let r_values: BTreeMap<_, _> =
+                            r.values.iter().map(|v| (v.value.unwrap(), v)).collect();
+                        let w_values: BTreeMap<_, _> =
+                            w.values.iter().map(|v| (v.value.unwrap(), v)).collect();
+
+                        values
+                            .into_iter()
+                            .map(|&v| match (r_values.get(&v), w_values.get(&v)) {
+                                (None, None) => unreachable!(),
+                                (Some(&r), None) => r.clone(),
+                                (None, Some(&w)) => w.clone(),
+                                (Some(&r), Some(&w)) => {
+                                    let mut m = r.clone();
+                                    if r.name != w.name {
+                                        m.name = format!("R_{}_W_{}", r.name, w.name);
+                                    }
+                                    m
+                                }
+                            })
+                            .collect()
+                    }
+                };
+
+                let mut name = fieldset_name.clone();
+                name.push(field_name);
+                enums.push(ProtoEnum {
+                    name: name.clone(),
+                    bit_size: f.bit_range.width,
+                    variants,
+                });
+                Some(name)
+            } else {
+                None
+            };
+
+            out_fields.push((f.clone(), enumm));
         }
+
+        fieldsets.push(ProtoFieldset {
+            name: fieldset_name.clone(),
+            description: r.description.clone(),
+            bit_size: r.properties.size.unwrap_or(32),
+            fields: out_fields,
+        });
     }
 
     // Make all collected names unique by prefixing with parents' names if needed.
