@@ -2,6 +2,7 @@ use anyhow::{bail, Context};
 use serde::{Deserialize, Serialize};
 
 use crate::ir::*;
+use crate::validate::overlapping_fields;
 
 use super::common::{match_all, RegexSet};
 
@@ -89,27 +90,16 @@ fn update_uses(ir: &mut IR, enumm: &str) -> anyhow::Result<()> {
             field.bit_size = bit_size;
         }
 
-        let mut error = false;
-
         // Verify there are no overlapping fields after resizing enums.
-        for (i1, i2) in Pairs::new(fs.fields.iter()) {
-            // expand every BitOffset to a Vec<RangeInclusive>,
-            // and compare at that level
-            'COMPARE: for i1_range in i1.bit_offset.clone().into_ranges(i1.bit_size) {
-                for i2_range in i2.bit_offset.clone().into_ranges(i2.bit_size) {
-                    if i2_range.end() > i1_range.start() && i1_range.end() > i2_range.start() {
-                        log::error!(
-                            "fieldset {}: fields overlap: {} {}",
-                            fs_name,
-                            i1.name,
-                            i2.name
-                        );
-                        error |= true;
-                        break 'COMPARE;
-                    }
-                }
-            }
-        }
+        let error = overlapping_fields(&fs.fields).fold(false, |_, (i1, i2)| {
+            log::error!(
+                "fieldset {}: fields overlap: {} {}",
+                fs_name,
+                i1.name,
+                i2.name
+            );
+            true
+        });
 
         if error {
             bail!("Fields overlap in {enumm}");
@@ -117,45 +107,4 @@ fn update_uses(ir: &mut IR, enumm: &str) -> anyhow::Result<()> {
     }
 
     Ok(())
-}
-
-struct Pairs<U: Iterator + Clone> {
-    head: Option<U::Item>,
-    tail: U,
-    next: U,
-}
-
-impl<U: Iterator + Clone> Pairs<U> {
-    fn new(mut iter: U) -> Self {
-        let head = iter.next();
-        Pairs {
-            head,
-            tail: iter.clone(),
-            next: iter,
-        }
-    }
-}
-
-impl<U: Iterator + Clone> Iterator for Pairs<U>
-where
-    U::Item: Clone,
-{
-    type Item = (U::Item, U::Item);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let a = self.head.as_ref()?.clone();
-
-        if let Some(b) = self.tail.next() {
-            return Some((a, b));
-        }
-
-        match self.next.next() {
-            Some(new_head) => {
-                self.head = Some(new_head);
-                self.tail = self.next.clone();
-                self.next()
-            }
-            None => None,
-        }
-    }
 }
