@@ -237,11 +237,7 @@ fn process_array(array: &Array) -> (usize, TokenStream) {
         }
         Array::Cursed(array) => {
             let len = array.offsets.len();
-            let offsets = array
-                .offsets
-                .iter()
-                .map(|&x| x as usize)
-                .collect::<Vec<_>>();
+            let offsets = array.offsets.iter().map(|&x| x as usize);
             let offs_expr = quote!(([#(#offsets),*][n] as usize));
             (len, offs_expr)
         }
