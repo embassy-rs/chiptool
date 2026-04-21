@@ -3,7 +3,7 @@ use clap::ValueEnum;
 use log::*;
 use std::collections::{BTreeMap, BTreeSet};
 use std::ops::Deref;
-use svd_parser::svd::{self, PeripheralInfo};
+use svd_parser::svd::{self, MaybeArray, PeripheralInfo, RegisterInfo};
 
 use crate::{ir::*, transform};
 
@@ -219,44 +219,7 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
                         continue;
                     }
 
-                    let fieldset_name = if r.fields.is_some() {
-                        let mut fieldset_name = proto.name.clone();
-                        fieldset_name.push(remove_placeholder(&r.name));
-                        Some(fieldset_names.get(&fieldset_name).unwrap().clone())
-                    } else {
-                        None
-                    };
-
-                    let array = if let svd::Register::Array(_, dim) = r {
-                        Some(Array::Regular(RegularArray {
-                            len: dim.dim,
-                            stride: dim.dim_increment,
-                        }))
-                    } else {
-                        None
-                    };
-
-                    let access = match r.properties.access {
-                        None => Access::ReadWrite,
-                        Some(svd::Access::ReadOnly) => Access::Read,
-                        Some(svd::Access::WriteOnly) => Access::Write,
-                        Some(svd::Access::WriteOnce) => Access::Write,
-                        Some(svd::Access::ReadWrite) => Access::ReadWrite,
-                        Some(svd::Access::ReadWriteOnce) => Access::ReadWrite,
-                    };
-
-                    let block_item = BlockItem {
-                        name: remove_placeholder(&r.name),
-                        description: r.description.clone(),
-                        array,
-                        byte_offset: r.address_offset,
-                        inner: BlockItemInner::Register(Register {
-                            access, // todo
-                            bit_size: r.properties.size.unwrap_or(32),
-                            fieldset: fieldset_name.clone(),
-                        }),
-                    };
-
+                    let block_item = create_block_item(proto, &fieldset_names, r);
                     block.items.push(block_item)
                 }
                 svd::RegisterCluster::Cluster(c) => {
@@ -370,6 +333,50 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
     }
 
     Ok(())
+}
+
+fn create_block_item(
+    proto: &ProtoBlock,
+    fieldset_names: &BTreeMap<Vec<String>, String>,
+    r: &MaybeArray<RegisterInfo>,
+) -> BlockItem {
+    let fieldset_name = if r.fields.is_some() {
+        let mut fieldset_name = proto.name.clone();
+        fieldset_name.push(remove_placeholder(&r.name));
+        Some(fieldset_names.get(&fieldset_name).unwrap().clone())
+    } else {
+        None
+    };
+
+    let array = if let svd::Register::Array(_, dim) = r {
+        Some(Array::Regular(RegularArray {
+            len: dim.dim,
+            stride: dim.dim_increment,
+        }))
+    } else {
+        None
+    };
+
+    let access = match r.properties.access {
+        None => Access::ReadWrite,
+        Some(svd::Access::ReadOnly) => Access::Read,
+        Some(svd::Access::WriteOnly) => Access::Write,
+        Some(svd::Access::WriteOnce) => Access::Write,
+        Some(svd::Access::ReadWrite) => Access::ReadWrite,
+        Some(svd::Access::ReadWriteOnce) => Access::ReadWrite,
+    };
+
+    BlockItem {
+        name: remove_placeholder(&r.name),
+        description: r.description.clone(),
+        array,
+        byte_offset: r.address_offset,
+        inner: BlockItemInner::Register(Register {
+            access, // todo
+            bit_size: r.properties.size.unwrap_or(32),
+            fieldset: fieldset_name.clone(),
+        }),
+    }
 }
 
 /// Convert an entire SVD to IR.
