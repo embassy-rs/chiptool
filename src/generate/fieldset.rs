@@ -26,6 +26,7 @@ pub fn render(opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Resu
     for f in sorted(&fs.fields, |f| (f.bit_offset.clone(), f.name.clone())) {
         let name = Ident::new(&f.name, span);
         let name_set = Ident::new(&format!("set_{}", f.name), span);
+        let name_len = Ident::new(&format!("{}_len", f.name), span);
         let off_in_reg = f.bit_offset.clone();
         let _bit_size = f.bit_size as usize;
         let mask = util::hex(1u64.wrapping_shl(f.bit_size).wrapping_sub(1));
@@ -88,12 +89,20 @@ pub fn render(opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Resu
                         #doc
                         #[must_use]
                         #[inline(always)]
-                        pub const fn #name(&self, n: usize) -> #field_ty{
+                        pub const fn #name(&self, n: usize) -> #field_ty {
                             assert!(n < #len);
                             let offs = #off_in_reg + #offs_expr;
                             let val = (self.0 >> offs) & #mask;
                             #from_bits
                         }
+
+                        #doc
+                        #[must_use]
+                        #[inline(always)]
+                        pub const fn #name_len(&self) -> usize {
+                            #len
+                        }
+
                         #doc
                         #[inline(always)]
                         pub const fn #name_set(&mut self, n: usize, val: #field_ty) {
@@ -154,6 +163,14 @@ pub fn render(opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Resu
                                 val += (((self.0 >> offs) & #mask) << #off_in_val); )*;
                             #from_bits
                         }
+
+                        #doc
+                        #[must_use]
+                        #[inline(always)]
+                        pub const fn #name_len(&self) -> usize {
+                            #len
+                        }
+
                         #doc
                         #[inline(always)]
                         pub const fn #name_set(&mut self, n: usize, val: #field_ty) {
