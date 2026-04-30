@@ -16,8 +16,6 @@ pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<T
 
     for i in sorted(&b.items, |i| (i.byte_offset, i.name.clone())) {
         let name = Ident::new(&i.name, span);
-        let name_iter = Ident::new(&format!("{}_iter", i.name), span);
-        let name_len = Ident::new(&format!("{}_len", i.name), span);
         let offset = util::hex_usize(i.byte_offset as u64);
 
         let doc = util::doc(&i.description);
@@ -56,18 +54,6 @@ pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<T
                             assert!(n < #len);
                             unsafe { #common_path::Reg::from_ptr(self.ptr.wrapping_add(#offset + #offs_expr) as _) }
                         }
-
-                        #doc
-                        #[inline(always)]
-                        pub fn #name_iter(self) -> impl Iterator<Item = #ty> {
-                            (0..#len).map(move |i| self.#name(i))
-                        }
-
-                        #doc
-                        #[inline(always)]
-                        pub const fn #name_len(self) -> usize {
-                            #len
-                        }
                     ));
                 } else {
                     items.extend(quote!(
@@ -96,18 +82,6 @@ pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<T
                         pub const fn #name(self, n: usize) -> #ty {
                             assert!(n < #len);
                             unsafe { #ty::from_ptr(self.ptr.wrapping_add(#offset + #offs_expr) as _) }
-                        }
-
-                        #doc
-                        #[inline(always)]
-                        pub fn #name_iter(self) -> impl Iterator<Item = #ty> {
-                            (0..#len).map(move |i| self.#name(i))
-                        }
-
-                        #doc
-                        #[inline(always)]
-                        pub const fn #name_len(self) -> usize {
-                            #len
                         }
                     ));
                 } else {
