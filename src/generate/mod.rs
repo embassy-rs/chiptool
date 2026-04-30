@@ -227,6 +227,40 @@ fn split_path(s: &str) -> (Vec<&str>, &str) {
     (v, n)
 }
 
+struct ArrayDescription {
+    array_ty: TokenStream,
+    constructor: TokenStream,
+}
+
+fn process_ptr_array(
+    array: &Array,
+    ptr: &TokenStream,
+    ty: &TokenStream,
+    common_path: &TokenStream,
+) -> ArrayDescription {
+    match array {
+        Array::Regular(array) => {
+            let len = array.len as usize;
+            let stride = array.stride as usize;
+            ArrayDescription {
+                array_ty: quote!(#common_path::Array<#ty>),
+                constructor: quote!(unsafe { #common_path::Array::from_ptr(#ptr, #stride, #len) }),
+            }
+        }
+        Array::Cursed(array) => {
+            let offsets = array
+                .offsets
+                .iter()
+                .map(|&x| x as usize)
+                .collect::<Vec<_>>();
+            ArrayDescription {
+                array_ty: quote!(#common_path::CursedArray<#ty>),
+                constructor: quote!(unsafe { #common_path::CursedArray::from_ptr(#ptr, &[#(#offsets),*]) }),
+            }
+        }
+    }
+}
+
 fn process_array(array: &Array) -> (usize, TokenStream) {
     match array {
         Array::Regular(array) => {
