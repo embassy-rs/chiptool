@@ -67,6 +67,7 @@ fn extract_per_peripheral(extract_shared: &ExtractShared, output_dir: &Path) -> 
                     .keys()
                     .reduce(|acc, val| if val.len() < acc.len() { val } else { acc })
                     .unwrap()
+                    .replace("::", "__")
             )))?;
         serde_yaml::to_writer(f, &ir).unwrap();
     }
@@ -97,7 +98,9 @@ fn extract_per_block(extract_shared: &ExtractShared, output_dir: &Path) -> Resul
     for block_name in blocks {
         let block_ir = extract_relevant(&block_name, &ir)?;
 
-        let f = File::create(PathBuf::from(output_dir).join(format!("{}.yaml", block_name)))?;
+        let f = File::create(
+            PathBuf::from(output_dir).join(format!("{}.yaml", block_name.replace("::", "__"))),
+        )?;
         serde_yaml::to_writer(f, &block_ir).unwrap();
     }
 
