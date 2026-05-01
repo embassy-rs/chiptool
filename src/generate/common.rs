@@ -146,10 +146,12 @@ impl<T: FromPtr> Iterator for Array<T> {
             return None;
         }
 
+        let el = self.get(0);
+
         self.ptr = self.ptr.wrapping_add(self.stride);
         self.len -= 1;
 
-        Some(self.get(0))
+        Some(el)
     }
 }
 
@@ -202,7 +204,8 @@ impl<T: FromPtr> Iterator for CursedArray<T> {
             return None;
         }
 
+        let el = self.get(0);
         self.offsets = &self.offsets[1..];
-        Some(self.get(0))
+        Some(el)
     }
 }
