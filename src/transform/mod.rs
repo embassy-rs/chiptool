@@ -55,18 +55,18 @@ impl std::fmt::Debug for NameCollisionErrors {
     }
 }
 
-fn rename_opt(s: &mut Option<String>, f: impl Fn(&mut String)) {
+fn rename_opt(s: &mut Option<String>, mut f: impl FnMut(&mut String)) {
     if let Some(s) = s {
         f(s)
     }
 }
 
-pub fn map_block_names(ir: &mut IR, f: impl Fn(&mut String)) {
-    remap_names(NameKind::Block, &mut ir.blocks, &f).unwrap();
+pub fn map_block_names(ir: &mut IR, mut f: impl FnMut(&mut String)) {
+    remap_names(NameKind::Block, &mut ir.blocks, &mut f).unwrap();
 
     for (_, d) in ir.devices.iter_mut() {
         for p in &mut d.peripherals {
-            rename_opt(&mut p.block, &f);
+            rename_opt(&mut p.block, &mut f);
         }
     }
 
@@ -80,31 +80,31 @@ pub fn map_block_names(ir: &mut IR, f: impl Fn(&mut String)) {
     }
 }
 
-pub fn map_fieldset_names(ir: &mut IR, f: impl Fn(&mut String)) {
-    remap_names(NameKind::Fieldset, &mut ir.fieldsets, &f).unwrap();
+pub fn map_fieldset_names(ir: &mut IR, mut f: impl FnMut(&mut String)) {
+    remap_names(NameKind::Fieldset, &mut ir.fieldsets, &mut f).unwrap();
 
     for (_, b) in ir.blocks.iter_mut() {
         for i in b.items.iter_mut() {
             match &mut i.inner {
                 BlockItemInner::Block(_p) => {}
-                BlockItemInner::Register(r) => rename_opt(&mut r.fieldset, &f),
+                BlockItemInner::Register(r) => rename_opt(&mut r.fieldset, &mut f),
             }
         }
     }
 }
 
-pub fn map_enum_names(ir: &mut IR, f: impl Fn(&mut String)) {
-    remap_names(NameKind::Enum, &mut ir.enums, &f).unwrap();
+pub fn map_enum_names(ir: &mut IR, mut f: impl FnMut(&mut String)) {
+    remap_names(NameKind::Enum, &mut ir.enums, &mut f).unwrap();
 
     for (_, fs) in ir.fieldsets.iter_mut() {
         for ff in fs.fields.iter_mut() {
-            rename_opt(&mut ff.enumm, &f);
+            rename_opt(&mut ff.enumm, &mut f);
         }
     }
 }
 
-pub fn map_device_names(ir: &mut IR, f: impl Fn(&mut String)) {
-    remap_names(NameKind::Device, &mut ir.devices, &f).unwrap();
+pub fn map_device_names(ir: &mut IR, f: impl FnMut(&mut String)) {
+    remap_names(NameKind::Device, &mut ir.devices, f).unwrap();
 }
 
 pub fn map_device_interrupt_names(ir: &mut IR, f: impl Fn(&mut String)) {
@@ -191,7 +191,7 @@ pub fn map_descriptions(ir: &mut IR, mut ff: impl FnMut(&str) -> String) -> anyh
 fn remap_names<T>(
     kind: NameKind,
     x: &mut BTreeMap<String, T>,
-    f: impl Fn(&mut String),
+    mut f: impl FnMut(&mut String),
 ) -> Result<(), NameCollisionErrors> {
     let mut res = BTreeMap::new();
     let mut errs = HashSet::new();
