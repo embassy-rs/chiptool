@@ -115,7 +115,7 @@ pub fn map_device_interrupt_names(ir: &mut IR, mut f: impl FnMut(&mut String)) {
     }
 }
 
-pub fn map_device_peripheral_names(ir: &mut IR, f: impl Fn(&mut String)) {
+pub fn map_device_peripheral_names(ir: &mut IR, mut f: impl FnMut(&mut String)) {
     for (_, d) in ir.devices.iter_mut() {
         for p in &mut d.peripherals {
             f(&mut p.name);

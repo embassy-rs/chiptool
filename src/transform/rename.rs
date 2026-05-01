@@ -16,6 +16,7 @@ pub enum RenameType {
     Fieldset,
     Enum,
     Interrupt,
+    Peripheral,
 }
 
 impl RenameType {
@@ -28,6 +29,7 @@ impl RenameType {
             RenameType::Fieldset => format!("fieldset {name}"),
             RenameType::Enum => format!("enum {name}"),
             RenameType::Interrupt => format!("interrupt {name}"),
+            RenameType::Peripheral => format!("peripheral {name}"),
         }
     }
 }
@@ -67,6 +69,7 @@ impl Rename {
                 super::map_fieldset_names(ir, renamer(RenameType::Fieldset));
                 super::map_enum_names(ir, renamer(RenameType::Enum));
                 super::map_device_interrupt_names(ir, renamer(RenameType::Interrupt));
+                super::map_device_peripheral_names(ir, renamer(RenameType::Peripheral));
             }
             RenameType::Device => super::map_device_names(ir, renamer(RenameType::Device)),
             RenameType::Block => super::map_block_names(ir, renamer(RenameType::Block)),
@@ -74,6 +77,9 @@ impl Rename {
             RenameType::Enum => super::map_enum_names(ir, renamer(RenameType::Enum)),
             RenameType::Interrupt => {
                 super::map_device_interrupt_names(ir, renamer(RenameType::Interrupt))
+            }
+            RenameType::Peripheral => {
+                super::map_device_peripheral_names(ir, renamer(RenameType::Peripheral))
             }
         }
 

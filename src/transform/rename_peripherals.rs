@@ -1,9 +1,8 @@
-use std::collections::HashMap;
-
 use serde::{Deserialize, Serialize};
 
 use super::common::*;
 use crate::ir::*;
+use crate::transform::rename::{Rename, RenameType};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RenamePeripherals {
@@ -15,25 +14,12 @@ pub struct RenamePeripherals {
 
 impl RenamePeripherals {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
-        let mut had_duplicate = false;
-
-        for (dev_name, d) in ir.devices.iter_mut() {
-            let mut renames = HashMap::new();
-            let fmt = |peri| format!("peripheral {peri} for device {dev_name}");
-
-            for p in &mut d.peripherals {
-                if let Some(name) = match_expand(&p.name, &self.from, &self.to) {
-                    had_duplicate |=
-                        !can_rename(self.error_on_duplicate, &mut renames, &name, &p.name, fmt);
-                    p.name = name;
-                }
-            }
+        Rename {
+            from: self.from.clone(),
+            to: self.to.clone(),
+            r#type: RenameType::Peripheral,
+            error_on_duplicate: self.error_on_duplicate,
         }
-
-        if had_duplicate && self.error_on_duplicate {
-            anyhow::bail!("Failed to rename peripherals");
-        }
-
-        Ok(())
+        .run(ir)
     }
 }
