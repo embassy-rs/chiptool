@@ -15,6 +15,7 @@ pub enum RenameType {
     Block,
     Fieldset,
     Enum,
+    Interrupt,
 }
 
 impl RenameType {
@@ -26,6 +27,7 @@ impl RenameType {
             RenameType::Block => format!("block {name}"),
             RenameType::Fieldset => format!("fieldset {name}"),
             RenameType::Enum => format!("enum {name}"),
+            RenameType::Interrupt => format!("interrupt {name}"),
         }
     }
 }
@@ -64,11 +66,15 @@ impl Rename {
                 super::map_block_names(ir, renamer(RenameType::Block));
                 super::map_fieldset_names(ir, renamer(RenameType::Fieldset));
                 super::map_enum_names(ir, renamer(RenameType::Enum));
+                super::map_device_interrupt_names(ir, renamer(RenameType::Interrupt));
             }
             RenameType::Device => super::map_device_names(ir, renamer(RenameType::Device)),
             RenameType::Block => super::map_block_names(ir, renamer(RenameType::Block)),
             RenameType::Fieldset => super::map_fieldset_names(ir, renamer(RenameType::Fieldset)),
             RenameType::Enum => super::map_enum_names(ir, renamer(RenameType::Enum)),
+            RenameType::Interrupt => {
+                super::map_device_interrupt_names(ir, renamer(RenameType::Interrupt))
+            }
         }
 
         if *had_duplicates.borrow() && self.error_on_duplicate {
