@@ -1,8 +1,8 @@
-use anyhow::{bail, Context};
+use anyhow::Context;
 use clap::ValueEnum;
 use log::*;
-use std::collections::{BTreeMap, BTreeSet};
-use svd_parser::svd::{self, FieldInfo, PeripheralInfo};
+use std::collections::BTreeMap;
+use svd_parser::svd::{self, EnumeratedValue, FieldInfo, PeripheralInfo};
 
 use crate::{ir::*, transform};
 
@@ -81,7 +81,7 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
 
                         let enum_name = fieldset_name.iter().chain(std::iter::once(&field_name));
                         let enumm =
-                            if let Some(enumm) = extract_enum(enum_name, &enum_from_name, &f)? {
+                            if let Some(enumm) = extract_enum(enum_name, &enum_from_name, &f) {
                                 let name = enumm.name.clone();
                                 enums.push(enumm);
                                 Some(name)
@@ -363,17 +363,16 @@ fn extract_enum<'a>(
     enum_name: impl Iterator<Item = &'a String>,
     enum_from_name: &BTreeMap<&str, &svd::EnumeratedValues>,
     field: &FieldInfo,
-) -> anyhow::Result<Option<ProtoEnum>> {
-    let mut enum_read = None;
-    let mut enum_write = None;
-    let mut enum_readwrite = None;
+) -> Option<ProtoEnum> {
+    let mut r = Vec::new();
+    let mut w = Vec::new();
 
     for e in &field.enumerated_values {
         let e = if let Some(derived_from) = &e.derived_from {
             let Some(e) = enum_from_name.get(derived_from.as_str()) else {
                 warn!(
-                    "unknown enum to derive from ({} -> {})",
-                    field.name, derived_from
+                    "unknown enum to derive from ({} -> {derived_from})",
+                    field.name
                 );
                 continue;
             };
@@ -383,79 +382,51 @@ fn extract_enum<'a>(
         };
 
         let usage = e.usage.unwrap_or(svd::Usage::ReadWrite);
-        let target = match usage {
-            svd::Usage::Read => &mut enum_read,
-            svd::Usage::Write => &mut enum_write,
-            svd::Usage::ReadWrite => &mut enum_readwrite,
-        };
-
-        if target.is_some() {
-            warn!("ignoring enum with dup usage {:?}", usage);
-            continue;
-        }
-
-        *target = Some(e)
-    }
-
-    enum EnumSet<'a> {
-        Single(&'a svd::EnumeratedValues),
-        ReadWrite(&'a svd::EnumeratedValues, &'a svd::EnumeratedValues),
-    }
-
-    let set = match (enum_read, enum_write, enum_readwrite) {
-        (None, None, None) => None,
-        (Some(e), None, None) => Some(EnumSet::Single(e)),
-        (None, Some(e), None) => Some(EnumSet::Single(e)),
-        (None, None, Some(e)) => Some(EnumSet::Single(e)),
-        (Some(r), Some(w), None) => Some(EnumSet::ReadWrite(r, w)),
-        (Some(r), None, Some(w)) => Some(EnumSet::ReadWrite(r, w)),
-        (None, Some(w), Some(r)) => Some(EnumSet::ReadWrite(r, w)),
-        (Some(_), Some(_), Some(_)) => {
-            bail!("cannot have enumeratedvalues for read, write and readwrite!")
-        }
-    };
-
-    if let Some(set) = set {
-        let variants = match set {
-            EnumSet::Single(e) => e.values.clone(),
-            EnumSet::ReadWrite(r, w) => {
-                let r_values = r.values.iter().map(|v| v.value.unwrap());
-                let w_values = w.values.iter().map(|v| v.value.unwrap());
-                let values: BTreeSet<_> = r_values.chain(w_values).collect();
-                let mut values: Vec<_> = values.iter().collect();
-                values.sort();
-
-                let r_values: BTreeMap<_, _> =
-                    r.values.iter().map(|v| (v.value.unwrap(), v)).collect();
-                let w_values: BTreeMap<_, _> =
-                    w.values.iter().map(|v| (v.value.unwrap(), v)).collect();
-
-                values
-                    .into_iter()
-                    .map(|&v| match (r_values.get(&v), w_values.get(&v)) {
-                        (None, None) => unreachable!(),
-                        (Some(&r), None) => r.clone(),
-                        (None, Some(&w)) => w.clone(),
-                        (Some(&r), Some(&w)) => {
-                            let mut m = r.clone();
-                            if r.name != w.name {
-                                m.name = format!("R_{}_W_{}", r.name, w.name);
-                            }
-                            m
-                        }
-                    })
-                    .collect()
+        match usage {
+            svd::Usage::Read => r.extend_from_slice(&e.values),
+            svd::Usage::Write => w.extend_from_slice(&e.values),
+            svd::Usage::ReadWrite => {
+                r.extend_from_slice(&e.values);
+                w.extend_from_slice(&e.values);
             }
         };
-
-        Ok(Some(ProtoEnum {
-            name: enum_name.cloned().collect(),
-            bit_size: field.bit_range.width,
-            variants,
-        }))
-    } else {
-        Ok(None)
     }
+
+    let variants = if !r.is_empty() || !w.is_empty() {
+        fn value_to_kv(v: &EnumeratedValue) -> Option<(u64, &EnumeratedValue)> {
+            v.value.map(|value| (value, v))
+        }
+
+        let r: BTreeMap<_, _> = r.iter().filter_map(value_to_kv).collect();
+        let w: BTreeMap<_, _> = w.iter().filter_map(value_to_kv).collect();
+        let mut enum_values: Vec<_> = r.keys().chain(w.keys()).collect();
+        enum_values.sort();
+        enum_values.dedup();
+
+        enum_values
+            .into_iter()
+            .map(|v| match (r.get(&v), w.get(&v)) {
+                (None, None) => unreachable!(),
+                (Some(&r), None) => r.clone(),
+                (None, Some(&w)) => w.clone(),
+                (Some(&r), Some(&w)) => {
+                    let mut m = r.clone();
+                    if r.name != w.name {
+                        m.name = format!("R_{}_W_{}", r.name, w.name);
+                    }
+                    m
+                }
+            })
+            .collect()
+    } else {
+        return None;
+    };
+
+    Some(ProtoEnum {
+        name: enum_name.cloned().collect(),
+        bit_size: field.bit_range.width,
+        variants,
+    })
 }
 
 /// Create a map of all enums by name.
