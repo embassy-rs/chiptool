@@ -46,29 +46,13 @@ fn names<T, F>(array: &MaybeArray<T>, f: F) -> ExpandedMaybeArray
 where
     F: Fn(&T) -> &str,
 {
-    fn is_numeric(str: &String) -> bool {
-        str.chars().all(|v| v.is_numeric())
-    }
-
     fn replace_placeholder(str: &str, replacement: &str) -> String {
         str.replace("%s", replacement)
     }
 
-    fn as_array_name<'a>(
-        r: &str,
-        mut dim_element: impl Iterator<Item = &'a String>,
-    ) -> Option<&str> {
+    fn as_array_name<'a>(r: &str) -> Option<&str> {
         if let Some(array) = r.strip_suffix("[%s]") {
             Some(array)
-        } else if let Some(missed_array) = r.strip_suffix("%s") {
-            // If all dimensions are numeric, the element is an IR
-            // array because accessing with a number offset makes
-            // sense.
-            if dim_element.all(is_numeric) {
-                Some(missed_array)
-            } else {
-                None
-            }
         } else {
             None
         }
@@ -77,7 +61,7 @@ where
     match array {
         MaybeArray::Single(r) => ExpandedMaybeArray::Single(f(r).to_string()),
         MaybeArray::Array(r, dim_element) => {
-            if let Some(array_name) = as_array_name(f(r), dim_element.dim_index.iter().flatten()) {
+            if let Some(array_name) = as_array_name(f(r)) {
                 ExpandedMaybeArray::Array {
                     name: array_name.to_string(),
                     array: Array::Regular(RegularArray {
