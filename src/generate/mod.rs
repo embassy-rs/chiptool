@@ -1,5 +1,4 @@
 mod block;
-mod common;
 mod device;
 mod enumm;
 mod fieldset;
@@ -262,7 +261,7 @@ fn process_ptr_array(
     }
 }
 
-fn process_array(array: &Array) -> (usize, TokenStream) {
+fn process_field_array(array: &Array) -> (usize, TokenStream) {
     match array {
         Array::Regular(array) => {
             let len = array.len as usize;
