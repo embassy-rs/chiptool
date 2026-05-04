@@ -101,6 +101,10 @@ pub struct Array<T> {
     _type: PhantomData<T>,
 }
 
+pub struct ArrayIter<T> {
+    parent: T,
+}
+
 impl<T: Clone> Clone for Array<T> {
     fn clone(&self) -> Self {
         Self {
@@ -138,19 +142,26 @@ impl<T: FromPtr> Array<T> {
     }
 }
 
-impl<T: FromPtr> Iterator for Array<T> {
+impl<T: FromPtr> IntoIterator for Array<T> {
+    type Item = T;
+    type IntoIter = ArrayIter<Array<T>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        ArrayIter { parent: self }
+    }
+}
+
+impl<T: FromPtr> Iterator for ArrayIter<Array<T>> {
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.len == 0 {
+        if self.parent.len == 0 {
             return None;
         }
 
-        let el = self.get(0);
-
-        self.ptr = self.ptr.wrapping_add(self.stride);
-        self.len -= 1;
-
+        let el = self.parent.get(0);
+        self.parent.ptr = self.parent.ptr.wrapping_add(self.parent.stride);
+        self.parent.len -= 1;
         Some(el)
     }
 }
@@ -196,16 +207,25 @@ impl<T: FromPtr> CursedArray<T> {
     }
 }
 
-impl<T: FromPtr> Iterator for CursedArray<T> {
+impl<T: FromPtr> IntoIterator for CursedArray<T> {
+    type Item = T;
+    type IntoIter = ArrayIter<CursedArray<T>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        ArrayIter { parent: self }
+    }
+}
+
+impl<T: FromPtr> Iterator for ArrayIter<CursedArray<T>> {
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.len() == 0 {
+        if self.parent.len() == 0 {
             return None;
         }
 
-        let el = self.get(0);
-        self.offsets = &self.offsets[1..];
+        let el = self.parent.get(0);
+        self.parent.offsets = &self.parent.offsets[1..];
         Some(el)
     }
 }
