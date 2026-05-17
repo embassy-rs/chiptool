@@ -22,6 +22,7 @@ pub fn render(opts: &super::Options, ir: &IR, d: &Device, path: &str) -> Result<
     let span = Span::call_site();
 
     let mut interrupts = TokenStream::new();
+    let mut from_arms = TokenStream::new();
     let mut peripherals = TokenStream::new();
     let mut vectors = TokenStream::new();
     let mut names = vec![];
@@ -47,6 +48,10 @@ pub fn render(opts: &super::Options, ir: &IR, d: &Device, path: &str) -> Result<
         );
 
         let value = util::unsuffixed(i.value as u64);
+
+        from_arms.extend(quote! {
+            #value => Ok(Interrupt::#name_uc),
+        });
 
         interrupts.extend(quote! {
             #[doc = #description]
@@ -76,10 +81,12 @@ pub fn render(opts: &super::Options, ir: &IR, d: &Device, path: &str) -> Result<
             });
         }
     }
-    let n = util::unsuffixed(pos as u64);
+    let num_of_interrupts = pos as u64;
+    let num_of_interrupts_unsuffixed = util::unsuffixed(num_of_interrupts as u64);
 
     let derive_defmt = with_defmt_cfg_attr(&opts.defmt, quote! { derive(defmt::Format) });
 
+    let max_interrupt_number = num_of_interrupts.saturating_sub(1);
     out.extend(quote!(
         #[derive(Copy, Clone, Debug, PartialEq, Eq)]
         #derive_defmt
@@ -91,6 +98,31 @@ pub fn render(opts: &super::Options, ir: &IR, d: &Device, path: &str) -> Result<
             #[inline(always)]
             fn number(self) -> u16 {
                 self as u16
+            }
+        }
+
+        unsafe impl cortex_m_types::InterruptNumber for Interrupt {
+            const MAX_INTERRUPT_NUMBER: usize = #max_interrupt_number;
+
+            #[inline(always)]
+            fn number(self) -> usize {
+                self as usize
+            }
+
+            /// Tries to convert a number to a valid interrupt.
+            #[inline]
+            fn from_number(value: usize) -> cortex_m_types::result::Result<Self> {
+                if value > Self::MAX_INTERRUPT_NUMBER {
+                    return Err(cortex_m_types::result::Error::IndexOutOfBounds {
+                        index: value,
+                        min: 0,
+                        max: Self::MAX_INTERRUPT_NUMBER,
+                    });
+                }
+                match value {
+                    #from_arms
+                    _ => Err(cortex_m_types::result::Error::InvalidVariant(value)),
+                }
             }
         }
 
@@ -107,7 +139,7 @@ pub fn render(opts: &super::Options, ir: &IR, d: &Device, path: &str) -> Result<
 
             #[unsafe(link_section = ".vector_table.interrupts")]
             #[unsafe(no_mangle)]
-            pub static __INTERRUPTS: [Vector; #n] = [
+            pub static __INTERRUPTS: [Vector; #num_of_interrupts_unsuffixed] = [
                 #vectors
             ];
         }
