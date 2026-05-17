@@ -1,9 +1,8 @@
-use std::collections::HashMap;
-
 use serde::{Deserialize, Serialize};
 
 use super::common::*;
 use crate::ir::*;
+use crate::transform::rename::{Rename, RenameType};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RenameInterrupts {
@@ -15,25 +14,12 @@ pub struct RenameInterrupts {
 
 impl RenameInterrupts {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
-        let mut had_duplicate = false;
-
-        for (dev_name, d) in ir.devices.iter_mut() {
-            let mut renames = HashMap::new();
-            let fmt = |itr| format!("interrupt {itr} for device {dev_name}");
-
-            for i in &mut d.interrupts {
-                if let Some(name) = match_expand(&i.name, &self.from, &self.to) {
-                    had_duplicate |=
-                        !can_rename(self.error_on_duplicate, &mut renames, &name, &i.name, fmt);
-                    i.name = name;
-                }
-            }
+        Rename {
+            from: self.from.clone(),
+            to: self.to.clone(),
+            r#type: RenameType::Interrupt,
+            error_on_duplicate: self.error_on_duplicate,
         }
-
-        if had_duplicate && self.error_on_duplicate {
-            anyhow::bail!("Failed to rename interrupts");
-        }
-
-        Ok(())
+        .run(ir)
     }
 }

@@ -1,9 +1,13 @@
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::rc::Rc;
+
 use serde::{Deserialize, Serialize};
 
 use super::common::*;
 use crate::ir::*;
 
-#[derive(Debug, Serialize, Deserialize, Default)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, Default, PartialEq, Eq, Hash)]
 pub enum RenameType {
     #[default]
     All,
@@ -11,6 +15,23 @@ pub enum RenameType {
     Block,
     Fieldset,
     Enum,
+    Interrupt,
+    Peripheral,
+}
+
+impl RenameType {
+    pub fn fmt<'a>(&self) -> impl Fn(String) -> String + 'a {
+        let me = *self;
+        move |name: String| match me {
+            RenameType::All => unimplemented!(),
+            RenameType::Device => format!("device {name}"),
+            RenameType::Block => format!("block {name}"),
+            RenameType::Fieldset => format!("fieldset {name}"),
+            RenameType::Enum => format!("enum {name}"),
+            RenameType::Interrupt => format!("interrupt {name}"),
+            RenameType::Peripheral => format!("peripheral {name}"),
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -19,27 +40,51 @@ pub struct Rename {
     pub to: String,
     #[serde(default)]
     pub r#type: RenameType,
+    #[serde(default = "get_true")]
+    pub error_on_duplicate: bool,
 }
 
 impl Rename {
     pub fn run(&self, ir: &mut IR) -> anyhow::Result<()> {
-        let renamer = |name: &mut String| {
-            if let Some(res) = match_expand(name, &self.from, &self.to) {
-                *name = res
+        let had_duplicates = Rc::new(RefCell::new(false));
+
+        let renamer = |ty: RenameType| {
+            let mut state = HashMap::new();
+            let had_duplicates = had_duplicates.clone();
+            let eod = self.error_on_duplicate;
+
+            move |name: &mut String| {
+                if let Some(res) = match_expand(name, &self.from, &self.to) {
+                    *had_duplicates.borrow_mut() |=
+                        !can_rename(eod, &mut state, &res, name, ty.fmt());
+                    *name = res
+                }
             }
         };
 
         match self.r#type {
             RenameType::All => {
-                super::map_device_names(ir, renamer);
-                super::map_block_names(ir, renamer);
-                super::map_fieldset_names(ir, renamer);
-                super::map_enum_names(ir, renamer);
+                super::map_device_names(ir, renamer(RenameType::Device));
+                super::map_block_names(ir, renamer(RenameType::Block));
+                super::map_fieldset_names(ir, renamer(RenameType::Fieldset));
+                super::map_enum_names(ir, renamer(RenameType::Enum));
+                super::map_device_interrupt_names(ir, renamer(RenameType::Interrupt));
+                super::map_device_peripheral_names(ir, renamer(RenameType::Peripheral));
             }
-            RenameType::Device => super::map_device_names(ir, renamer),
-            RenameType::Block => super::map_block_names(ir, renamer),
-            RenameType::Fieldset => super::map_fieldset_names(ir, renamer),
-            RenameType::Enum => super::map_enum_names(ir, renamer),
+            RenameType::Device => super::map_device_names(ir, renamer(RenameType::Device)),
+            RenameType::Block => super::map_block_names(ir, renamer(RenameType::Block)),
+            RenameType::Fieldset => super::map_fieldset_names(ir, renamer(RenameType::Fieldset)),
+            RenameType::Enum => super::map_enum_names(ir, renamer(RenameType::Enum)),
+            RenameType::Interrupt => {
+                super::map_device_interrupt_names(ir, renamer(RenameType::Interrupt))
+            }
+            RenameType::Peripheral => {
+                super::map_device_peripheral_names(ir, renamer(RenameType::Peripheral))
+            }
+        }
+
+        if *had_duplicates.borrow() && self.error_on_duplicate {
+            anyhow::bail!("Failed to rename interrupts");
         }
 
         Ok(())
