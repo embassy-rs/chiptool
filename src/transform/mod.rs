@@ -271,4 +271,5 @@ transforms!(
     rename_interrupts::RenameInterrupts,
     rename_peripherals::RenamePeripherals,
     clean_descriptions::CleanDescriptions,
+    map_enum_variants::MapEnumVariants,
 );
