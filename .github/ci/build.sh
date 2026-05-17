@@ -14,6 +14,7 @@ hashtime save /ci/cache/filetime.json
 git remote add upstream https://github.com/embassy-rs/chiptool
 git fetch --depth 50 upstream main
 BASE=$(git merge-base HEAD upstream/main)
+BASE=0c94b6c4c43712a455d687d34c7200909203f2d9
 HEAD_SHA=$(git rev-parse HEAD)
 
 # Reuse cached SVDs clone across CI runs.
