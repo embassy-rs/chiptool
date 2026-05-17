@@ -70,7 +70,21 @@ where
                     }),
                 }
             } else {
-                let offsets = (0..).step_by(dim_element.dim_increment as _);
+                // `dim_increment` may be 0 for `dim == 1` (degenerate "array" of
+                // one element); `step_by(0)` would panic, so clamp to 1. For
+                // `dim > 1`, a zero stride is nonsensical and we fail loudly.
+                let stride = if dim_element.dim_increment > 0 {
+                    dim_element.dim_increment
+                } else {
+                    assert!(
+                        dim_element.dim == 1,
+                        "dimIncrement=0 with dim={} > 1 in {}",
+                        dim_element.dim,
+                        f(r),
+                    );
+                    1
+                };
+                let offsets = (0..).step_by(stride as _);
 
                 let values = offsets
                     .zip(
