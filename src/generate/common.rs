@@ -83,3 +83,149 @@ impl<T: Copy, A: Read + Write> Reg<T, A> {
         self.write_value(val);
     }
 }
+
+pub trait FromPtr: Copy {
+    unsafe fn from_ptr(ptr: *mut u8) -> Self;
+}
+
+impl<T: Copy, A: Access> FromPtr for Reg<T, A> {
+    unsafe fn from_ptr(ptr: *mut u8) -> Self {
+        unsafe { Reg::<T, A>::from_ptr(ptr as *mut T) }
+    }
+}
+
+pub struct Array<T> {
+    ptr: *mut u8,
+    stride: usize,
+    len: usize,
+    _type: PhantomData<T>,
+}
+
+pub struct ArrayIter<T> {
+    parent: T,
+}
+
+impl<T: Clone> Clone for Array<T> {
+    fn clone(&self) -> Self {
+        Self {
+            ptr: self.ptr,
+            stride: self.stride,
+            len: self.len,
+            _type: self._type,
+        }
+    }
+}
+impl<T: Copy> Copy for Array<T> {}
+
+impl<T> Array<T> {
+    #[inline(always)]
+    pub const fn len(&self) -> usize {
+        self.len
+    }
+}
+
+impl<T: FromPtr> Array<T> {
+    #[inline(always)]
+    pub const unsafe fn from_ptr(ptr: *mut u8, stride: usize, len: usize) -> Self {
+        Self {
+            ptr,
+            stride,
+            len,
+            _type: PhantomData,
+        }
+    }
+
+    #[inline(always)]
+    pub fn get(&self, n: usize) -> T {
+        assert!(n < self.len());
+        unsafe { T::from_ptr(self.ptr.wrapping_add(n * self.stride)) }
+    }
+}
+
+impl<T: FromPtr> IntoIterator for Array<T> {
+    type Item = T;
+    type IntoIter = ArrayIter<Array<T>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        ArrayIter { parent: self }
+    }
+}
+
+impl<T: FromPtr> Iterator for ArrayIter<Array<T>> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.parent.len == 0 {
+            return None;
+        }
+
+        let el = self.parent.get(0);
+        self.parent.ptr = self.parent.ptr.wrapping_add(self.parent.stride);
+        self.parent.len -= 1;
+        Some(el)
+    }
+}
+
+pub struct CursedArray<T> {
+    ptr: *mut u8,
+    offsets: &'static [usize],
+    _type: PhantomData<T>,
+}
+
+impl<T: Clone> Clone for CursedArray<T> {
+    fn clone(&self) -> Self {
+        Self {
+            ptr: self.ptr,
+            offsets: self.offsets,
+            _type: self._type,
+        }
+    }
+}
+impl<T: Copy> Copy for CursedArray<T> {}
+
+impl<T> CursedArray<T> {
+    #[inline(always)]
+    pub const fn len(&self) -> usize {
+        self.offsets.len()
+    }
+}
+
+impl<T: FromPtr> CursedArray<T> {
+    #[inline(always)]
+    pub const unsafe fn from_ptr(ptr: *mut u8, offsets: &'static [usize]) -> Self {
+        Self {
+            ptr,
+            offsets,
+            _type: PhantomData,
+        }
+    }
+
+    #[inline(always)]
+    pub fn get(&self, n: usize) -> T {
+        assert!(n < self.len());
+        unsafe { T::from_ptr(self.ptr.wrapping_add(self.offsets[n])) }
+    }
+}
+
+impl<T: FromPtr> IntoIterator for CursedArray<T> {
+    type Item = T;
+    type IntoIter = ArrayIter<CursedArray<T>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        ArrayIter { parent: self }
+    }
+}
+
+impl<T: FromPtr> Iterator for ArrayIter<CursedArray<T>> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.parent.len() == 0 {
+            return None;
+        }
+
+        let el = self.parent.get(0);
+        self.parent.offsets = &self.parent.offsets[1..];
+        Some(el)
+    }
+}

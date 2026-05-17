@@ -46,13 +46,20 @@ pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<T
 
                 let ty = quote!(#common_path::Reg<#reg_ty, #access>);
                 if let Some(array) = &i.array {
-                    let (len, offs_expr) = super::process_array(array);
+                    let super::ArrayDescription {
+                        array_ty,
+                        constructor,
+                    } = super::process_ptr_array(
+                        array,
+                        &quote!(self.ptr.wrapping_add(#offset)),
+                        &ty,
+                        &common_path,
+                    );
                     items.extend(quote!(
                         #doc
                         #[inline(always)]
-                        pub const fn #name(self, n: usize) -> #ty {
-                            assert!(n < #len);
-                            unsafe { #common_path::Reg::from_ptr(self.ptr.wrapping_add(#offset + #offs_expr) as _) }
+                        pub const fn #name(self) -> #array_ty {
+                            #constructor
                         }
                     ));
                 } else {
@@ -74,14 +81,21 @@ pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<T
 
                 let ty = util::relative_path(block_path, path);
                 if let Some(array) = &i.array {
-                    let (len, offs_expr) = super::process_array(array);
+                    let super::ArrayDescription {
+                        array_ty,
+                        constructor,
+                    } = super::process_ptr_array(
+                        array,
+                        &quote!(self.ptr.wrapping_add(#offset)),
+                        &ty,
+                        &common_path,
+                    );
 
                     items.extend(quote!(
                         #doc
                         #[inline(always)]
-                        pub const fn #name(self, n: usize) -> #ty {
-                            assert!(n < #len);
-                            unsafe { #ty::from_ptr(self.ptr.wrapping_add(#offset + #offs_expr) as _) }
+                        pub const fn #name(self) -> #array_ty {
+                            #constructor
                         }
                     ));
                 } else {
@@ -122,6 +136,12 @@ pub fn render(opts: &super::Options, ir: &IR, b: &Block, path: &str) -> Result<T
             }
 
             #items
+        }
+
+        impl #common_path::FromPtr for #name {
+            unsafe fn from_ptr(ptr: *mut u8) -> Self {
+                unsafe { #name::from_ptr(ptr as *mut ()) }
+            }
         }
     };
 
