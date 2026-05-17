@@ -3,3 +3,5 @@
 *.rs.bk
 target
 .DS_Store
+/tests/output
+/tests/svds
