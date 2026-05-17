@@ -6,6 +6,7 @@ set -euxo pipefail
 export RUSTUP_HOME=/ci/cache/rustup
 export CARGO_HOME=/ci/cache/cargo
 export CARGO_TARGET_DIR=/ci/cache/target
+export RUST_BACKTRACE=1
 
 hashtime restore /ci/cache/filetime.json || true
 hashtime save /ci/cache/filetime.json
@@ -23,7 +24,7 @@ mv /ci/cache/chiptool-test-svds tests/svds || true
 run_test() {
     local out=$1
     rm -rf tests/output
-    cargo test --test svd2ir --release
+    cargo test --test svd2ir
     rm -rf "$out"
     mv tests/output "$out"
 }
