@@ -61,7 +61,8 @@ where
     match array {
         MaybeArray::Single(r) => ExpandedMaybeArray::Single(f(r).to_string()),
         MaybeArray::Array(r, dim_element) => {
-            if let Some(array_name) = as_array_name(f(r)) {
+            let name = f(r);
+            if let Some(array_name) = as_array_name(name) {
                 ExpandedMaybeArray::Array {
                     name: array_name.to_string(),
                     array: Array::Regular(RegularArray {
@@ -70,7 +71,20 @@ where
                     }),
                 }
             } else {
-                let offsets = (0..).step_by(dim_element.dim_increment as _);
+                // `dim_increment` may be 0 for `dim == 1` (degenerate "array" of
+                // one element); `step_by(0)` would panic, so clamp to 1. For
+                // `dim > 1`, a zero stride is nonsensical and we fail loudly.
+                let stride = if dim_element.dim_increment == 0 {
+                    assert!(
+                        dim_element.dim == 1,
+                        "dimIncrement=0 with dim={} > 1 in {name}",
+                        dim_element.dim,
+                    );
+                    1
+                } else {
+                    dim_element.dim_increment
+                };
+                let offsets = (0..).step_by(stride as _);
 
                 let values = offsets
                     .zip(
@@ -78,7 +92,7 @@ where
                             .dim_index
                             .iter()
                             .flat_map(|v| v.iter())
-                            .map(|dim| replace_placeholder(f(r), dim)),
+                            .map(|dim| replace_placeholder(name, dim)),
                     )
                     .collect();
 
