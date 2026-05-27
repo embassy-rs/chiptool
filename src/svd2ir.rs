@@ -53,53 +53,55 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
 
     for block in &blocks {
         for r in &block.registers {
-            if let svd::RegisterCluster::Register(r) = r {
-                if r.derived_from.is_some() {
+            let svd::RegisterCluster::Register(r) = r else {
+                continue;
+            };
+
+            if r.derived_from.is_some() {
+                continue;
+            }
+
+            let Some(fields) = &r.fields else {
+                continue;
+            };
+
+            let mut fieldset_name = block.name.clone();
+            let mut field_name_counts: BTreeMap<String, usize> = BTreeMap::new();
+            fieldset_name.push(replace_suffix(&r.name, ""));
+
+            let mut out_fields = Vec::with_capacity(fields.len());
+
+            for f in fields {
+                if f.derived_from.is_some() {
                     continue;
                 }
 
-                if let Some(fields) = &r.fields {
-                    let mut fieldset_name = block.name.clone();
-                    let mut field_name_counts: BTreeMap<String, usize> = BTreeMap::new();
-                    fieldset_name.push(replace_suffix(&r.name, ""));
+                let mut field_name = replace_suffix(&f.name, "");
 
-                    let mut out_fields = Vec::with_capacity(fields.len());
+                let field_name_count = field_name_counts.entry(field_name.clone()).or_insert(0);
+                *field_name_count += 1;
+                if *field_name_count > 1 {
+                    field_name = format!("{}{}", field_name, field_name_count);
+                }
 
-                    for f in fields {
-                        if f.derived_from.is_some() {
-                            continue;
-                        }
-
-                        let mut field_name = replace_suffix(&f.name, "");
-
-                        let field_name_count =
-                            field_name_counts.entry(field_name.clone()).or_insert(0);
-                        *field_name_count += 1;
-                        if *field_name_count > 1 {
-                            field_name = format!("{}{}", field_name, field_name_count);
-                        }
-
-                        let enum_name = fieldset_name.iter().chain(std::iter::once(&field_name));
-                        let enumm =
-                            if let Some(enumm) = extract_enum(enum_name, &enum_from_name, &f) {
-                                let name = enumm.name.clone();
-                                enums.push(enumm);
-                                Some(name)
-                            } else {
-                                None
-                            };
-
-                        out_fields.push((f.clone(), enumm));
-                    }
-
-                    fieldsets.push(ProtoFieldset {
-                        name: fieldset_name.clone(),
-                        description: r.description.clone(),
-                        bit_size: r.properties.size.unwrap_or(32),
-                        fields: out_fields,
-                    });
+                let enum_name = fieldset_name.iter().chain(std::iter::once(&field_name));
+                let enumm = if let Some(enumm) = extract_enum(enum_name, &enum_from_name, &f) {
+                    let name = enumm.name.clone();
+                    enums.push(enumm);
+                    Some(name)
+                } else {
+                    None
                 };
+
+                out_fields.push((f.clone(), enumm));
             }
+
+            fieldsets.push(ProtoFieldset {
+                name: fieldset_name.clone(),
+                description: r.description.clone(),
+                bit_size: r.properties.size.unwrap_or(32),
+                fields: out_fields,
+            });
         }
     }
 
