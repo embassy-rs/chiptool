@@ -71,17 +71,12 @@ fn verify_variants(ir: &IR, enumm: &str) -> anyhow::Result<()> {
 fn update_uses(ir: &mut IR, enumm: &str) -> anyhow::Result<()> {
     let fieldsets = ir
         .fieldsets
-        .iter()
-        .filter(|(_, fs)| fs.fields.iter().any(|f| f.enumm.as_deref() == Some(enumm)))
-        .map(|(name, _)| name)
-        .cloned()
-        .collect::<Vec<_>>();
+        .iter_mut()
+        .filter(|(_, fs)| fs.fields.iter().any(|f| f.enumm.as_deref() == Some(enumm)));
 
     let bit_size = ir.enums.get(enumm).unwrap().bit_size;
 
-    for fs_name in fieldsets {
-        let fs = ir.fieldsets.get_mut(&fs_name).unwrap();
-
+    for (fs_name, fs) in fieldsets {
         for field in fs
             .fields
             .iter_mut()

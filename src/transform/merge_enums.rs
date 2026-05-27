@@ -1,4 +1,4 @@
-use anyhow::bail;
+use anyhow::{bail, Context};
 use log::*;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
@@ -58,12 +58,15 @@ impl MergeEnums {
 
         for id in &ids {
             let e2 = ir.enums.get(id).unwrap();
-            if let Err(e) = check_mergeable_enums(&main_id, &e, id, e2, self.check) {
+            if let Err(e) = check_mergeable_enums(&e, e2, self.check) {
                 if self.skip_unmergeable {
                     info!("skipping: {:?}", to);
                     return Ok(());
                 } else {
-                    return Err(e);
+                    return Err(e).context(format!(
+                        "Failed to merge enums.\nfirst: {}\n{:#?}\nsecond: {}\n{:#?}",
+                        main_id, main, id, e2,
+                    ));
                 }
             }
         }
@@ -78,20 +81,7 @@ impl MergeEnums {
     }
 }
 
-fn check_mergeable_enums(
-    a_id: &str,
-    a: &Enum,
-    b_id: &str,
-    b: &Enum,
-    level: CheckLevel,
-) -> anyhow::Result<()> {
-    if let Err(e) = check_mergeable_enums_inner(a, b, level) {
-        bail!("Cannot merge enums.\nfirst: {a_id}\n{a:#?}\nsecond: {b_id}\n{b:#?}\ncause: {e:?}",)
-    }
-    Ok(())
-}
-
-fn check_mergeable_enums_inner(a: &Enum, b: &Enum, level: CheckLevel) -> anyhow::Result<()> {
+fn check_mergeable_enums(a: &Enum, b: &Enum, level: CheckLevel) -> anyhow::Result<()> {
     if a.bit_size != b.bit_size {
         bail!("Different bit size: {} vs {}", a.bit_size, b.bit_size)
     }
