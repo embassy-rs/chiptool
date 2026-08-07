@@ -76,6 +76,71 @@ fn process_svd(svd_path: &Path, out_dir: &Path) {
 }
 
 #[test]
+fn duplicate_register_array_names_are_disambiguated() {
+    let xml = r#"
+<device>
+  <name>TEST</name>
+  <version>1.0</version>
+  <description>test device</description>
+  <addressUnitBits>8</addressUnitBits>
+  <width>32</width>
+  <peripherals>
+    <peripheral>
+      <name>TEST</name>
+      <description>test peripheral</description>
+      <baseAddress>0x40000000</baseAddress>
+      <registers>
+        <register>
+          <name>DATA</name>
+          <description>data register</description>
+          <addressOffset>0x0</addressOffset>
+          <size>32</size>
+          <fields>
+            <field>
+              <name>VALUE</name>
+              <bitOffset>0</bitOffset>
+              <bitWidth>32</bitWidth>
+            </field>
+          </fields>
+        </register>
+        <register>
+          <dim>2</dim>
+          <dimIncrement>0x4</dimIncrement>
+          <dimIndex>A,B</dimIndex>
+          <name>DATA%s</name>
+          <description>indexed data register</description>
+          <addressOffset>0x10</addressOffset>
+          <size>32</size>
+          <fields>
+            <field>
+              <name>VALUE</name>
+              <bitOffset>0</bitOffset>
+              <bitWidth>32</bitWidth>
+            </field>
+          </fields>
+        </register>
+      </registers>
+    </peripheral>
+  </peripherals>
+</device>
+"#;
+
+    let config = svd_parser::Config::default()
+        .expand_properties(true)
+        .validate_level(svd_parser::ValidateLevel::Disabled);
+    let device = svd_parser::parse_with_config(xml, &config).unwrap();
+    let ir = chiptool::commands::extract_peripheral(&device.peripherals[0], NamespaceMode::None)
+        .unwrap();
+
+    let block = ir.blocks.get("TEST").unwrap();
+    let item_names: Vec<_> = block.items.iter().map(|item| item.name.as_str()).collect();
+    assert_eq!(item_names, ["DATA", "DATA_A_B"]);
+
+    assert!(ir.fieldsets.contains_key("DATA"));
+    assert!(ir.fieldsets.contains_key("DATA_A_B"));
+}
+
+#[test]
 fn svd2ir() {
     let svds_dir = ensure_svds_repo();
     let out_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
