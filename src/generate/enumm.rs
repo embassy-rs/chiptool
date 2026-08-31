@@ -116,7 +116,11 @@ pub fn render(opts: &super::Options, _ir: &IR, e: &Enum, path: &str) -> Result<T
         let mut items = TokenStream::new();
         for val in 0..(1 << e.bit_size) {
             if let Some(f) = variants.get(&val) {
-                let name = Ident::new(&f.name, span);
+                let mut tmp_name = f.name.clone();
+                if tmp_name.chars().nth(0).unwrap().is_digit(10) {
+                    tmp_name.insert_str(0, "_");
+                }
+                let name = Ident::new(&tmp_name, span);
                 let value = util::hex(f.value);
                 let doc = util::doc(&f.description);
                 items.extend(quote!(
