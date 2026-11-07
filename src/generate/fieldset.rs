@@ -26,6 +26,7 @@ pub fn render(opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Resu
     for f in sorted(&fs.fields, |f| (f.bit_offset.clone(), f.name.clone())) {
         let name = Ident::new(&f.name, span);
         let name_set = Ident::new(&format!("set_{}", f.name), span);
+        let name_len = Ident::new(&format!("{}_len", f.name), span);
         let off_in_reg = f.bit_offset.clone();
         let _bit_size = f.bit_size as usize;
         let mask = util::hex(1u64.wrapping_shl(f.bit_size).wrapping_sub(1));
@@ -83,7 +84,7 @@ pub fn render(opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Resu
             BitOffset::Regular(off_in_reg) => {
                 let off_in_reg = off_in_reg as usize;
                 if let Some(array) = &f.array {
-                    let (len, offs_expr) = super::process_array(array);
+                    let (len, offs_expr) = super::process_field_array(array);
                     items.extend(quote!(
                         #doc
                         #[must_use]
@@ -100,6 +101,11 @@ pub fn render(opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Resu
                             assert!(n < #len);
                             let offs = #off_in_reg + #offs_expr;
                             self.0 = (self.0 & !(#mask << offs)) | (((#to_bits) & #mask) << offs);
+                        }
+                        #doc
+                        #[inline(always)]
+                        pub const fn #name_len(&self) -> usize {
+                            #len
                         }
                     ));
                 } else {
@@ -142,7 +148,7 @@ pub fn render(opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Resu
                 }
 
                 if let Some(array) = &f.array {
-                    let (len, offs_expr) = super::process_array(array);
+                    let (len, offs_expr) = super::process_field_array(array);
                     items.extend(quote!(
                         #doc
                         #[must_use]
@@ -160,6 +166,11 @@ pub fn render(opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Resu
                             assert!(n < #len);
                             #( let offs = #off_in_reg + #offs_expr;
                                self.0 = (self.0 & !(#mask << offs)) | (((#to_bits >> #off_in_val) & #mask) << offs); )*;
+                        }
+                        #doc
+                        #[inline(always)]
+                        pub const fn #name_len(&self) -> usize {
+                            #len
                         }
                     ));
                 } else {
