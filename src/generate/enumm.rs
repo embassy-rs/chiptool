@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use anyhow::{anyhow, bail, Result};
 use proc_macro2::TokenStream;
@@ -17,17 +17,25 @@ pub fn render(opts: &super::Options, _ir: &IR, e: &Enum, path: &str) -> Result<T
     // In particular, we generate a newtype if:
     // - there'd be 100 or more "reserved" cases, AND
     // - there'd be 50% or more "reserved" cases.
+    // Variants sharing a value can't be a Rust enum, so they always get a newtype.
     let variant_count = e.variants.len() as u64;
+    let value_count = e
+        .variants
+        .iter()
+        .map(|v| v.value)
+        .collect::<BTreeSet<_>>()
+        .len() as u64;
     let reserved_count = (1u64 << e.bit_size)
-        .checked_sub(variant_count)
+        .checked_sub(value_count)
         .ok_or_else(|| {
             anyhow!(
-                "In enum {} the {variant_count} enum variants do not fit within {} bits",
+                "In enum {} the {value_count} enum values do not fit within {} bits",
                 path,
                 e.bit_size,
             )
         })?;
-    let newtype = reserved_count >= 100 && reserved_count >= variant_count;
+    let has_aliases = value_count != variant_count;
+    let newtype = has_aliases || (reserved_count >= 100 && reserved_count >= variant_count);
 
     let ty = match e.bit_size {
         1..=8 => quote!(u8),
