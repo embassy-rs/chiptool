@@ -81,7 +81,8 @@ pub fn render(opts: &super::Options, ir: &IR, d: &Device, path: &str) -> Result<
     let derive_defmt = with_defmt_cfg_attr(&opts.defmt, quote! { derive(defmt::Format) });
 
     out.extend(quote!(
-        #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+        #[derive(Copy, Clone, PartialEq, Eq)]
+        #[cfg_attr(feature = "debug", derive(Debug))]
         #derive_defmt
         pub enum Interrupt {
             #interrupts

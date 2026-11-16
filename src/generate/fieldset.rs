@@ -236,6 +236,7 @@ pub fn render(opts: &super::Options, ir: &IR, fs: &FieldSet, path: &str) -> Resu
             }
         }
 
+        #[cfg(feature = "debug")]
         impl core::fmt::Debug for #name {
             fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
                 f.debug_struct(#name_str)

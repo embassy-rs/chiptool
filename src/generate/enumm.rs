@@ -98,6 +98,7 @@ pub fn render(opts: &super::Options, _ir: &IR, e: &Enum, path: &str) -> Result<T
                 }
             }
 
+            #[cfg(feature = "debug")]
             impl core::fmt::Debug for #name {
                 fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
                     match self.0 {
@@ -137,7 +138,8 @@ pub fn render(opts: &super::Options, _ir: &IR, e: &Enum, path: &str) -> Result<T
         out.extend(quote! {
             #doc
             #[repr(#ty)]
-            #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+            #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
+            #[cfg_attr(feature = "debug", derive(Debug))]
             #derive_defmt
             pub enum #name {
                 #items
