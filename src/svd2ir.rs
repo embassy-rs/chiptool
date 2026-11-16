@@ -528,6 +528,7 @@ fn unique_names(names: Vec<Vec<String>>) -> anyhow::Result<BTreeMap<Vec<String>,
         .collect::<Vec<_>>();
 
     let mut res = BTreeMap::new();
+    let mut seen = BTreeSet::new();
     let mut suffix_occurrences = BTreeMap::new();
 
     for name in names2.iter() {
@@ -543,10 +544,15 @@ fn unique_names(names: Vec<Vec<String>>) -> anyhow::Result<BTreeMap<Vec<String>,
             suffix_is_unique
         });
 
-        let suffix = shortest_unique_suffix.with_context(|| {
-            format!("Failed to find unique name for {:?}. n: {:?}", original, n)
-        })?;
+        // If no suffix is unique (e.g. a cluster named like its peripheral: `ACL` and `ACL::ACL`),
+        // use the shortest suffix not taken by a previous name.
+        let suffix = shortest_unique_suffix
+            .or_else(|| suffixes(n).find(|suffix| !seen.contains(suffix)))
+            .with_context(|| {
+                format!("Failed to find unique name for {:?}. n: {:?}", original, n)
+            })?;
 
+        seen.insert(suffix);
         assert!(res.insert(original.clone(), suffix.join("_")).is_none());
     }
     Ok(res)
