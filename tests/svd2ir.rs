@@ -49,6 +49,7 @@ fn ensure_svds_repo() -> PathBuf {
 }
 
 fn process_svd(svd_path: &Path, out_dir: &Path) {
+    eprintln!("Processing {}...", svd_path.display());
     let chip = svd_path.file_stem().unwrap().to_str().unwrap();
     let chip_out = out_dir.join(chip);
     if chip_out.exists() {
