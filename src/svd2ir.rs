@@ -227,13 +227,44 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
                         None
                     };
 
-                    let access = match r.properties.access {
-                        None => Access::ReadWrite,
-                        Some(svd::Access::ReadOnly) => Access::Read,
-                        Some(svd::Access::WriteOnly) => Access::Write,
-                        Some(svd::Access::WriteOnce) => Access::Write,
-                        Some(svd::Access::ReadWrite) => Access::ReadWrite,
-                        Some(svd::Access::ReadWriteOnce) => Access::ReadWrite,
+                    let access = if let Some(access) = r.properties.access {
+                        convert_access(access)
+                    } else if let Some(fields) = &r.fields {
+                        let mut can_read = false;
+                        let mut can_write = false;
+                        let mut complete = true;
+
+                        for field in fields {
+                            match field.access {
+                                Some(svd::Access::ReadOnly) => {
+                                    can_read = true;
+                                }
+                                Some(svd::Access::WriteOnce | svd::Access::WriteOnly) => {
+                                    can_write = true;
+                                }
+                                Some(svd::Access::ReadWrite | svd::Access::ReadWriteOnce) => {
+                                    can_read = true;
+                                    can_write = true;
+                                }
+                                None => {
+                                    complete = false;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if complete {
+                            match (can_read, can_write) {
+                                (true, false) => Access::Read,
+                                (false, true) => Access::Write,
+                                (true, true) => Access::ReadWrite,
+                                (false, false) => Access::ReadWrite,
+                            }
+                        } else {
+                            Access::ReadWrite
+                        }
+                    } else {
+                        Access::ReadWrite
                     };
 
                     let block_item = BlockItem {
@@ -361,6 +392,14 @@ pub fn convert_peripheral(ir: &mut IR, p: &svd::Peripheral) -> anyhow::Result<()
     }
 
     Ok(())
+}
+
+fn convert_access(access: svd::Access) -> Access {
+    match access {
+        svd::Access::ReadOnly => Access::Read,
+        svd::Access::ReadWrite | svd::Access::ReadWriteOnce => Access::ReadWrite,
+        svd::Access::WriteOnly | svd::Access::WriteOnce => Access::Write,
+    }
 }
 
 /// Convert an entire SVD to IR.
