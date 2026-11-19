@@ -106,7 +106,58 @@ impl Sanitize {
 }
 
 fn sanitize_with_case(str: &str, case: convert_case::Case) -> String {
-    sanitize_ident(str.remove_boundaries(&Boundary::digits()).to_case(case))
+    let convert = |s: &str| s.remove_boundaries(&Boundary::digits()).to_case(case);
+
+    // An underscore between two digits is a decimal point (`DIV1_5` = divide by 1.5)
+    // or separates two numbers (`RANGE_1_2_MHZ`). Keep it, otherwise `DIV1_5` becomes `Div15`.
+    let s = match case {
+        convert_case::Case::Pascal | convert_case::Case::Camel => {
+            split_between_digits(str).map(convert).collect::<Vec<_>>().join("_")
+        }
+        _ => convert(str),
+    };
+    sanitize_ident(s)
+}
+
+/// Split `s` at each underscore that has a digit on both sides.
+fn split_between_digits(s: &str) -> impl Iterator<Item = &str> {
+    let b = s.as_bytes();
+    let mut start = 0;
+    let mut i = 0;
+    std::iter::from_fn(move || {
+        if start > b.len() {
+            return None;
+        }
+        while i < b.len() {
+            if b[i] == b'_' && i > 0 && i + 1 < b.len() && b[i - 1].is_ascii_digit() && b[i + 1].is_ascii_digit() {
+                let part = &s[start..i];
+                i += 1;
+                start = i;
+                return Some(part);
+            }
+            i += 1;
+        }
+        let part = &s[start..];
+        start = b.len() + 1;
+        Some(part)
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pascal_keeps_underscore_between_digits() {
+        let p = |s| sanitize_with_case(s, convert_case::Case::Pascal);
+        assert_eq!(p("DIV1_5"), "Div1_5");
+        assert_eq!(p("Div1_5"), "Div1_5");
+        assert_eq!(p("CYCLES239_5"), "Cycles239_5");
+        assert_eq!(p("RANGE_1_2_MHZ"), "Range1_2Mhz");
+        assert_eq!(p("DIV15"), "Div15");
+        assert_eq!(p("I2S20_NS"), "I2s20Ns");
+        assert_eq!(p("F32_768kHz"), "F32_768kHz");
+    }
 }
 
 pub(crate) fn merge_duplicate_variants(enumm: &mut crate::ir::Enum) {
